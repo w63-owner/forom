@@ -3,6 +3,7 @@ import { AuthStatus } from "@/components/auth-status"
 import { Button } from "@/components/ui/button"
 import { Omnibar } from "@/components/omnibar"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import packageJson from "../../package.json"
 
 const featuredCompanies = [
   { name: "France", slug: "france" },
@@ -150,6 +151,9 @@ export default async function Home() {
           </div>
         )}
       </main>
+      <div className="absolute inset-x-0 bottom-6 text-center text-xs text-muted-foreground">
+        v{packageJson.version}
+      </div>
     </div>
   )
 }
