@@ -255,7 +255,8 @@ export default function PropositionDetailClient({
       | { username: string | null; email: string | null }[]
       | null
       | undefined
-  ) => (Array.isArray(users) ? users[0] : users)
+  ): { username: string | null; email: string | null } | null =>
+    (Array.isArray(users) ? users[0] : users) ?? null
 
   const isOwner =
     Boolean(currentUserId) && Boolean(pageOwnerId) && currentUserId === pageOwnerId
