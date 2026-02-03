@@ -97,11 +97,13 @@ function LoginForm() {
         password,
       })
     if (signInError) {
-      setError(
+      const message =
         signInError.message === "email rate limit exceeded"
           ? "Trop de tentatives. Réessayez dans quelques minutes."
-          : signInError.message
-      )
+          : signInError.message === "Invalid login credentials"
+            ? "Email ou mot de passe incorrect. Vérifiez vos identifiants et réessayez."
+            : signInError.message
+      setError(message)
       if (signInError.message === "email rate limit exceeded") {
         startCooldown(120)
       }

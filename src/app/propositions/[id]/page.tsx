@@ -6,6 +6,10 @@ import { PropositionStatusBadge } from "@/components/proposition-status-badge"
 import { PropositionVoteBar } from "@/components/proposition-vote-bar"
 import { PropositionEditLink } from "@/components/proposition-edit-link"
 import { PropositionNotifyButton } from "@/components/proposition-notify-button"
+import {
+  PropositionVolunteersProvider,
+  PropositionVolunteerButton,
+} from "@/components/proposition-volunteers"
 import { relativeTime } from "@/lib/utils"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionDetailClient from "./proposition-detail-client"
@@ -92,6 +96,30 @@ export default async function PropositionDetails({ params }: Props) {
       ).data ?? null
     : null
 
+  const { data: volunteersData } = await supabase
+    .from("volunteers")
+    .select("user_id, skills_offered, status, created_at, users(username, email, avatar_url)")
+    .eq("proposition_id", data.id)
+    .order("created_at", { ascending: true })
+
+  type VolunteerRow = {
+    user_id: string
+    skills_offered: string | null
+    status: string
+    users?: { username: string | null; email: string | null; avatar_url: string | null } | { username: string | null; email: string | null; avatar_url: string | null }[] | null
+  }
+  const initialVolunteers = (volunteersData ?? []).map((v: VolunteerRow) => {
+    const u = Array.isArray(v.users) ? v.users[0] ?? null : v.users ?? null
+    return {
+      user_id: v.user_id,
+      skills_offered: v.skills_offered ?? null,
+      status: v.status,
+      username: u?.username ?? null,
+      email: u?.email ?? null,
+      avatar_url: u?.avatar_url ?? null,
+    }
+  })
+
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-5xl space-y-6">
@@ -102,13 +130,19 @@ export default async function PropositionDetails({ params }: Props) {
           ← Retour
         </Link>
         <div className="relative">
-          <div className="absolute right-4 top-4 z-10 flex items-center gap-1">
-            <PropositionEditLink
-              propositionId={data.id}
-              authorId={data.author_id}
-            />
-            <PropositionNotifyButton propositionId={data.id} />
-          </div>
+          <PropositionVolunteersProvider
+            propositionId={data.id}
+            isOrphan={data.page_id == null}
+            initialVolunteers={initialVolunteers}
+          >
+            <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
+              <PropositionVolunteerButton />
+              <PropositionEditLink
+                propositionId={data.id}
+                authorId={data.author_id}
+              />
+              <PropositionNotifyButton propositionId={data.id} />
+            </div>
           <Card>
             <CardHeader className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -192,6 +226,7 @@ export default async function PropositionDetails({ params }: Props) {
               })()}
             </CardContent>
           </Card>
+          </PropositionVolunteersProvider>
         </div>
 
         <PropositionDetailClient
