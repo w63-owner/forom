@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import debounce from "lodash/debounce"
+import { Input } from "@/components/ui/input"
 
 type Props = {
   initialQuery: string
@@ -36,10 +37,21 @@ export default function ExploreFilters({
   const [pageSort, setPageSort] = useState(initialPageSort)
   const [pageOrder, setPageOrder] = useState(initialPageOrder)
   const [statusOrder, setStatusOrder] = useState(initialStatusOrder)
+  const prevInitialQueryRef = useRef(initialQuery)
+  const expectedStatusRef = useRef<string[] | null>(null)
 
   useEffect(() => {
-    setQuery(initialQuery)
-    setStatus(initialStatus)
+    if (initialQuery !== prevInitialQueryRef.current) {
+      prevInitialQueryRef.current = initialQuery
+      setQuery(initialQuery)
+    }
+    if (
+      expectedStatusRef.current === null ||
+      JSON.stringify(initialStatus) === JSON.stringify(expectedStatusRef.current)
+    ) {
+      setStatus(initialStatus)
+      expectedStatusRef.current = null
+    }
     setSort(initialSort)
     setRange(initialRange)
     setOrder(initialOrder)
@@ -107,13 +119,15 @@ export default function ExploreFilters({
 
     const queryString = params.toString()
     router.replace(queryString ? `${pathname}?${queryString}` : pathname)
+    router.refresh()
   }
 
   const debouncedQueryUpdate = useMemo(
     () =>
       debounce((value: string) => {
         updateUrl({ q: value })
-      }, 300),
+        prevInitialQueryRef.current = value
+      }, 400),
     [pathname, searchParams]
   )
 
@@ -122,55 +136,56 @@ export default function ExploreFilters({
     return () => debouncedQueryUpdate.cancel()
   }, [debouncedQueryUpdate, query])
 
+  const statusOptions = [
+    { value: "Open", label: "Ouvert" },
+    { value: "In Progress", label: "En cours" },
+    { value: "Done", label: "Terminé" },
+    { value: "Won't Do", label: "Ne sera pas fait" },
+  ]
+
   return (
-    <div className="flex flex-col gap-3 py-4 md:flex-row md:items-end md:justify-between">
-      <div className="flex-1 space-y-2">
-        <div className="flex w-full flex-wrap gap-2">
-          <input
-            name="q"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Chercher une proposition ou une page..."
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring md:max-w-sm"
-          />
-          <input type="hidden" name="status" value={status.join(",")} />
-          <div className="flex flex-wrap gap-3">
-            {[
-              { value: "Open", label: "Open" },
-              { value: "In Progress", label: "In Progress" },
-              { value: "Done", label: "Done" },
-              { value: "Won't Do", label: "Won't Do" },
-            ].map((option) => {
-              const checked = status.includes(option.value)
-              return (
-                <label
-                  key={option.value}
-                  className="inline-flex items-center gap-2 text-sm"
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => {
-                      const nextStatus = checked
-                        ? status.filter((value) => value !== option.value)
-                        : [...status, option.value]
-                      setStatus(nextStatus)
-                      updateUrl({
-                        status: nextStatus.length ? nextStatus.join(",") : "",
-                      })
-                    }}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  <span>{option.label}</span>
-                </label>
-              )
-            })}
-          </div>
-          <input type="hidden" name="sort" value={sort} />
-          <input type="hidden" name="order" value={order} />
-          <input type="hidden" name="range" value={range} />
-        </div>
+    <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <Input
+        name="q"
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Chercher une proposition"
+        className="h-10 flex-1 sm:min-w-0 sm:max-w-md"
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="status" value={status.join(",")} />
+        {statusOptions.map((option) => {
+          const checked = status.includes(option.value)
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="checkbox"
+              aria-checked={checked}
+              onClick={() => {
+                const nextStatus = checked
+                  ? status.filter((value) => value !== option.value)
+                  : [...status, option.value]
+                expectedStatusRef.current = nextStatus
+                setStatus(nextStatus)
+                updateUrl({
+                  status: nextStatus.length ? nextStatus.join(",") : "",
+                })
+              }}
+              className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
+                checked
+                  ? "bg-foreground text-background"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              {option.label}
+            </button>
+          )
+        })}
       </div>
+      <input type="hidden" name="sort" value={sort} />
+      <input type="hidden" name="order" value={order} />
+      <input type="hidden" name="range" value={range} />
     </div>
   )
 }

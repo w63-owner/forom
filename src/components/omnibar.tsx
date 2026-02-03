@@ -123,13 +123,16 @@ export function Omnibar() {
 
   return (
     <div className="w-full max-w-2xl">
-      <Command className="rounded-2xl border border-border bg-background shadow-xl">
-        <div className="flex items-center gap-3 px-4 py-4">
+      <Command
+        shouldFilter={false}
+        className="rounded-2xl border border-border bg-background shadow-lg transition-shadow focus-within:border-ring/50 focus-within:ring-2 focus-within:ring-ring/20"
+      >
+        <div className="flex min-h-[52px] items-center gap-2 px-4 py-2.5">
           <CommandInput
             value={query}
             onValueChange={handleQueryChange}
             placeholder="Rechercher ou créer une proposition..."
-            className="h-12 text-base"
+            className="h-11 min-w-0 flex-1 border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
           />
         </div>
         <div className="max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto pb-3 pl-9 pr-3">

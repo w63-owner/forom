@@ -154,7 +154,7 @@ export default async function ExplorePage({ searchParams }: Props) {
         <header className="space-y-2">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
             ← Retour
           </Link>

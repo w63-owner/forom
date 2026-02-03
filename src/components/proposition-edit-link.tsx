@@ -36,7 +36,7 @@ export function PropositionEditLink({
   return (
     <Link
       href={`/propositions/${propositionId}/edit`}
-      className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${className}`}
+      className={`link-nav inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors transition-transform duration-150 hover:bg-muted hover:text-foreground active:scale-95 ${className}`}
     >
       Modifier
     </Link>

@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -22,21 +23,189 @@ type CommentItem = {
   content: string
   created_at: string
   user_id: string
+  parent_id?: string | null
   is_solution?: boolean | null
   users?:
     | { username: string | null; email: string | null }
     | { username: string | null; email: string | null }[]
     | null
+  replies?: CommentItem[]
+  votesCount?: number
+  currentUserVote?: "Upvote" | "Downvote" | null
 }
 
-type VolunteerItem = {
-  user_id: string
-  skills_offered: string | null
-  status: string | null
-  users?:
-    | { username: string | null; email: string | null }
-    | { username: string | null; email: string | null }[]
-    | null
+type CommentBlockProps = {
+  comment: CommentItem
+  depth: number
+  getUserMeta: (
+    users:
+      | { username: string | null; email: string | null }
+      | { username: string | null; email: string | null }[]
+      | null
+      | undefined
+  ) => { username: string | null; email: string | null } | null
+  relativeTime: (dateStr: string) => string
+  isAuthor: boolean
+  currentUserId: string | null
+  replyingToId: string | null
+  setReplyingToId: (id: string | null) => void
+  replyContent: string
+  setReplyContent: (v: string) => void
+  replySubmitting: boolean
+  onToggleSolution: (commentId: string, nextValue: boolean) => void
+  onVote: (commentId: string, type: "Upvote" | "Downvote") => void
+  onSubmitReply: (parentId: string) => void
+}
+
+function CommentBlock({
+  comment,
+  depth,
+  getUserMeta,
+  relativeTime,
+  isAuthor,
+  currentUserId,
+  replyingToId,
+  setReplyingToId,
+  replyContent,
+  setReplyContent,
+  replySubmitting,
+  onToggleSolution,
+  onVote,
+  onSubmitReply,
+}: CommentBlockProps) {
+  const meta = getUserMeta(comment.users)
+  const username = meta?.username || meta?.email || "Anonyme"
+  const isReplying = replyingToId === comment.id
+  const indent = depth > 0 ? "pl-6 border-l-2 border-border/60" : ""
+
+  return (
+    <div className={`py-3 ${indent}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-foreground">
+          <span className="font-semibold">{username}</span>
+          <span className="ml-1.5 text-muted-foreground font-normal">
+            {relativeTime(comment.created_at)}
+          </span>
+        </p>
+        {comment.is_solution && (
+          <Badge variant="secondary">Solution validée</Badge>
+        )}
+      </div>
+      <p className="mt-1 text-sm text-foreground">{comment.content}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-0.5">
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className={
+              comment.currentUserVote === "Upvote"
+                ? "text-primary"
+                : "text-muted-foreground"
+            }
+            onClick={() => (currentUserId ? onVote(comment.id, "Upvote") : null)}
+            disabled={!currentUserId}
+          >
+            <ThumbsUp className="size-3" />
+          </Button>
+          <span className="min-w-[1.25rem] text-center text-xs text-muted-foreground">
+            {comment.votesCount ?? 0}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className={
+              comment.currentUserVote === "Downvote"
+                ? "text-destructive"
+                : "text-muted-foreground"
+            }
+            onClick={() =>
+              currentUserId ? onVote(comment.id, "Downvote") : null
+            }
+            disabled={!currentUserId}
+          >
+            <ThumbsDown className="size-3" />
+          </Button>
+        </div>
+        {currentUserId && (
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
+              setReplyingToId(isReplying ? null : comment.id)
+            }
+          >
+            Répondre
+          </Button>
+        )}
+        {isAuthor && (
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={() =>
+              onToggleSolution(comment.id, !comment.is_solution)
+            }
+          >
+            {comment.is_solution
+              ? "Retirer la solution"
+              : "Marquer comme solution"}
+          </Button>
+        )}
+      </div>
+      {isReplying && (
+        <div className="mt-3 space-y-2">
+          <Textarea
+            value={replyContent}
+            onChange={(e) => setReplyContent(e.target.value)}
+            placeholder="Répondre..."
+            rows={2}
+            className="min-h-10 resize-none text-sm"
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setReplyContent("")
+                setReplyingToId(null)
+              }}
+            >
+              Annuler
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => onSubmitReply(comment.id)}
+              disabled={replySubmitting || !replyContent.trim()}
+            >
+              Publier
+            </Button>
+          </div>
+        </div>
+      )}
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {comment.replies.map((reply) => (
+            <CommentBlock
+              key={reply.id}
+              comment={reply}
+              depth={depth + 1}
+              getUserMeta={getUserMeta}
+              relativeTime={relativeTime}
+              isAuthor={isAuthor}
+              currentUserId={currentUserId}
+              replyingToId={replyingToId}
+              setReplyingToId={setReplyingToId}
+              replyContent={replyContent}
+              setReplyContent={setReplyContent}
+              replySubmitting={replySubmitting}
+              onToggleSolution={onToggleSolution}
+              onVote={onVote}
+              onSubmitReply={onSubmitReply}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function PropositionDetailClient({
@@ -44,32 +213,41 @@ export default function PropositionDetailClient({
   propositionAuthorId,
   propositionPageId,
   pageOwnerId,
-  initialVotes,
-  initialStatus,
+  initialVotes: _initialVotes,
+  initialStatus: _initialStatus,
 }: Props) {
   const router = useRouter()
-  const [votes, setVotes] = useState(initialVotes)
-  const [status, setStatus] = useState(initialStatus)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [currentVote, setCurrentVote] = useState<"Upvote" | "Downvote" | null>(
-    null
-  )
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [comments, setComments] = useState<CommentItem[]>([])
   const [commentsLoading, setCommentsLoading] = useState(false)
   const [commentsError, setCommentsError] = useState<string | null>(null)
   const [commentValue, setCommentValue] = useState("")
   const [commentSubmitting, setCommentSubmitting] = useState(false)
-  const [volunteers, setVolunteers] = useState<VolunteerItem[]>([])
-  const [volunteersLoading, setVolunteersLoading] = useState(false)
-  const [volunteersError, setVolunteersError] = useState<string | null>(null)
-  const [volunteerSkills, setVolunteerSkills] = useState("")
-  const [volunteerSubmitting, setVolunteerSubmitting] = useState(false)
-  const [ownerNotifyDaily, setOwnerNotifyDaily] = useState(false)
-  const [ownerVoteThreshold, setOwnerVoteThreshold] = useState<number | null>(
-    null
-  )
+  const [commentInputFocused, setCommentInputFocused] = useState(false)
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const [replyingToId, setReplyingToId] = useState<string | null>(null)
+  const [replyContent, setReplyContent] = useState("")
+  const [replySubmitting, setReplySubmitting] = useState(false)
+
+  const relativeTime = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const now = new Date()
+    const sec = Math.floor((now.getTime() - d.getTime()) / 1000)
+    if (sec < 60) return "à l'instant"
+    const min = Math.floor(sec / 60)
+    if (min < 60) return `il y a ${min} min`
+    const h = Math.floor(min / 60)
+    if (h < 24) return `il y a ${h} h`
+    const days = Math.floor(h / 24)
+    if (days === 1) return "hier"
+    if (days < 7) return `il y a ${days} j`
+    const weeks = Math.floor(days / 7)
+    if (weeks < 4) return `il y a ${weeks} sem.`
+    const months = Math.floor(days / 30)
+    if (months < 12) return `il y a ${months} mois`
+    const years = Math.floor(days / 365)
+    return `il y a ${years} an${years > 1 ? "s" : ""}`
+  }
 
   const getUserMeta = (
     users:
@@ -86,58 +264,13 @@ export default function PropositionDetailClient({
     Boolean(propositionAuthorId) &&
     currentUserId === propositionAuthorId
 
-  const refreshVotes = async () => {
+  useEffect(() => {
     const supabase = getSupabaseClient()
     if (!supabase) return
-    const { data: voteRows, error: votesError } = await supabase
-      .from("votes")
-      .select("type")
-      .eq("proposition_id", propositionId)
-
-    if (!votesError && voteRows) {
-      const computed = voteRows.reduce((sum, row) => {
-        if (row.type === "Upvote") return sum + 1
-        if (row.type === "Downvote") return sum - 1
-        return sum
-      }, 0)
-      setVotes(computed)
-      return computed
-    }
-
-    const { data } = await supabase
-      .from("propositions")
-      .select("votes_count")
-      .eq("id", propositionId)
-      .single()
-    if (data) {
-      const computed = data.votes_count ?? 0
-      setVotes(computed)
-      return computed
-    }
-  }
-
-  useEffect(() => {
-    const fetchCurrentVote = async () => {
-      const supabase = getSupabaseClient()
-      if (!supabase) return
-      const { data: session } = await supabase.auth.getUser()
-      const userId = session.user?.id ?? null
-      setCurrentUserId(userId)
-      if (!userId) return
-
-      const { data } = await supabase
-        .from("votes")
-        .select("type")
-        .eq("proposition_id", propositionId)
-        .eq("user_id", userId)
-        .maybeSingle()
-      if (data?.type) {
-        setCurrentVote(data.type)
-      }
-    }
-
-    fetchCurrentVote()
-  }, [propositionId])
+    supabase.auth.getUser().then(({ data: session }) => {
+      setCurrentUserId(session.user?.id ?? null)
+    })
+  }, [])
 
   const fetchComments = async () => {
     const supabase = getSupabaseClient()
@@ -147,140 +280,67 @@ export default function PropositionDetailClient({
     }
     setCommentsLoading(true)
     setCommentsError(null)
-    const { data, error: commentsError } = await supabase
+    const { data: rawComments, error: commentsError } = await supabase
       .from("comments")
-      .select("id, content, created_at, user_id, is_solution, users(username, email)")
+      .select("id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email)")
       .eq("proposition_id", propositionId)
-      .order("is_solution", { ascending: false })
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending: true })
     if (commentsError) {
       setCommentsError(commentsError.message)
       setComments([])
-    } else {
-      setComments(data ?? [])
+      setCommentsLoading(false)
+      return
     }
+    const list = (rawComments ?? []) as (CommentItem & { parent_id?: string | null })[]
+    const ids = list.map((c) => c.id)
+    const votesByComment = new Map<string, { count: number; userVote: "Upvote" | "Downvote" | null }>()
+    for (const id of ids) {
+      votesByComment.set(id, { count: 0, userVote: null })
+    }
+    if (ids.length > 0) {
+      const { data: allVotes } = await supabase
+        .from("comment_votes")
+        .select("comment_id, type")
+        .in("comment_id", ids)
+      for (const row of allVotes ?? []) {
+        const cur = votesByComment.get(row.comment_id)
+        if (cur) cur.count += row.type === "Upvote" ? 1 : -1
+      }
+      if (currentUserId) {
+        const { data: userVotes } = await supabase
+          .from("comment_votes")
+          .select("comment_id, type")
+          .eq("user_id", currentUserId)
+          .in("comment_id", ids)
+        for (const row of userVotes ?? []) {
+          const cur = votesByComment.get(row.comment_id)
+          if (cur) cur.userVote = row.type as "Upvote" | "Downvote"
+        }
+      }
+    }
+    const withVotes = list.map((c) => ({
+      ...c,
+      votesCount: votesByComment.get(c.id)?.count ?? 0,
+      currentUserVote: votesByComment.get(c.id)?.userVote ?? null,
+    }))
+    const buildTree = (
+      items: CommentItem[],
+      parentId: string | null
+    ): CommentItem[] =>
+      items
+        .filter((c) => (c.parent_id ?? null) === parentId)
+        .map((c) => ({
+          ...c,
+          replies: buildTree(items, c.id),
+        }))
+    const withReplies = buildTree(withVotes, null)
+    setComments(withReplies)
     setCommentsLoading(false)
   }
 
   useEffect(() => {
     fetchComments()
-  }, [propositionId])
-
-  const fetchVolunteers = async () => {
-    if (!propositionPageId) {
-      const supabase = getSupabaseClient()
-      if (!supabase) {
-        setVolunteersError("Supabase non configuré.")
-        return
-      }
-      setVolunteersLoading(true)
-      setVolunteersError(null)
-      const { data, error: volunteersError } = await supabase
-        .from("volunteers")
-        .select("user_id, skills_offered, status, users(username, email)")
-        .eq("proposition_id", propositionId)
-        .order("created_at", { ascending: false })
-      if (volunteersError) {
-        setVolunteersError(volunteersError.message)
-        setVolunteers([])
-      } else {
-        setVolunteers(data ?? [])
-      }
-      setVolunteersLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchVolunteers()
-  }, [propositionId, propositionPageId])
-
-  useEffect(() => {
-    const fetchOwnerSettings = async () => {
-      if (!propositionPageId) return
-      const supabase = getSupabaseClient()
-      if (!supabase) return
-      const { data } = await supabase
-        .from("pages")
-        .select("owner_notify_daily, owner_vote_threshold")
-        .eq("id", propositionPageId)
-        .maybeSingle()
-      if (data) {
-        setOwnerNotifyDaily(Boolean(data.owner_notify_daily))
-        setOwnerVoteThreshold(data.owner_vote_threshold ?? null)
-      }
-    }
-    fetchOwnerSettings()
-  }, [propositionPageId])
-
-  const handleVote = async (type: "Upvote" | "Downvote") => {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setError("Supabase non configuré.")
-      return
-    }
-
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
-      router.push(`/login?next=/propositions/${propositionId}`)
-      return
-    }
-
-    const { data: userRow } = await supabase
-      .from("users")
-      .select("id")
-      .eq("id", userData.user.id)
-      .maybeSingle()
-
-    if (!userRow) {
-      setCommentsError(
-        "Profil utilisateur manquant. Veuillez vous déconnecter/reconnecter."
-      )
-      setCommentSubmitting(false)
-      return
-    }
-
-
-    setLoading(true)
-    setError(null)
-    const { error: voteError } = await supabase.from("votes").upsert(
-      {
-        user_id: userData.user.id,
-        proposition_id: propositionId,
-        type,
-      },
-      { onConflict: "user_id,proposition_id" }
-    )
-
-    if (voteError) {
-      setError(voteError.message)
-      setLoading(false)
-      return
-    }
-
-    setCurrentVote(type)
-    const previousVotes = votes
-    const nextVotes = await refreshVotes()
-    if (
-      propositionPageId &&
-      !ownerNotifyDaily &&
-      ownerVoteThreshold &&
-      nextVotes !== undefined &&
-      nextVotes !== null &&
-      previousVotes < ownerVoteThreshold &&
-      nextVotes >= ownerVoteThreshold
-    ) {
-      fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "owner_vote_threshold",
-          propositionId,
-          actorUserId: userData.user.id,
-        }),
-      }).catch(() => null)
-    }
-    setLoading(false)
-  }
+  }, [propositionId, currentUserId])
 
   const handleSubmitComment = async () => {
     if (!commentValue.trim()) return
@@ -316,6 +376,8 @@ export default function PropositionDetailClient({
     }
 
     setCommentValue("")
+    setCommentInputFocused(false)
+    commentTextareaRef.current?.blur()
     await fetchComments()
     fetch("/api/notifications", {
       method: "POST",
@@ -328,94 +390,6 @@ export default function PropositionDetailClient({
       }),
     }).catch(() => null)
     setCommentSubmitting(false)
-  }
-
-  const handleStatusChange = async (nextStatus: string) => {
-    if (!isOwner) return
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setError("Supabase non configuré.")
-      return
-    }
-    setLoading(true)
-    setError(null)
-    const { error: updateError } = await supabase
-      .from("propositions")
-      .update({ status: nextStatus })
-      .eq("id", propositionId)
-    if (updateError) {
-      setError(updateError.message)
-      setLoading(false)
-      return
-    }
-    setStatus(nextStatus)
-    if (nextStatus === "Done") {
-      fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "status_done",
-          propositionId,
-          actorUserId: currentUserId,
-        }),
-      }).catch(() => null)
-    }
-    fetch("/api/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "status_change",
-        propositionId,
-        actorUserId: currentUserId,
-        newStatus: nextStatus,
-      }),
-    }).catch(() => null)
-    setLoading(false)
-  }
-
-  const handleVolunteerSubmit = async () => {
-    if (propositionPageId) return
-    if (!volunteerSkills.trim()) return
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setVolunteersError("Supabase non configuré.")
-      return
-    }
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
-      router.push(`/login?next=/propositions/${propositionId}`)
-      return
-    }
-    setVolunteerSubmitting(true)
-    setVolunteersError(null)
-    const { error: upsertError } = await supabase
-      .from("volunteers")
-      .upsert(
-        {
-          user_id: userData.user.id,
-          proposition_id: propositionId,
-          skills_offered: volunteerSkills.trim(),
-          status: "Pending",
-        },
-        { onConflict: "user_id,proposition_id" }
-      )
-    if (upsertError) {
-      setVolunteersError(upsertError.message)
-      setVolunteerSubmitting(false)
-      return
-    }
-    setVolunteerSkills("")
-    await fetchVolunteers()
-    fetch("/api/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "volunteer_created",
-        propositionId,
-        actorUserId: userData.user.id,
-      }),
-    }).catch(() => null)
-    setVolunteerSubmitting(false)
   }
 
   const handleToggleSolution = async (commentId: string, nextValue: boolean) => {
@@ -453,177 +427,143 @@ export default function PropositionDetailClient({
     }).catch(() => null)
   }
 
+  const handleCommentVote = async (
+    commentId: string,
+    type: "Upvote" | "Downvote"
+  ) => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) {
+      router.push(`/login?next=/propositions/${propositionId}`)
+      return
+    }
+    await supabase.from("comment_votes").upsert(
+      {
+        user_id: userData.user.id,
+        comment_id: commentId,
+        type,
+      },
+      { onConflict: "user_id,comment_id" }
+    )
+    await fetchComments()
+  }
+
+  const handleSubmitReply = async (parentId: string) => {
+    const content = replyContent.trim()
+    if (!content) return
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      setCommentsError("Supabase non configuré.")
+      return
+    }
+    const { data: userData } = await supabase.auth.getUser()
+    if (!userData.user) {
+      router.push(`/login?next=/propositions/${propositionId}`)
+      return
+    }
+    setReplySubmitting(true)
+    setCommentsError(null)
+    const { error: insertError } = await supabase
+      .from("comments")
+      .insert({
+        proposition_id: propositionId,
+        user_id: userData.user.id,
+        content,
+        parent_id: parentId,
+      })
+    if (insertError) {
+      setCommentsError(insertError.message)
+      setReplySubmitting(false)
+      return
+    }
+    setReplyContent("")
+    setReplyingToId(null)
+    await fetchComments()
+    setReplySubmitting(false)
+  }
+
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader className="flex flex-col gap-2">
-          <CardTitle className="text-lg">Votes</CardTitle>
-          <Badge variant="outline" className="w-fit">
-            Statut: {status}
-          </Badge>
-        </CardHeader>
-        <CardContent className="space-y-3">
-        <div className="text-2xl font-semibold text-foreground">
-          {Math.max(0, votes)} votes
-        </div>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          {isOwner && (
-            <div className="flex flex-wrap gap-2">
-              {["Open", "In Progress", "Done", "Won't Do"].map((nextStatus) => (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Commentaires</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Textarea
+              ref={commentTextareaRef}
+              value={commentValue}
+              onChange={(event) => setCommentValue(event.target.value)}
+              onFocus={() => setCommentInputFocused(true)}
+              onBlur={() =>
+                setTimeout(() => {
+                  if (!commentValue.trim()) setCommentInputFocused(false)
+                }, 200)
+              }
+              placeholder="Ajouter un commentaire..."
+              rows={2}
+              className="min-h-10 resize-none"
+            />
+            {(commentInputFocused || commentValue.trim()) && (
+              <div className="flex items-center justify-end gap-2">
                 <Button
-                  key={nextStatus}
-                  variant={status === nextStatus ? "default" : "outline"}
-                  onClick={() => handleStatusChange(nextStatus)}
-                  disabled={loading}
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCommentValue("")
+                    setCommentInputFocused(false)
+                    commentTextareaRef.current?.blur()
+                  }}
                 >
-                  {nextStatus}
+                  Annuler
                 </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSubmitComment}
+                  disabled={commentSubmitting || !commentValue.trim()}
+                >
+                  Publier
+                </Button>
+              </div>
+            )}
+            {commentsError && (
+              <p className="text-sm text-destructive">{commentsError}</p>
+            )}
+            {commentsLoading && (
+              <p className="text-sm text-muted-foreground">
+                Chargement des commentaires...
+              </p>
+            )}
+            {!commentsLoading && comments.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                Aucun commentaire pour le moment.
+              </p>
+            )}
+            <div className="space-y-3">
+              {comments.map((comment) => (
+                <CommentBlock
+                  key={comment.id}
+                  comment={comment}
+                  depth={0}
+                  getUserMeta={getUserMeta}
+                  relativeTime={relativeTime}
+                  isAuthor={isAuthor}
+                  currentUserId={currentUserId}
+                  replyingToId={replyingToId}
+                  setReplyingToId={setReplyingToId}
+                  replyContent={replyContent}
+                  setReplyContent={setReplyContent}
+                  replySubmitting={replySubmitting}
+                  onToggleSolution={handleToggleSolution}
+                  onVote={handleCommentVote}
+                  onSubmitReply={handleSubmitReply}
+                />
               ))}
             </div>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={currentVote === "Upvote" ? "default" : "outline"}
-              onClick={() => handleVote("Upvote")}
-              disabled={loading}
-            >
-              Upvote
-            </Button>
-            <Button
-              variant={currentVote === "Downvote" ? "destructive" : "outline"}
-              onClick={() => handleVote("Downvote")}
-              disabled={loading}
-            >
-              Downvote
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Volontaires</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={volunteerSkills}
-            onChange={(event) => setVolunteerSkills(event.target.value)}
-            placeholder="Compétences que vous pouvez apporter..."
-            rows={3}
-          />
-          <div className="flex justify-end">
-            <Button
-              onClick={handleVolunteerSubmit}
-              disabled={volunteerSubmitting || !volunteerSkills.trim()}
-            >
-              Se déclarer volontaire
-            </Button>
-          </div>
-          {volunteersError && (
-            <p className="text-sm text-destructive">{volunteersError}</p>
-          )}
-          {volunteersLoading && (
-            <p className="text-sm text-muted-foreground">
-              Chargement des volontaires...
-            </p>
-          )}
-          {!volunteersLoading && volunteers.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Aucun volontaire pour le moment.
-            </p>
-          )}
-          <div className="space-y-3">
-            {volunteers.map((volunteer) => (
-              <div
-                key={volunteer.user_id}
-                className="rounded-lg border border-border bg-background/60 p-3"
-              >
-                <p className="text-xs font-medium text-muted-foreground">
-                  {getUserMeta(volunteer.users)?.username ||
-                    getUserMeta(volunteer.users)?.email ||
-                    "Anonyme"}
-                </p>
-                <p className="text-sm text-foreground">
-                  {volunteer.skills_offered ?? "Compétences non précisées."}
-                </p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Statut: {volunteer.status ?? "Pending"}
-                </p>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Commentaires</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={commentValue}
-            onChange={(event) => setCommentValue(event.target.value)}
-            placeholder="Ajouter un commentaire..."
-            rows={4}
-          />
-          <div className="flex justify-end">
-            <Button onClick={handleSubmitComment} disabled={commentSubmitting}>
-              Publier
-            </Button>
-          </div>
-          {commentsError && (
-            <p className="text-sm text-destructive">{commentsError}</p>
-          )}
-          {commentsLoading && (
-            <p className="text-sm text-muted-foreground">
-              Chargement des commentaires...
-            </p>
-          )}
-          {!commentsLoading && comments.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Aucun commentaire pour le moment.
-            </p>
-          )}
-          <div className="space-y-3">
-            {comments.map((comment) => (
-              <div
-                key={comment.id}
-                className="rounded-lg border border-border bg-background/60 p-3"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {getUserMeta(comment.users)?.username ||
-                      getUserMeta(comment.users)?.email ||
-                      "Anonyme"}
-                  </p>
-                  {comment.is_solution && (
-                    <Badge variant="secondary">Solution validée</Badge>
-                  )}
-                </div>
-                <p className="text-sm text-foreground">{comment.content}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  {new Date(comment.created_at).toLocaleString("fr-FR")}
-                </p>
-                {isAuthor && (
-                  <div className="mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        handleToggleSolution(comment.id, !comment.is_solution)
-                      }
-                    >
-                      {comment.is_solution
-                        ? "Retirer la solution"
-                        : "Marquer comme solution"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

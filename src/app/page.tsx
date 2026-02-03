@@ -52,7 +52,7 @@ export default async function Home() {
     <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-b from-background via-muted/30 to-muted/60 px-6 py-16">
       <div className="absolute inset-x-0 top-6 flex justify-start px-6">
         <Button asChild size="sm" variant="ghost">
-          <Link href="/explore">Explorer</Link>
+          <Link href="/explore" className="link-nav">Explorer</Link>
         </Button>
       </div>
       <div className="absolute right-6 top-6">
@@ -62,7 +62,7 @@ export default async function Home() {
         <div className="space-y-3">
           <Link
             href="/pages/forom"
-            className="text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground hover:text-foreground"
+            className="link-nav text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground hover:text-foreground"
           >
             FOROM
           </Link>

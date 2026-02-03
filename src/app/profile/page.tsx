@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
+import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProfileNotifications } from "@/components/profile-notifications"
@@ -67,16 +68,33 @@ export default async function ProfilePage() {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-4xl space-y-6">
+        <Link
+          href="/"
+          className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Retour
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle>Profil</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              {profile?.username ?? "Utilisateur"} ·{" "}
-              {profile?.email ?? userData.user.email}
-            </p>
-            <Badge variant="secondary">Niveau {doneCount ?? 0}</Badge>
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Avatar
+                src={profile?.avatar_url}
+                name={profile?.username ?? profile?.email ?? "Utilisateur"}
+                size="lg"
+              />
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  {profile?.username ?? "Utilisateur"} ·{" "}
+                  {profile?.email ?? userData.user.email}
+                </p>
+                <Badge variant="secondary" className="mt-1">
+                  Niveau {doneCount ?? 0}
+                </Badge>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

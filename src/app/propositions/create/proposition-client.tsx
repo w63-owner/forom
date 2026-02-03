@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { useRouter } from "next/navigation"
 import debounce from "lodash/debounce"
+import { ImageIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -68,6 +69,23 @@ export default function CreatePropositionClient({
     null,
     null,
   ])
+  const [previewUrls, setPreviewUrls] = useState<(string | null)[]>([
+    null,
+    null,
+    null,
+    null,
+    null,
+  ])
+  const previewUrlsRef = useRef<(string | null)[]>([])
+
+  useEffect(() => {
+    previewUrlsRef.current = previewUrls
+    return () => {
+      previewUrlsRef.current.forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+    }
+  }, [previewUrls])
 
   const trimmedTitle = useMemo(() => title.trim(), [title])
 
@@ -78,9 +96,30 @@ export default function CreatePropositionClient({
     if (!["png", "jpg", "jpeg"].includes(ext ?? "")) {
       return
     }
+    setPreviewUrls((prev) => {
+      const next = [...prev]
+      if (next[index]) URL.revokeObjectURL(next[index]!)
+      next[index] = URL.createObjectURL(file)
+      return next
+    })
     setImageFiles((prev) => {
       const next = [...prev]
       next[index] = file
+      return next
+    })
+    event.target.value = ""
+  }
+
+  const handleImageRemove = (index: number) => {
+    setPreviewUrls((prev) => {
+      const next = [...prev]
+      if (next[index]) URL.revokeObjectURL(next[index]!)
+      next[index] = null
+      return next
+    })
+    setImageFiles((prev) => {
+      const next = [...prev]
+      next[index] = null
       return next
     })
   }
@@ -226,6 +265,21 @@ export default function CreatePropositionClient({
     }
 
     const imageUrls: { url: string; caption?: string }[] = []
+    const hasImages = imageFiles.some(Boolean)
+    if (hasImages) {
+      const ensureRes = await fetch("/api/ensure-storage-bucket", {
+        method: "POST",
+      })
+      if (!ensureRes.ok) {
+        const body = await ensureRes.json().catch(() => ({}))
+        setSubmitError(
+          body?.error ??
+            "Impossible de préparer le stockage des images. Créez le bucket « proposition-images » dans Supabase (Storage → New bucket, public)."
+        )
+        setSubmitLoading(false)
+        return
+      }
+    }
     for (let i = 0; i < imageFiles.length; i++) {
       const file = imageFiles[i]
       if (!file) continue
@@ -238,7 +292,14 @@ export default function CreatePropositionClient({
           upsert: false,
         })
       if (uploadError) {
-        setSubmitError(uploadError.message)
+        const isBucketMissing = uploadError.message
+          ?.toLowerCase()
+          .includes("bucket not found")
+        setSubmitError(
+          isBucketMissing
+            ? "Le bucket de stockage « proposition-images » n'existe pas. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local pour le créer automatiquement, ou créez-le dans Supabase : Storage → New bucket → nom « proposition-images », public."
+            : uploadError.message
+        )
         setSubmitLoading(false)
         return
       }
@@ -387,18 +448,39 @@ export default function CreatePropositionClient({
               />
               <div className="flex flex-wrap gap-2">
                 {Array.from({ length: 5 }).map((_, index) => (
-                  <label
-                    key={`image-placeholder-${index}`}
-                    className="flex flex-1 min-w-[120px] cursor-pointer items-center justify-center rounded-md border border-dashed border-input bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground hover:bg-muted/50"
+                  <div
+                    key={`image-slot-${index}`}
+                    className="relative flex min-w-[80px] flex-1"
                   >
-                    <input
-                      type="file"
-                      accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                      className="sr-only"
-                      onChange={(e) => handleImageChange(index, e)}
-                    />
-                    {imageFiles[index]?.name ?? `Image ${index + 1} (PNG, JPG)`}
-                  </label>
+                    {imageFiles[index] && previewUrls[index] ? (
+                      <div className="relative flex min-h-[64px] min-w-[80px] flex-1 overflow-hidden rounded-md border border-input bg-muted/30">
+                        <img
+                          src={previewUrls[index]!}
+                          alt=""
+                          className="h-full min-h-[64px] w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleImageRemove(index)}
+                          className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
+                          aria-label="Supprimer l'image"
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex min-h-[64px] min-w-[80px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-input bg-muted/30 px-2 py-3 text-center text-xs text-muted-foreground hover:bg-muted/50">
+                        <input
+                          type="file"
+                          accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                          className="sr-only"
+                          onChange={(e) => handleImageChange(index, e)}
+                        />
+                        <ImageIcon className="size-5 shrink-0" />
+                        <span>Image {index + 1} (PNG, JPG)</span>
+                      </label>
+                    )}
+                  </div>
                 ))}
               </div>
               <div className="space-y-2 text-sm">

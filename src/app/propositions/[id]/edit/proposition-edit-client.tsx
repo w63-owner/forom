@@ -152,7 +152,7 @@ export default function PropositionEditClient({
       <div className="mx-auto w-full max-w-3xl space-y-6">
         <Link
           href={`/propositions/${propositionId}`}
-          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           ← Retour
         </Link>

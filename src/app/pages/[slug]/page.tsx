@@ -129,7 +129,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <Link
           href="/"
-          className="inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           ← Retour
         </Link>
@@ -264,7 +264,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   </thead>
                   <tbody>
                     {(donePropositions ?? []).map((item) => (
-                      <tr key={item.id} className="border-t border-border">
+                      <tr key={item.id} className="border-t border-border transition-colors duration-150 hover:bg-muted/30">
                         <td className="px-4 py-3">
                           <Link
                             href={`/propositions/${item.id}`}
@@ -363,7 +363,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   </thead>
                   <tbody>
                     {sortedPropositions.map((item) => (
-                      <tr key={item.id} className="border-t border-border">
+                      <tr key={item.id} className="border-t border-border transition-colors duration-150 hover:bg-muted/30">
                         <td className="px-4 py-3">
                           <Link
                             href={`/propositions/${item.id}`}
