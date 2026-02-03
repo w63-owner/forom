@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit"
 import Link from "@tiptap/extension-link"
 import Underline from "@tiptap/extension-underline"
 import Placeholder from "@tiptap/extension-placeholder"
+import Image from "@tiptap/extension-image"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -26,6 +27,9 @@ export function RichTextEditor({
     extensions: [
       StarterKit,
       Underline,
+      Image.configure({
+        allowBase64: false,
+      }),
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -33,6 +37,7 @@ export function RichTextEditor({
       }),
       Placeholder.configure({
         placeholder: placeholder ?? "",
+        showOnlyWhenEditable: true,
       }),
     ],
     content: value,
@@ -43,6 +48,7 @@ export function RichTextEditor({
       attributes: {
         class:
           "prose prose-sm max-w-none min-h-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring/50 dark:prose-invert",
+        "data-placeholder": placeholder ?? "",
       },
     },
   })
@@ -50,7 +56,7 @@ export function RichTextEditor({
   useEffect(() => {
     if (!editor) return
     if (editor.getHTML() === value) return
-    editor.commands.setContent(value, false)
+    editor.commands.setContent(value, { emitUpdate: false })
   }, [editor, value])
 
   if (!editor) return null

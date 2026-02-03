@@ -17,7 +17,13 @@ type PropositionResult = {
   title: string
   status: string | null
   votes_count: number | null
-  pages?: { name: string | null } | null
+  pages?: { name: string | null } | { name: string | null }[] | null
+}
+
+type PageResult = {
+  id: string
+  name: string
+  slug: string | null
 }
 
 const sanitizeQuery = (value: string) => value.replace(/[%_]/g, "\\$&")
@@ -37,6 +43,7 @@ export function Omnibar() {
   const requestId = useRef(0)
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PropositionResult[]>([])
+  const [pageResults, setPageResults] = useState<PageResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,6 +56,7 @@ export function Omnibar() {
         if (!supabase) {
           setError("Supabase non configuré.")
           setResults([])
+          setPageResults([])
           setLoading(false)
           return
         }
@@ -57,24 +65,38 @@ export function Omnibar() {
         setLoading(true)
         setError(null)
         const safeQuery = sanitizeQuery(value)
-        const { data, error: queryError } = await supabase
-          .from("propositions")
-          .select("id, title, status, votes_count, pages(name)")
-          .ilike("title", `%${safeQuery}%`)
-          .order("votes_count", { ascending: false })
-          .limit(8)
+        const [propositionsResponse, pagesResponse] = await Promise.all([
+          supabase
+            .from("propositions")
+            .select("id, title, status, votes_count, pages(name)")
+            .or(`title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`)
+            .order("votes_count", { ascending: false })
+            .limit(8),
+          supabase
+            .from("pages")
+            .select("id, name, slug")
+            .ilike("name", `%${safeQuery}%`)
+            .order("name", { ascending: true })
+            .limit(6),
+        ])
 
         if (currentRequest !== requestId.current) return
 
-        if (queryError) {
-          setError(queryError.message)
+        if (propositionsResponse.error || pagesResponse.error) {
+          setError(
+            propositionsResponse.error?.message ||
+              pagesResponse.error?.message ||
+              "Erreur de recherche."
+          )
           setResults([])
+          setPageResults([])
         } else {
           const unique = new Map<string, PropositionResult>()
-          for (const item of data ?? []) {
+          for (const item of propositionsResponse.data ?? []) {
             unique.set(item.id, item)
           }
           setResults(Array.from(unique.values()))
+          setPageResults(pagesResponse.data ?? [])
         }
 
         setLoading(false)
@@ -87,6 +109,7 @@ export function Omnibar() {
     if (!value.trim()) {
       requestId.current += 1
       setResults([])
+      setPageResults([])
       setError(null)
       setLoading(false)
     }
@@ -120,17 +143,42 @@ export function Omnibar() {
               {error}
             </CommandItem>
           )}
-          {!loading && !error && trimmedQuery && results.length === 0 && (
+          {!loading &&
+            !error &&
+            trimmedQuery &&
+            results.length === 0 &&
+            pageResults.length === 0 && (
             <CommandItem disabled className="px-0 text-sm text-muted-foreground">
               Aucune proposition trouvée.
             </CommandItem>
+          )}
+          {pageResults.length > 0 && (
+            <CommandGroup className="p-0">
+              {pageResults.map((page) => (
+                <CommandItem
+                  key={page.id}
+                  value={`page-${page.name}`}
+                  onSelect={() => {
+                    if (!page.slug) return
+                    router.push(`/pages/${page.slug}`)
+                  }}
+                >
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <span className="truncate">{page.name}</span>
+                    <Badge variant="outline">Page</Badge>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
           )}
           {results.length > 0 && (
             <CommandGroup className="p-0">
               {results.map((item) => {
                 const statusLabel = item.status ?? "Open"
                 const votes = item.votes_count ?? 0
-                const pageName = item.pages?.name
+                const pageName = Array.isArray(item.pages)
+                  ? item.pages[0]?.name
+                  : item.pages?.name
                 return (
                   <CommandItem
                     key={item.id}
@@ -175,7 +223,27 @@ export function Omnibar() {
                 <span className="truncate font-medium text-foreground">
                   {query}
                 </span>
-                <Badge variant="outline">+ Ajouter</Badge>
+                <Badge variant="outline">+ Ajouter une proposition</Badge>
+              </div>
+            </CommandItem>
+          )}
+          {query.length > 0 && (
+            <CommandItem
+              value={`create-page-${query}`}
+              disabled={!trimmedQuery}
+              className="px-0"
+              onSelect={() => {
+                if (!trimmedQuery) return
+                router.push(
+                  `/pages/create?name=${encodeURIComponent(trimmedQuery)}`
+                )
+              }}
+            >
+              <div className="flex w-full items-center justify-between gap-4">
+                <span className="truncate font-medium text-foreground">
+                  {query}
+                </span>
+                <Badge variant="outline">+ Créer une page</Badge>
               </div>
             </CommandItem>
           )}

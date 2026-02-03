@@ -23,14 +23,20 @@ type CommentItem = {
   created_at: string
   user_id: string
   is_solution?: boolean | null
-  users?: { username: string | null; email: string | null } | null
+  users?:
+    | { username: string | null; email: string | null }
+    | { username: string | null; email: string | null }[]
+    | null
 }
 
 type VolunteerItem = {
   user_id: string
   skills_offered: string | null
   status: string | null
-  users?: { username: string | null; email: string | null } | null
+  users?:
+    | { username: string | null; email: string | null }
+    | { username: string | null; email: string | null }[]
+    | null
 }
 
 export default function PropositionDetailClient({
@@ -64,6 +70,14 @@ export default function PropositionDetailClient({
   const [ownerVoteThreshold, setOwnerVoteThreshold] = useState<number | null>(
     null
   )
+
+  const getUserMeta = (
+    users:
+      | { username: string | null; email: string | null }
+      | { username: string | null; email: string | null }[]
+      | null
+      | undefined
+  ) => (Array.isArray(users) ? users[0] : users)
 
   const isOwner =
     Boolean(currentUserId) && Boolean(pageOwnerId) && currentUserId === pageOwnerId
@@ -346,6 +360,16 @@ export default function PropositionDetailClient({
         }),
       }).catch(() => null)
     }
+    fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "status_change",
+        propositionId,
+        actorUserId: currentUserId,
+        newStatus: nextStatus,
+      }),
+    }).catch(() => null)
     setLoading(false)
   }
 
@@ -476,62 +500,60 @@ export default function PropositionDetailClient({
         </CardContent>
       </Card>
 
-      {!propositionPageId && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Volontaires</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Textarea
-              value={volunteerSkills}
-              onChange={(event) => setVolunteerSkills(event.target.value)}
-              placeholder="Compétences que vous pouvez apporter..."
-              rows={3}
-            />
-            <div className="flex justify-end">
-              <Button
-                onClick={handleVolunteerSubmit}
-                disabled={volunteerSubmitting || !volunteerSkills.trim()}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Volontaires</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            value={volunteerSkills}
+            onChange={(event) => setVolunteerSkills(event.target.value)}
+            placeholder="Compétences que vous pouvez apporter..."
+            rows={3}
+          />
+          <div className="flex justify-end">
+            <Button
+              onClick={handleVolunteerSubmit}
+              disabled={volunteerSubmitting || !volunteerSkills.trim()}
+            >
+              Se déclarer volontaire
+            </Button>
+          </div>
+          {volunteersError && (
+            <p className="text-sm text-destructive">{volunteersError}</p>
+          )}
+          {volunteersLoading && (
+            <p className="text-sm text-muted-foreground">
+              Chargement des volontaires...
+            </p>
+          )}
+          {!volunteersLoading && volunteers.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Aucun volontaire pour le moment.
+            </p>
+          )}
+          <div className="space-y-3">
+            {volunteers.map((volunteer) => (
+              <div
+                key={volunteer.user_id}
+                className="rounded-lg border border-border bg-background/60 p-3"
               >
-                Se déclarer volontaire
-              </Button>
-            </div>
-            {volunteersError && (
-              <p className="text-sm text-destructive">{volunteersError}</p>
-            )}
-            {volunteersLoading && (
-              <p className="text-sm text-muted-foreground">
-                Chargement des volontaires...
-              </p>
-            )}
-            {!volunteersLoading && volunteers.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Aucun volontaire pour le moment.
-              </p>
-            )}
-            <div className="space-y-3">
-              {volunteers.map((volunteer) => (
-                <div
-                  key={volunteer.user_id}
-                  className="rounded-lg border border-border bg-background/60 p-3"
-                >
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {volunteer.users?.username ||
-                      volunteer.users?.email ||
-                      "Anonyme"}
-                  </p>
-                  <p className="text-sm text-foreground">
-                    {volunteer.skills_offered ?? "Compétences non précisées."}
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Statut: {volunteer.status ?? "Pending"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                <p className="text-xs font-medium text-muted-foreground">
+                  {getUserMeta(volunteer.users)?.username ||
+                    getUserMeta(volunteer.users)?.email ||
+                    "Anonyme"}
+                </p>
+                <p className="text-sm text-foreground">
+                  {volunteer.skills_offered ?? "Compétences non précisées."}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Statut: {volunteer.status ?? "Pending"}
+                </p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -570,8 +592,8 @@ export default function PropositionDetailClient({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-medium text-muted-foreground">
-                    {comment.users?.username ||
-                      comment.users?.email ||
+                    {getUserMeta(comment.users)?.username ||
+                      getUserMeta(comment.users)?.email ||
                       "Anonyme"}
                   </p>
                   {comment.is_solution && (

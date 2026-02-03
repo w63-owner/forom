@@ -29,23 +29,30 @@ type PageResult = {
 
 type Props = {
   initialTitle?: string
+  initialPageSlug?: string
 }
 
 const sanitizeQuery = (value: string) => value.replace(/[%_]/g, "\\$&")
 const stripHtml = (value: string) => value.replace(/<[^>]*>/g, "").trim()
 
-export default function CreatePropositionClient({ initialTitle = "" }: Props) {
+export default function CreatePropositionClient({
+  initialTitle = "",
+  initialPageSlug = "",
+}: Props) {
   const router = useRouter()
 
   const [step, setStep] = useState(initialTitle.trim() ? 3 : 1)
   const [title, setTitle] = useState(initialTitle)
   const [description, setDescription] = useState("")
-  const [linkChoice, setLinkChoice] = useState("none")
+  const [linkChoice, setLinkChoice] = useState(
+    initialPageSlug.trim() ? "existing" : "none"
+  )
   const [pageQuery, setPageQuery] = useState("")
   const [pageResults, setPageResults] = useState<PageResult[]>([])
   const [pageLoading, setPageLoading] = useState(false)
   const [pageError, setPageError] = useState<string | null>(null)
   const [selectedPage, setSelectedPage] = useState<PageResult | null>(null)
+  const [initialPageLoaded, setInitialPageLoaded] = useState(!initialPageSlug.trim())
   const [similarResults, setSimilarResults] = useState<PropositionResult[]>([])
   const [similarLoading, setSimilarLoading] = useState(false)
   const [similarError, setSimilarError] = useState<string | null>(null)
@@ -54,8 +61,29 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
   const [notifyComments, setNotifyComments] = useState(true)
   const [notifyVolunteers, setNotifyVolunteers] = useState(true)
   const [notifySolutions, setNotifySolutions] = useState(true)
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([
+    null,
+    null,
+    null,
+    null,
+    null,
+  ])
 
   const trimmedTitle = useMemo(() => title.trim(), [title])
+
+  const handleImageChange = (index: number, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const ext = file.name.split(".").pop()?.toLowerCase()
+    if (!["png", "jpg", "jpeg"].includes(ext ?? "")) {
+      return
+    }
+    setImageFiles((prev) => {
+      const next = [...prev]
+      next[index] = file
+      return next
+    })
+  }
 
   const resetSimilarState = () => {
     setSimilarResults([])
@@ -144,6 +172,25 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
   )
 
   useEffect(() => {
+    if (!initialPageSlug.trim() || initialPageLoaded) return
+    const loadInitialPage = async () => {
+      const supabase = getSupabaseClient()
+      if (!supabase) return
+      const { data } = await supabase
+        .from("pages")
+        .select("id, name, slug")
+        .eq("slug", initialPageSlug.trim())
+        .maybeSingle()
+      if (data) {
+        setSelectedPage(data)
+        setPageQuery(data.name)
+      }
+      setInitialPageLoaded(true)
+    }
+    loadInitialPage()
+  }, [initialPageSlug, initialPageLoaded])
+
+  useEffect(() => {
     if (linkChoice !== "existing") return
     if (!pageQuery.trim()) {
       setPageResults([])
@@ -177,6 +224,30 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
       setSubmitLoading(false)
       return
     }
+
+    const imageUrls: { url: string; caption?: string }[] = []
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i]
+      if (!file) continue
+      const ext = file.name.split(".").pop() ?? "jpg"
+      const path = `${user.id}/${Date.now()}-${i}.${ext}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("proposition-images")
+        .upload(path, file, {
+          contentType: file.type,
+          upsert: false,
+        })
+      if (uploadError) {
+        setSubmitError(uploadError.message)
+        setSubmitLoading(false)
+        return
+      }
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("proposition-images").getPublicUrl(uploadData.path)
+      imageUrls.push({ url: publicUrl })
+    }
+
     const descriptionText = stripHtml(description)
     const { data, error } = await supabase
       .from("propositions")
@@ -189,6 +260,7 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
         notify_comments: notifyComments,
         notify_volunteers: notifyVolunteers,
         notify_solutions: notifySolutions,
+        image_urls: imageUrls,
       })
       .select("id")
       .single()
@@ -311,11 +383,27 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
               <RichTextEditor
                 value={description}
                 onChange={setDescription}
-                placeholder="Décrivez le besoin, l'impact, ou un exemple."
+                placeholder="Décrivez votre proposition"
               />
-              <div className="space-y-2 rounded-md border border-border bg-background/60 p-3 text-sm">
+              <div className="flex flex-wrap gap-2">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <label
+                    key={`image-placeholder-${index}`}
+                    className="flex flex-1 min-w-[120px] cursor-pointer items-center justify-center rounded-md border border-dashed border-input bg-muted/30 px-3 py-6 text-center text-sm text-muted-foreground hover:bg-muted/50"
+                  >
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                      className="sr-only"
+                      onChange={(e) => handleImageChange(index, e)}
+                    />
+                    {imageFiles[index]?.name ?? `Image ${index + 1} (PNG, JPG)`}
+                  </label>
+                ))}
+              </div>
+              <div className="space-y-2 text-sm">
                 <p className="font-medium text-foreground">
-                  Préférences de notifications
+                  Je souhaite recevoir un e-mail lorsque :
                 </p>
                 <label className="flex items-center gap-2">
                   <input
@@ -324,7 +412,7 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
                     onChange={(event) => setNotifyComments(event.target.checked)}
                     className="h-4 w-4 rounded border-border"
                   />
-                  Alerte commentaires
+                  Quelqu'un commente ma proposition
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -335,7 +423,7 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
                     }
                     className="h-4 w-4 rounded border-border"
                   />
-                  Alerte volontaires (orphelines)
+                  Quelqu'un se porte volontaire pour réaliser ma proposition
                 </label>
                 <label className="flex items-center gap-2">
                   <input
@@ -344,7 +432,7 @@ export default function CreatePropositionClient({ initialTitle = "" }: Props) {
                     onChange={(event) => setNotifySolutions(event.target.checked)}
                     className="h-4 w-4 rounded border-border"
                   />
-                  Alerte solutions
+                  Ma proposition a été réalisée
                 </label>
               </div>
               <Select

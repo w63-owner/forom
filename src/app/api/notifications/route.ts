@@ -8,11 +8,13 @@ type NotificationPayload = {
     | "solution_marked"
     | "solution_unmarked"
     | "status_done"
+    | "status_change"
     | "proposition_created_linked"
     | "owner_vote_threshold"
   propositionId: string
   commentId?: string
   actorUserId?: string
+  newStatus?: string
 }
 
 const sendEmail = async ({
@@ -69,10 +71,23 @@ export async function POST(request: Request) {
     .eq("id", proposition.author_id)
     .maybeSingle()
 
-  const origin = request.headers.get("origin") ?? new URL(request.url).origin
-  const propositionUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? origin}/propositions/${
-    proposition.id
-  }`
+  const getUserEmail = (
+    users: { email?: string | null } | { email?: string | null }[] | null | undefined
+  ) => (Array.isArray(users) ? users[0]?.email : users?.email)
+
+  const getUser = (
+    users: { username?: string | null; email?: string | null } | Array<{
+      username?: string | null
+      email?: string | null
+    }> | null | undefined
+  ) => (Array.isArray(users) ? users[0] : users)
+
+  const rawAppUrl = process.env.NEXT_PUBLIC_APP_URL
+  const appUrl =
+    rawAppUrl && rawAppUrl.startsWith("http")
+      ? rawAppUrl
+      : "https://www.forom.app"
+  const propositionUrl = `${appUrl}/propositions/${proposition.id}`
 
   if (body.type === "comment_created" && body.commentId) {
     if (!proposition.notify_comments) return NextResponse.json({ ok: true })
@@ -82,12 +97,13 @@ export async function POST(request: Request) {
       .eq("id", body.commentId)
       .maybeSingle()
     if (author?.email && comment) {
+      const commenter = getUser(comment.users)
       await sendEmail({
         to: author.email,
         subject: `Nouveau commentaire: ${proposition.title}`,
         html: `<p>Un nouveau commentaire a été posté sur <strong>${proposition.title}</strong>.</p>
 <p>Auteur: ${
-          comment.users?.username || comment.users?.email || "Anonyme"
+          commenter?.username || commenter?.email || "Anonyme"
         }</p>
 <p>${comment.content}</p>
 <p><a href="${propositionUrl}">Voir la proposition</a></p>`,
@@ -122,9 +138,10 @@ export async function POST(request: Request) {
       body.type === "solution_marked"
         ? "marquée comme solution"
         : "retirée comme solution"
-    if (comment?.users?.email) {
+    const commenter = getUser(comment?.users)
+    if (commenter?.email) {
       await sendEmail({
-        to: comment.users.email,
+        to: commenter.email,
         subject: `Votre commentaire a été ${actionLabel}`,
         html: `<p>Votre commentaire sur <strong>${proposition.title}</strong> a été ${actionLabel}.</p>
 <p><a href="${propositionUrl}">Voir la proposition</a></p>`,
@@ -145,6 +162,23 @@ export async function POST(request: Request) {
           to: author.email,
           subject: `Statut “Done”: ${proposition.title}`,
           html: `<p>Votre proposition <strong>${proposition.title}</strong> est passée en statut Done.</p>
+<p><a href="${propositionUrl}">Voir la proposition</a></p>`,
+        })
+      }
+    }
+
+    const { data: subscribers } = await supabase
+      .from("page_subscriptions")
+      .select("user_id, users(email)")
+      .eq("page_id", proposition.page_id)
+    for (const subscriber of subscribers ?? []) {
+      const email = getUserEmail(subscriber.users)
+      if (email) {
+        await sendEmail({
+          to: email,
+          subject: `Nouvelle mise à jour: ${proposition.title}`,
+          html: `<p>Une proposition liée à cette page vient d’être marquée comme Done.</p>
+<p><strong>${proposition.title}</strong></p>
 <p><a href="${propositionUrl}">Voir la proposition</a></p>`,
         })
       }
@@ -172,6 +206,31 @@ export async function POST(request: Request) {
 <p><strong>${proposition.title}</strong></p>
 <p><a href="${propositionUrl}">Voir la proposition</a></p>`,
       })
+    }
+  }
+
+  if (body.type === "status_change" && body.newStatus) {
+    const { data: subscribers } = await supabase
+      .from("proposition_subscriptions")
+      .select("user_id, users(email)")
+      .eq("proposition_id", proposition.id)
+    const statusLabel: Record<string, string> = {
+      Open: "Ouvert",
+      Done: "Terminé",
+      "Won't Do": "Ne sera pas fait",
+      "In Progress": "En cours",
+    }
+    const label = statusLabel[body.newStatus] ?? body.newStatus
+    for (const subscriber of subscribers ?? []) {
+      const email = getUserEmail(subscriber.users)
+      if (email) {
+        await sendEmail({
+          to: email,
+          subject: `Changement de statut: ${proposition.title}`,
+          html: `<p>La proposition <strong>${proposition.title}</strong> est passée en statut « ${label} ».</p>
+<p><a href="${propositionUrl}">Voir la proposition</a></p>`,
+        })
+      }
     }
   }
 

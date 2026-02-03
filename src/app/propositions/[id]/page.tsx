@@ -2,6 +2,8 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PropositionEditLink } from "@/components/proposition-edit-link"
+import { PropositionNotifyButton } from "@/components/proposition-notify-button"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionDetailClient from "./proposition-detail-client"
 
@@ -90,9 +92,23 @@ export default async function PropositionDetails({ params }: Props) {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-3xl space-y-6">
-        <Card>
-          <CardHeader className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Retour
+        </Link>
+        <div className="relative">
+          <div className="absolute right-4 top-4 z-10 flex items-center gap-1">
+            <PropositionEditLink
+              propositionId={data.id}
+              authorId={data.author_id}
+            />
+            <PropositionNotifyButton propositionId={data.id} />
+          </div>
+          <Card>
+            <CardHeader className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
               <Badge className="w-fit" variant="secondary">
                 Proposition
               </Badge>
@@ -106,20 +122,21 @@ export default async function PropositionDetails({ params }: Props) {
                 ) : (
                   <Badge variant="outline">{pageData.name}</Badge>
                 ))}
-            </div>
-            <CardTitle className="text-2xl">{data.title}</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            {data.description?.replace(/<[^>]*>/g, "").trim() ? (
-              <div
-                className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: data.description ?? "" }}
-              />
-            ) : (
-              "Aucune description fournie pour l'instant."
-            )}
-          </CardContent>
-        </Card>
+              </div>
+              <CardTitle className="text-2xl">{data.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground">
+              {data.description?.replace(/<[^>]*>/g, "").trim() ? (
+                <div
+                  className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert"
+                  dangerouslySetInnerHTML={{ __html: data.description ?? "" }}
+                />
+              ) : (
+                "Aucune description fournie pour l'instant."
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <PropositionDetailClient
           propositionId={data.id}

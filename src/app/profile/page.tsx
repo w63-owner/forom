@@ -2,6 +2,7 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ProfileNotifications } from "@/components/profile-notifications"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 export default async function ProfilePage() {
@@ -53,6 +54,16 @@ export default async function ProfilePage() {
     .eq("owner_id", userData.user.id)
     .order("name", { ascending: true })
 
+  const { data: pageSubscriptions } = await supabase
+    .from("page_subscriptions")
+    .select("page_id, pages(id, name, slug)")
+    .eq("user_id", userData.user.id)
+
+  const { data: propositionSubscriptions } = await supabase
+    .from("proposition_subscriptions")
+    .select("proposition_id, propositions(id, title)")
+    .eq("user_id", userData.user.id)
+
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-4xl space-y-6">
@@ -68,6 +79,25 @@ export default async function ProfilePage() {
             <Badge variant="secondary">Niveau {doneCount ?? 0}</Badge>
           </CardContent>
         </Card>
+
+        <ProfileNotifications
+          pageSubscriptions={(pageSubscriptions ?? [])
+            .map((s) => {
+              const page = Array.isArray(s.pages) ? s.pages[0] : s.pages
+              return page ? { page_id: s.page_id, page } : null
+            })
+            .filter((x): x is NonNullable<typeof x> => x !== null)}
+          propositionSubscriptions={(propositionSubscriptions ?? [])
+            .map((s) => {
+              const proposition = Array.isArray(s.propositions)
+                ? s.propositions[0]
+                : s.propositions
+              return proposition
+                ? { proposition_id: s.proposition_id, proposition }
+                : null
+            })
+            .filter((x): x is NonNullable<typeof x> => x !== null)}
+        />
 
         <Card>
           <CardHeader>
