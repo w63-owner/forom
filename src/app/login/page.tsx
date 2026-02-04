@@ -6,7 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Alert } from "@/components/ui/alert"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useToast } from "@/components/ui/toast"
 
 function LoginForm() {
   const router = useRouter()
@@ -21,6 +23,7 @@ function LoginForm() {
   const [step, setStep] = useState<"email" | "signin" | "signup">("email")
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null)
+  const { showToast } = useToast()
   const startCooldown = (seconds: number) => {
     const until = Date.now() + seconds * 1000
     setCooldownUntil(until)
@@ -104,6 +107,11 @@ function LoginForm() {
             ? "Email ou mot de passe incorrect. Vérifiez vos identifiants et réessayez."
             : signInError.message
       setError(message)
+      showToast({
+        variant: "error",
+        title: "Connexion impossible",
+        description: message,
+      })
       if (signInError.message === "email rate limit exceeded") {
         startCooldown(120)
       }
@@ -129,6 +137,14 @@ function LoginForm() {
             ? "Trop de tentatives. Réessayez dans quelques minutes."
             : signUpError.message
         )
+        showToast({
+          variant: "error",
+          title: "Inscription impossible",
+          description:
+            signUpError.message === "email rate limit exceeded"
+              ? "Trop de tentatives. Réessayez dans quelques minutes."
+              : signUpError.message,
+        })
         if (signUpError.message === "email rate limit exceeded") {
           startCooldown(120)
         }
@@ -137,11 +153,20 @@ function LoginForm() {
       }
 
       setInfo("Un email de confirmation vous a été envoyé.")
+      showToast({
+        variant: "success",
+        title: "Compte créé",
+        description: "Un email de confirmation vous a été envoyé.",
+      })
       setLoading(false)
       return
     }
 
     setLoading(false)
+    showToast({
+      variant: "success",
+      title: "Connexion réussie",
+    })
     router.push(redirectTo)
   }
 
@@ -167,6 +192,14 @@ function LoginForm() {
           ? "Trop de tentatives. Réessayez dans quelques minutes."
           : resetError.message
       )
+      showToast({
+        variant: "error",
+        title: "Impossible d’envoyer l’email",
+        description:
+          resetError.message === "email rate limit exceeded"
+            ? "Trop de tentatives. Réessayez dans quelques minutes."
+            : resetError.message,
+      })
       if (resetError.message === "email rate limit exceeded") {
         startCooldown(120)
       }
@@ -174,6 +207,11 @@ function LoginForm() {
       return
     }
     setInfo("Email de réinitialisation envoyé.")
+    showToast({
+      variant: "success",
+      title: "Email envoyé",
+      description: "Un email de réinitialisation vous a été envoyé.",
+    })
     setLoading(false)
   }
 
@@ -270,7 +308,11 @@ function LoginForm() {
                 />
               )}
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <Alert variant="error" title="Une erreur est survenue">
+                {error}
+              </Alert>
+            )}
             {cooldownSeconds !== null && cooldownSeconds > 0 && (
               <p className="text-sm text-muted-foreground">
                 Réessayez dans {cooldownSeconds}s.

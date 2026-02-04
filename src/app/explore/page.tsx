@@ -1,6 +1,7 @@
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { ExploreTopTable } from "@/components/explore-top-table"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import ExploreFilters from "./filters"
 
@@ -121,7 +122,7 @@ export default async function ExplorePage({ searchParams }: Props) {
     topQuery.order("votes_count", { ascending: order === "asc" })
   }
 
-  const { data: topPropositions } = await topQuery.limit(10)
+  const { data: topPropositions } = await topQuery.limit(20)
   const sortedTop = [...(topPropositions ?? [])].sort((a, b) => {
     if (titleSort === "title") {
       const titleA = a.title ?? ""
@@ -183,148 +184,26 @@ export default async function ExplorePage({ searchParams }: Props) {
                 initialPageOrder={pageOrder}
                 initialStatusOrder={statusOrder}
               />
-              <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium">
-                      <Link
-                        href={`/explore?${new URLSearchParams({
-                          ...(query ? { q: query } : {}),
-                          ...(statusValues.length > 0
-                            ? { status: statusValues.join(",") }
-                            : {}),
-                          ...(range && range !== "all" ? { range } : {}),
-                          sort,
-                          ...(order ? { order } : {}),
-                          titleSort: "title",
-                          titleOrder: titleOrder === "asc" ? "desc" : "asc",
-                        }).toString()}`}
-                        className="inline-flex items-center gap-1 hover:underline"
-                      >
-                        Proposition
-                        <span aria-hidden="true">
-                          {titleOrder === "asc" ? "▲" : "▼"}
-                        </span>
-                      </Link>
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium">
-                      <Link
-                        href={`/explore?${new URLSearchParams({
-                          ...(query ? { q: query } : {}),
-                          ...(statusValues.length > 0
-                            ? { status: statusValues.join(",") }
-                            : {}),
-                          ...(range && range !== "all" ? { range } : {}),
-                          sort,
-                          ...(order ? { order } : {}),
-                          pageSort: "name",
-                          pageOrder: pageOrder === "asc" ? "desc" : "asc",
-                          ...(statusOrder ? { statusOrder } : {}),
-                        }).toString()}`}
-                        className="inline-flex items-center gap-1 hover:underline"
-                      >
-                        Page
-                        {pageSort === "name" && (
-                          <span aria-hidden="true">
-                            {pageOrder === "asc" ? "▲" : "▼"}
-                          </span>
-                        )}
-                      </Link>
-                    </th>
-                    <th className="px-4 py-3 text-left font-medium">
-                      <Link
-                        href={`/explore?${new URLSearchParams({
-                          ...(query ? { q: query } : {}),
-                          ...(statusValues.length > 0
-                            ? { status: statusValues.join(",") }
-                            : {}),
-                          ...(range && range !== "all" ? { range } : {}),
-                          sort,
-                          ...(order ? { order } : {}),
-                          pageSort: "status",
-                          statusOrder: statusOrder === "asc" ? "desc" : "asc",
-                          ...(pageOrder ? { pageOrder } : {}),
-                        }).toString()}`}
-                        className="inline-flex items-center gap-1 hover:underline"
-                      >
-                        Statut
-                        <span aria-hidden="true">
-                          {statusOrder === "asc" ? "▲" : "▼"}
-                        </span>
-                      </Link>
-                    </th>
-                    <th className="px-4 py-3 text-right font-medium">
-                      <Link
-                        href={`/explore?${new URLSearchParams({
-                          ...(query ? { q: query } : {}),
-                          ...(statusValues.length > 0
-                            ? { status: statusValues.join(",") }
-                            : {}),
-                          ...(range && range !== "all" ? { range } : {}),
-                          sort: "votes",
-                          order: order === "asc" ? "desc" : "asc",
-                        }).toString()}`}
-                        className="inline-flex items-center gap-1 hover:underline"
-                      >
-                        Votes
-                        <span aria-hidden="true">
-                          {order === "asc" ? "▲" : "▼"}
-                        </span>
-                      </Link>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedTop.map((item) => (
-                    <tr key={item.id} className="border-t border-border">
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/propositions/${item.id}`}
-                          className="font-medium text-foreground hover:underline"
-                        >
-                          {item.title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3">
-                        {(() => {
-                          const page = getPageMeta(
-                            item.pages as PageMeta[] | PageMeta | null | undefined
-                          )
-                          return page?.name && page.slug ? (
-                          <Badge variant="outline" asChild>
-                            <Link href={`/pages/${page.slug}`}>
-                              {page.name}
-                            </Link>
-                          </Badge>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            —
-                          </span>
-                        )
-                        })()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="outline">{item.status ?? "Open"}</Badge>
-                      </td>
-                      <td className="px-4 py-3 text-right font-medium text-foreground">
-                        {item.votes_count ?? 0}
-                      </td>
-                    </tr>
-                  ))}
-                  {topPropositions?.length === 0 && (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="px-4 py-6 text-center text-muted-foreground"
-                      >
-                        Aucun résultat pour le moment.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-              </div>
+              <ExploreTopTable
+                initialItems={sortedTop as {
+                  id: string
+                  title: string | null
+                  status: string | null
+                  votes_count: number | null
+                  created_at: string | null
+                  pages?: PageMeta | PageMeta[] | null
+                }[]}
+                query={query}
+                statusValues={statusValues}
+                range={range}
+                sort={sort}
+                order={order}
+                titleSort={titleSort}
+                titleOrder={titleOrder}
+                pageSort={pageSort}
+                pageOrder={pageOrder}
+                statusOrder={statusOrder}
+              />
             </CardContent>
           </Card>
         </section>

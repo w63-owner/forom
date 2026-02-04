@@ -11,6 +11,7 @@ import { UserMinus, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useToast } from "@/components/ui/toast"
 
 export type VolunteerItem = {
   user_id: string
@@ -53,6 +54,7 @@ export function PropositionVolunteersProvider({
   initialVolunteers,
   children,
 }: ProviderProps) {
+  const { showToast } = useToast()
   const [volunteers, setVolunteers] = useState<VolunteerItem[]>(initialVolunteers)
   const [joining, setJoining] = useState(false)
   const [leaving, setLeaving] = useState(false)
@@ -93,6 +95,11 @@ export function PropositionVolunteersProvider({
 
     if (error) {
       setJoining(false)
+      showToast({
+        variant: "error",
+        title: "Impossible de vous ajouter comme volontaire",
+        description: "Une erreur est survenue. Réessayez dans quelques instants.",
+      })
       return
     }
 
@@ -118,8 +125,13 @@ export function PropositionVolunteersProvider({
         }),
       })
     }
+    showToast({
+      variant: "success",
+      title: "Vous êtes volontaire",
+      description: "L’auteur sera notifié si la proposition est orpheline.",
+    })
     setJoining(false)
-  }, [propositionId, isOrphan, currentUserId, volunteers])
+  }, [propositionId, isOrphan, currentUserId, volunteers, showToast])
 
   const onLeave = useCallback(async () => {
     const supabase = getSupabaseClient()
@@ -135,9 +147,13 @@ export function PropositionVolunteersProvider({
 
     if (!error) {
       setVolunteers((prev) => prev.filter((v) => v.user_id !== currentUserId))
+      showToast({
+        variant: "info",
+        title: "Vous n’êtes plus volontaire",
+      })
     }
     setLeaving(false)
-  }, [propositionId, currentUserId, volunteers])
+  }, [propositionId, currentUserId, volunteers, showToast])
 
   const value: VolunteersContextValue = {
     volunteers,

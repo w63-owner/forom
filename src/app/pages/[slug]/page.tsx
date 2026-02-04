@@ -6,6 +6,7 @@ import { PageSubscribeButton } from "@/components/page-subscribe-button"
 import { PageOwnerMenu } from "@/components/page-owner-menu"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
+import { PageDoneTable } from "@/components/page-done-table"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 type Props = {
@@ -92,7 +93,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     .eq("page_id", page.id)
     .eq("status", "Done")
     .order("created_at", { ascending: false })
-    .limit(5)
+    .limit(20)
 
   const categoryLabels: Record<string, string> = {
     country: "Pays",
@@ -247,57 +248,10 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     />
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium">
-                        Proposition
-                      </th>
-                      <th className="px-4 py-3 text-left font-medium">
-                        Date
-                      </th>
-                      <th className="px-4 py-3 text-right font-medium">
-                        Statut
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(donePropositions ?? []).map((item) => (
-                      <tr key={item.id} className="border-t border-border transition-colors duration-150 hover:bg-muted/30">
-                        <td className="px-4 py-3">
-                          <Link
-                            href={`/propositions/${item.id}`}
-                            className="font-medium text-foreground hover:underline"
-                          >
-                            {item.title}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {item.created_at
-                            ? new Date(item.created_at).toLocaleDateString(
-                                "fr-FR"
-                              )
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Badge variant="secondary">Done</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                    {donePropositions?.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-4 py-6 text-center text-muted-foreground"
-                        >
-                          Aucun changement terminé pour le moment.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  </table>
-                </div>
+                <PageDoneTable
+                  pageId={page.id}
+                  initialItems={(donePropositions ?? []) as { id: string; title: string; created_at: string | null }[]}
+                />
               </CardContent>
             </Card>
           ) : (
