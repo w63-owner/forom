@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseClient } from "@/utils/supabase/client"
@@ -20,6 +20,11 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
   const [items, setItems] = useState<DoneItem[]>(initialItems)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= 20)
+
+  useEffect(() => {
+    setItems(initialItems)
+    setHasMore(initialItems.length >= 20)
+  }, [initialItems])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
@@ -35,6 +35,11 @@ export function PagePropositionsTable({
   const [items, setItems] = useState<PropositionItem[]>(initialItems)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= 20)
+
+  useEffect(() => {
+    setItems(initialItems)
+    setHasMore(initialItems.length >= 20)
+  }, [initialItems])
 
   const sortItems = useMemo(
     () => (list: PropositionItem[]) => {

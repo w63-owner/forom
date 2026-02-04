@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useToast } from "@/components/ui/toast"
 
 type Props = {
   propositionId: string
@@ -29,6 +30,7 @@ export function PropositionVoteBar({
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { showToast } = useToast()
   const [ownerNotifyDaily, setOwnerNotifyDaily] = useState(false)
   const [ownerVoteThreshold, setOwnerVoteThreshold] = useState<number | null>(
     null
@@ -122,6 +124,11 @@ export function PropositionVoteBar({
     if (voteError) {
       setError(voteError.message)
       setLoading(false)
+      showToast({
+        variant: "error",
+        title: "Vote impossible",
+        description: voteError.message,
+      })
       return
     }
     setCurrentVote(type)
@@ -145,6 +152,10 @@ export function PropositionVoteBar({
         }),
       }).catch(() => null)
     }
+    showToast({
+      variant: type === "Upvote" ? "success" : "info",
+      title: type === "Upvote" ? "Vote positif enregistré" : "Vote négatif enregistré",
+    })
     setLoading(false)
   }
 

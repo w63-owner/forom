@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useToast } from "@/components/ui/toast"
 
 type Props = {
   propositionId: string
@@ -14,6 +15,7 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
   const [votes, setVotes] = useState(initialVotes)
   const [loading, setLoading] = useState(false)
   const [hasVoted, setHasVoted] = useState(false)
+  const { showToast } = useToast()
 
   useEffect(() => {
     const fetchVote = async () => {
@@ -51,6 +53,10 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
         .eq("user_id", userData.user.id)
       setHasVoted(false)
       setVotes((prev) => Math.max(0, prev - 1))
+      showToast({
+        variant: "info",
+        title: "Vote retiré",
+      })
     } else {
       await supabase.from("votes").upsert(
         {
@@ -62,6 +68,10 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
       )
       setHasVoted(true)
       setVotes((prev) => prev + 1)
+      showToast({
+        variant: "success",
+        title: "Vote enregistré",
+      })
     }
     setLoading(false)
   }

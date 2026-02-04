@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useToast } from "@/components/ui/toast"
 
 // Bell outline (default / not subscribed)
 function BellOutlineIcon({ className }: { className?: string }) {
@@ -52,6 +53,7 @@ type Props = {
 export function PropositionNotifyButton({ propositionId, className }: Props) {
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
+  const { showToast } = useToast()
 
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -86,12 +88,22 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
         .eq("proposition_id", propositionId)
         .eq("user_id", userData.user.id)
       setSubscribed(false)
+      showToast({
+        variant: "info",
+        title: "Notifications désactivées",
+        description: "Vous ne serez plus notifié des changements.",
+      })
     } else {
       await supabase.from("proposition_subscriptions").insert({
         proposition_id: propositionId,
         user_id: userData.user.id,
       })
       setSubscribed(true)
+      showToast({
+        variant: "success",
+        title: "Notifications activées",
+        description: "Vous serez notifié des changements de cette proposition.",
+      })
     }
     setLoading(false)
   }

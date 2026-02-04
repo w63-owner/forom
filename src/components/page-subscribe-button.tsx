@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useToast } from "@/components/ui/toast"
 
 type Props = {
   pageId: string
@@ -13,6 +14,7 @@ export function PageSubscribeButton({ pageId }: Props) {
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
   const [infoOpen, setInfoOpen] = useState(false)
+  const { showToast } = useToast()
 
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -47,6 +49,11 @@ export function PageSubscribeButton({ pageId }: Props) {
         .eq("page_id", pageId)
         .eq("user_id", userData.user.id)
       setSubscribed(false)
+      showToast({
+        variant: "info",
+        title: "Désabonné",
+        description: "Vous ne recevrez plus de notifications pour cette page.",
+      })
       setLoading(false)
       return
     }
@@ -57,6 +64,11 @@ export function PageSubscribeButton({ pageId }: Props) {
     setSubscribed(true)
     setLoading(false)
     setInfoOpen(true)
+    showToast({
+      variant: "success",
+      title: "Abonné",
+      description: "Vous serez notifié des nouveautés de cette page.",
+    })
   }
 
   return (

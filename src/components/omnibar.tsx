@@ -50,6 +50,22 @@ export function Omnibar() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const placeholderSamples = useMemo(
+    () => [
+      "UberEats : Proposer une option \"Commande groupée\"",
+      "Spotify : Créer un mode \"Sommeil\" qui baisse progressivement le volume de la musique sur les 15 dernières minutes.",
+      "LinkedIn : Ajouter un filtre \"Salaire affiché\" pour masquer les offres d'emploi qui ne mentionnent pas de fourchette de rémunération",
+      "Ouvrir le Metro 24H/24 à Paris",
+      "SNCF : Indiquer les prix les moins chers par jour à l'ouverture du calendrier",
+    ],
+    []
+  )
+  const randomPlaceholder = useMemo(
+    () =>
+      placeholderSamples[Math.floor(Math.random() * placeholderSamples.length)],
+    [placeholderSamples]
+  )
+
   const trimmedQuery = useMemo(() => query.trim(), [query])
 
   const debouncedSearch = useMemo(
@@ -134,8 +150,8 @@ export function Omnibar() {
           <CommandInput
             value={query}
             onValueChange={handleQueryChange}
-            placeholder="Rechercher ou créer une proposition..."
-            className="h-11 min-w-0 flex-1 border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
+            placeholder={randomPlaceholder}
+            className="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
           />
           <Popover>
             <PopoverTrigger asChild>
