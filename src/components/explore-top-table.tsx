@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
  import Link from "next/link"
  import { Badge } from "@/components/ui/badge"
+ import { PageVoteToggle } from "@/components/page-vote-toggle"
  import { getSupabaseClient } from "@/utils/supabase/client"
 
  type PageMeta = { name?: string | null; slug?: string | null }
@@ -267,8 +268,15 @@ import { useEffect, useMemo, useState } from "react"
                         ) : (
                           <span>—</span>
                         )}
-                        <Badge variant="outline">{item.status ?? "Open"}</Badge>
-                        <span>{item.votes_count ?? 0} votes</span>
+                        <div className="flex h-7 items-center">
+                          <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                        </div>
+                        <div className="ml-auto flex h-7 shrink-0 items-center [&_button]:h-7 [&_button]:py-0.5">
+                          <PageVoteToggle
+                            propositionId={item.id}
+                            initialVotes={item.votes_count ?? 0}
+                          />
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -284,8 +292,11 @@ import { useEffect, useMemo, useState } from "react"
                   <td className="hidden px-4 py-3 md:table-cell">
                     <Badge variant="outline">{item.status ?? "Open"}</Badge>
                   </td>
-                  <td className="hidden px-4 py-3 text-right font-medium text-foreground md:table-cell">
-                    {item.votes_count ?? 0}
+                  <td className="hidden px-4 py-3 text-right md:table-cell">
+                    <PageVoteToggle
+                      propositionId={item.id}
+                      initialVotes={item.votes_count ?? 0}
+                    />
                   </td>
                 </tr>
               )

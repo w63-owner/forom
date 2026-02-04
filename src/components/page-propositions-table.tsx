@@ -160,8 +160,15 @@ export function PagePropositionsTable({
                       {item.title}
                     </Link>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
-                      <Badge variant="outline">{item.status ?? "Open"}</Badge>
-                      <span>{item.votes_count ?? 0} votes</span>
+                      <div className="flex h-7 items-center">
+                        <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                      </div>
+                      <div className="ml-auto flex h-7 shrink-0 items-center [&_button]:h-7 [&_button]:py-0.5">
+                        <PageVoteToggle
+                          propositionId={item.id}
+                          initialVotes={item.votes_count ?? 0}
+                        />
+                      </div>
                     </div>
                   </div>
                 </td>
