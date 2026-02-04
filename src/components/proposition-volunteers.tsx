@@ -24,6 +24,7 @@ export type VolunteerItem = {
 
 type VolunteersContextValue = {
   volunteers: VolunteerItem[]
+  isOrphan: boolean
   currentUserId: string | null
   currentUserLoaded: boolean
   joining: boolean
@@ -157,6 +158,7 @@ export function PropositionVolunteersProvider({
 
   const value: VolunteersContextValue = {
     volunteers,
+    isOrphan,
     currentUserId,
     currentUserLoaded,
     joining,
@@ -181,6 +183,7 @@ function displayName(v: VolunteerItem) {
 export function PropositionVolunteerButton() {
   const {
     volunteers,
+    isOrphan,
     currentUserId,
     currentUserLoaded,
     joining,
@@ -189,6 +192,15 @@ export function PropositionVolunteerButton() {
     onJoin,
     onLeave,
   } = useVolunteers()
+
+  if (!currentUserLoaded) {
+    return null
+  }
+
+  // Volontaires uniquement pour les propositions orphelines.
+  if (!isOrphan) {
+    return null
+  }
 
   const avatars = (
     <div className="flex items-center -space-x-2">
@@ -215,14 +227,6 @@ export function PropositionVolunteerButton() {
       )}
     </div>
   )
-
-  if (!currentUserLoaded) {
-    return (
-      <div className="flex items-center gap-2">
-        {avatars}
-      </div>
-    )
-  }
 
   if (isVolunteer) {
     return (

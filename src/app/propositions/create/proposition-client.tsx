@@ -348,7 +348,13 @@ export default function CreatePropositionClient({
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <div>
+        <div className="space-y-2">
+          <a
+            href="/"
+            className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          >
+            ← Retour
+          </a>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
             Entrer une proposition
           </h1>

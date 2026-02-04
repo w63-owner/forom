@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import debounce from "lodash/debounce"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
   Command,
   CommandGroup,
@@ -11,6 +13,7 @@ import {
   CommandItem,
 } from "@/components/ui/command"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { Plus } from "lucide-react"
 
 type PropositionResult = {
   id: string
@@ -134,6 +137,48 @@ export function Omnibar() {
             placeholder="Rechercher ou créer une proposition..."
             className="h-11 min-w-0 flex-1 border-0 bg-transparent text-base shadow-none focus-visible:ring-0"
           />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                aria-label="Créer"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-1">
+              <button
+                type="button"
+                onClick={() => {
+                  router.push(
+                    trimmedQuery
+                      ? `/propositions/create?title=${encodeURIComponent(
+                          trimmedQuery
+                        )}`
+                      : "/propositions/create"
+                  )
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted"
+              >
+                Créer une proposition
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  router.push(
+                    trimmedQuery
+                      ? `/pages/create?name=${encodeURIComponent(trimmedQuery)}`
+                      : "/pages/create"
+                  )
+                }}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted"
+              >
+                Créer une page
+              </button>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto pb-3 pl-9 pr-3">
           {loading && (

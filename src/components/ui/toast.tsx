@@ -71,8 +71,8 @@
    return (
      <ToastContext.Provider value={value}>
        {children}
-       <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4 sm:justify-end">
-         <div className="flex w-full max-w-sm flex-col gap-2 sm:max-w-md">
+      <div className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+        <div className="flex w-full max-w-sm flex-col gap-2 sm:max-w-md">
            {toasts.map((toast) => (
              <ToastItem key={toast.id} toast={toast} onClose={removeToast} />
            ))}
