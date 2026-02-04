@@ -62,14 +62,14 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
   if (items.length === 0) {
     return (
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-muted-foreground">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium">Proposition</th>
-              <th className="px-4 py-3 text-left font-medium">Date</th>
-              <th className="px-4 py-3 text-right font-medium">Statut</th>
-            </tr>
-          </thead>
+          <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-muted-foreground">
+          <tr>
+            <th className="px-4 py-3 text-left font-medium">Proposition</th>
+            <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Date</th>
+            <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Statut</th>
+          </tr>
+        </thead>
           <tbody>
             <tr>
               <td
@@ -92,8 +92,8 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
         <thead className="bg-muted/50 text-muted-foreground">
           <tr>
             <th className="px-4 py-3 text-left font-medium">Proposition</th>
-            <th className="px-4 py-3 text-left font-medium">Date</th>
-            <th className="px-4 py-3 text-right font-medium">Statut</th>
+              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Date</th>
+              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Statut</th>
           </tr>
         </thead>
         <tbody>
@@ -103,19 +103,29 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
               className="border-t border-border transition-colors duration-150 hover:bg-muted/30"
             >
               <td className="px-4 py-3">
-                <Link
-                  href={`/propositions/${item.id}`}
-                  className="font-medium text-foreground hover:underline"
-                >
-                  {item.title}
-                </Link>
+                  <div className="space-y-1">
+                    <Link
+                      href={`/propositions/${item.id}`}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {item.title}
+                    </Link>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
+                      <span>
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString("fr-FR")
+                          : "—"}
+                      </span>
+                      <Badge variant="secondary">Done</Badge>
+                    </div>
+                  </div>
               </td>
-              <td className="px-4 py-3 text-muted-foreground">
+                <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                 {item.created_at
                   ? new Date(item.created_at).toLocaleDateString("fr-FR")
                   : "—"}
               </td>
-              <td className="px-4 py-3 text-right">
+                <td className="hidden px-4 py-3 text-right md:table-cell">
                 <Badge variant="secondary">Done</Badge>
               </td>
             </tr>

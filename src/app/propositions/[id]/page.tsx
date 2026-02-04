@@ -10,6 +10,7 @@ import {
   PropositionVolunteersProvider,
   PropositionVolunteerButton,
 } from "@/components/proposition-volunteers"
+import { BackLink } from "@/components/back-link"
 import { relativeTime } from "@/lib/utils"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionDetailClient from "./proposition-detail-client"
@@ -123,12 +124,7 @@ export default async function PropositionDetails({ params }: Props) {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-5xl space-y-6">
-        <Link
-          href="/"
-          className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          ← Retour
-        </Link>
+        <BackLink className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground" />
         <div className="relative">
           <PropositionVolunteersProvider
             propositionId={data.id}

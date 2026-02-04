@@ -130,9 +130,10 @@ function CommentBlock({
           <Button
             variant="ghost"
             size="xs"
-            onClick={() =>
-              setReplyingToId(isReplying ? null : comment.id)
-            }
+            onClick={() => {
+              const targetId = comment.parent_id ?? comment.id
+              setReplyingToId(replyingToId === targetId ? null : targetId)
+            }}
           >
             Répondre
           </Button>
@@ -151,6 +152,29 @@ function CommentBlock({
           </Button>
         )}
       </div>
+      {comment.replies && comment.replies.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {comment.replies.map((reply) => (
+            <CommentBlock
+              key={reply.id}
+              comment={reply}
+              depth={depth + 1}
+              getUserMeta={getUserMeta}
+              relativeTime={relativeTime}
+              isAuthor={isAuthor}
+              currentUserId={currentUserId}
+              replyingToId={replyingToId}
+              setReplyingToId={setReplyingToId}
+              replyContent={replyContent}
+              setReplyContent={setReplyContent}
+              replySubmitting={replySubmitting}
+              onToggleSolution={onToggleSolution}
+              onVote={onVote}
+              onSubmitReply={onSubmitReply}
+            />
+          ))}
+        </div>
+      )}
       {isReplying && (
         <div className="mt-3 space-y-2">
           <Textarea
@@ -173,35 +197,12 @@ function CommentBlock({
             </Button>
             <Button
               size="sm"
-              onClick={() => onSubmitReply(comment.id)}
+              onClick={() => onSubmitReply(comment.parent_id ?? comment.id)}
               disabled={replySubmitting || !replyContent.trim()}
             >
               Publier
             </Button>
           </div>
-        </div>
-      )}
-      {comment.replies && comment.replies.length > 0 && (
-        <div className="mt-3 space-y-1">
-          {comment.replies.map((reply) => (
-            <CommentBlock
-              key={reply.id}
-              comment={reply}
-              depth={depth + 1}
-              getUserMeta={getUserMeta}
-              relativeTime={relativeTime}
-              isAuthor={isAuthor}
-              currentUserId={currentUserId}
-              replyingToId={replyingToId}
-              setReplyingToId={setReplyingToId}
-              replyContent={replyContent}
-              setReplyContent={setReplyContent}
-              replySubmitting={replySubmitting}
-              onToggleSolution={onToggleSolution}
-              onVote={onVote}
-              onSubmitReply={onSubmitReply}
-            />
-          ))}
         </div>
       )}
     </div>
@@ -285,7 +286,7 @@ export default function PropositionDetailClient({
       .from("comments")
       .select("id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email)")
       .eq("proposition_id", propositionId)
-      .order("created_at", { ascending: true })
+      .order("created_at", { ascending: false })
     if (commentsError) {
       setCommentsError(commentsError.message)
       setComments([])
@@ -330,6 +331,11 @@ export default function PropositionDetailClient({
     ): CommentItem[] =>
       items
         .filter((c) => (c.parent_id ?? null) === parentId)
+        .sort((a, b) => {
+          const timeA = new Date(a.created_at).getTime()
+          const timeB = new Date(b.created_at).getTime()
+          return timeA - timeB
+        })
         .map((c) => ({
           ...c,
           replies: buildTree(items, c.id),

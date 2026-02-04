@@ -6,7 +6,6 @@ import { PageSubscribeButton } from "@/components/page-subscribe-button"
 import { PageOwnerMenu } from "@/components/page-owner-menu"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
-import { PageDoneTable } from "@/components/page-done-table"
 import { PagePropositionsTable } from "@/components/page-propositions-table"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
@@ -28,7 +27,6 @@ export default async function PageDashboard({ params, searchParams }: Props) {
   const sort = queryParams.sort === "recent" ? "recent" : "top"
   const status = queryParams.status && queryParams.status !== "all" ? queryParams.status : null
   const query = queryParams.q?.trim() ?? ""
-  const tab = queryParams.tab === "propositions" ? "propositions" : "nouveautes"
   const statusSort = queryParams.statusSort === "status" ? "status" : "none"
   const statusOrder = queryParams.statusOrder === "desc" ? "desc" : "asc"
   const supabase = await getSupabaseServerClient()
@@ -88,13 +86,6 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     }
     return 0
   })
-  const { data: donePropositions } = await supabase
-    .from("propositions")
-    .select("id, title, created_at")
-    .eq("page_id", page.id)
-    .eq("status", "Done")
-    .order("created_at", { ascending: false })
-    .limit(20)
 
   const categoryLabels: Record<string, string> = {
     country: "Pays",
@@ -198,91 +189,32 @@ export default async function PageDashboard({ params, searchParams }: Props) {
         </Card>
 
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Link
-                href={`/pages/${slug}?${new URLSearchParams({
-                  ...(query ? { q: query } : {}),
-                  ...(status ? { status } : {}),
-                  sort,
-                  tab: "nouveautes",
-                }).toString()}`}
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                  tab === "nouveautes"
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Nouveautés
-              </Link>
-              <Link
-                href={`/pages/${slug}?${new URLSearchParams({
-                  ...(query ? { q: query } : {}),
-                  ...(status ? { status } : {}),
-                  sort,
-                  tab: "propositions",
-                }).toString()}`}
-                className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium ${
-                  tab === "propositions"
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Propositions
-              </Link>
-            </div>
-          </div>
-
-          {tab === "nouveautes" ? (
-            <Card>
-              <CardContent className="p-0">
-                <div className="px-4 pb-3">
-                  <div className="flex w-full flex-wrap gap-2">
-                    <PagePropositionSearch
-                      slug={slug}
-                      initialQuery={query}
-                      status={status}
-                      sort={sort}
-                      statusSort={statusSort === "none" ? null : statusSort}
-                      statusOrder={statusOrder ?? null}
-                      tab="nouveautes"
-                    />
-                  </div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="px-4 pb-3">
+                <div className="flex w-full flex-wrap gap-2">
+                  <PagePropositionSearch
+                    slug={slug}
+                    initialQuery={query}
+                    status={status}
+                    sort={sort}
+                    statusSort={statusSort === "none" ? null : statusSort}
+                    statusOrder={statusOrder ?? null}
+                    tab="propositions"
+                  />
                 </div>
-                <PageDoneTable
-                  pageId={page.id}
-                  initialItems={(donePropositions ?? []) as { id: string; title: string; created_at: string | null }[]}
-                />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <div className="px-4 pb-3">
-                  <div className="flex w-full flex-wrap gap-2">
-                    <PagePropositionSearch
-                      slug={slug}
-                      initialQuery={query}
-                      status={status}
-                      sort={sort}
-                      statusSort={statusSort === "none" ? null : statusSort}
-                      statusOrder={statusOrder ?? null}
-                      tab="propositions"
-                    />
-                  </div>
-                </div>
-                <PagePropositionsTable
-                  pageId={page.id}
-                  initialItems={sortedPropositions as { id: string; title: string | null; status: string | null; votes_count: number | null }[]}
-                  query={query}
-                  status={status}
-                  sort={sort}
-                  statusSort={statusSort}
-                  statusOrder={statusOrder}
-                />
-              </CardContent>
-            </Card>
-          )}
+              </div>
+              <PagePropositionsTable
+                pageId={page.id}
+                initialItems={sortedPropositions as { id: string; title: string | null; status: string | null; votes_count: number | null }[]}
+                query={query}
+                status={status}
+                sort={sort}
+                statusSort={statusSort}
+                statusOrder={statusOrder}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

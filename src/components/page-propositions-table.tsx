@@ -109,8 +109,8 @@ export function PagePropositionsTable({
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Proposition</th>
-                <th className="px-4 py-3 text-right font-medium">Statut</th>
-                <th className="px-4 py-3 text-right font-medium">Votes</th>
+                <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Statut</th>
+                <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Votes</th>
               </tr>
             </thead>
             <tbody>
@@ -141,8 +141,8 @@ export function PagePropositionsTable({
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Proposition</th>
-              <th className="px-4 py-3 text-right font-medium">Statut</th>
-              <th className="px-4 py-3 text-right font-medium">Votes</th>
+              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Statut</th>
+              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Votes</th>
             </tr>
           </thead>
           <tbody>
@@ -152,17 +152,23 @@ export function PagePropositionsTable({
                 className="border-t border-border transition-colors duration-150 hover:bg-muted/30"
               >
                 <td className="px-4 py-3">
-                  <Link
-                    href={`/propositions/${item.id}`}
-                    className="font-medium text-foreground hover:underline"
-                  >
-                    {item.title}
-                  </Link>
+                  <div className="space-y-1">
+                    <Link
+                      href={`/propositions/${item.id}`}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {item.title}
+                    </Link>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
+                      <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                      <span>{item.votes_count ?? 0} votes</span>
+                    </div>
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="hidden px-4 py-3 text-right md:table-cell">
                   <Badge variant="outline">{item.status ?? "Open"}</Badge>
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="hidden px-4 py-3 text-right md:table-cell">
                   <PageVoteToggle
                     propositionId={item.id}
                     initialVotes={item.votes_count ?? 0}

@@ -83,7 +83,7 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
         type="button"
         onClick={toggleVote}
         disabled={loading}
-        className="inline-flex items-center rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors transition-transform duration-150 hover:bg-accent active:scale-[0.98] disabled:opacity-50"
+        className="inline-flex items-center justify-center rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors transition-transform duration-150 hover:bg-accent active:scale-[0.98] disabled:opacity-50 w-16"
       >
         {hasVoted ? "✓" : "Voter"}
       </button>

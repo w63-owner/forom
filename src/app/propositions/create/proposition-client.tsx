@@ -602,12 +602,17 @@ export default function CreatePropositionClient({
                 <p className="text-sm text-destructive">{submitError}</p>
               )}
               <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-between">
-                <Button variant="ghost" onClick={() => router.push("/")}>
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push("/")}
+                  className="order-2 sm:order-1"
+                >
                   Retour
                 </Button>
                 <Button
                   size="lg"
                   onClick={handleSubmit}
+                  className="order-1 sm:order-2"
                   disabled={
                     submitLoading ||
                     !trimmedTitle ||

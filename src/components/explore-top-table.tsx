@@ -205,9 +205,9 @@ import { useEffect, useMemo, useState } from "react"
             <thead className="bg-muted/50 text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Proposition</th>
-                <th className="px-4 py-3 text-left font-medium">Page</th>
-                <th className="px-4 py-3 text-left font-medium">Statut</th>
-                <th className="px-4 py-3 text-right font-medium">Votes</th>
+                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Page</th>
+                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Statut</th>
+                <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Votes</th>
               </tr>
             </thead>
             <tbody>
@@ -241,9 +241,9 @@ import { useEffect, useMemo, useState } from "react"
           <thead className="bg-muted/50 text-muted-foreground">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Proposition</th>
-              <th className="px-4 py-3 text-left font-medium">Page</th>
-              <th className="px-4 py-3 text-left font-medium">Statut</th>
-              <th className="px-4 py-3 text-right font-medium">Votes</th>
+              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Page</th>
+              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Statut</th>
+              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Votes</th>
             </tr>
           </thead>
           <tbody>
@@ -252,14 +252,27 @@ import { useEffect, useMemo, useState } from "react"
               return (
                 <tr key={item.id} className="border-t border-border">
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/propositions/${item.id}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {item.title}
-                    </Link>
+                    <div className="space-y-1">
+                      <Link
+                        href={`/propositions/${item.id}`}
+                        className="font-medium text-foreground hover:underline"
+                      >
+                        {item.title}
+                      </Link>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
+                        {page?.name && page.slug ? (
+                          <Badge variant="outline" asChild>
+                            <Link href={`/pages/${page.slug}`}>{page.name}</Link>
+                          </Badge>
+                        ) : (
+                          <span>—</span>
+                        )}
+                        <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                        <span>{item.votes_count ?? 0} votes</span>
+                      </div>
+                    </div>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="hidden px-4 py-3 md:table-cell">
                     {page?.name && page.slug ? (
                       <Badge variant="outline" asChild>
                         <Link href={`/pages/${page.slug}`}>{page.name}</Link>
@@ -268,10 +281,10 @@ import { useEffect, useMemo, useState } from "react"
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="hidden px-4 py-3 md:table-cell">
                     <Badge variant="outline">{item.status ?? "Open"}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-right font-medium text-foreground">
+                  <td className="hidden px-4 py-3 text-right font-medium text-foreground md:table-cell">
                     {item.votes_count ?? 0}
                   </td>
                 </tr>
