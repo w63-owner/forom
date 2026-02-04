@@ -52,10 +52,9 @@ export default async function ExplorePage({ searchParams }: Props) {
   const params = (await searchParams) ?? {}
   const query = params.q?.trim() ?? ""
   const sort = params.sort === "recent" ? "recent" : "votes"
+  const statusParam = params.status?.trim()
   const statusValues =
-    params.status && params.status !== "all"
-      ? params.status.split(",").filter((value) => value && value !== "all")
-      : []
+    statusParam && statusParam !== "all" ? [statusParam] : []
   const range = params.range ?? "all"
   const order = params.order === "asc" ? "asc" : "desc"
   const titleSort = params.titleSort === "title" ? "title" : "none"
@@ -176,7 +175,7 @@ export default async function ExplorePage({ searchParams }: Props) {
             <CardContent className="space-y-4">
               <ExploreFilters
                 initialQuery={query}
-                initialStatus={statusValues}
+                initialStatusValue={statusParam ?? "all"}
                 initialSort={sort}
                 initialRange={range}
                 initialOrder={order}

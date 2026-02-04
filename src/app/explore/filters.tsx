@@ -4,10 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import debounce from "lodash/debounce"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 type Props = {
   initialQuery: string
-  initialStatus: string[]
+  initialStatusValue: string
   initialSort: string
   initialRange: string
   initialOrder: string
@@ -16,9 +23,17 @@ type Props = {
   initialStatusOrder: string
 }
 
+const STATUS_OPTIONS = [
+  { value: "all", label: "Tous les statuts" },
+  { value: "Open", label: "Ouvert" },
+  { value: "In Progress", label: "En cours" },
+  { value: "Done", label: "Terminé" },
+  { value: "Won't Do", label: "Ne sera pas fait" },
+]
+
 export default function ExploreFilters({
   initialQuery,
-  initialStatus,
+  initialStatusValue,
   initialSort,
   initialRange,
   initialOrder,
@@ -30,44 +45,16 @@ export default function ExploreFilters({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [query, setQuery] = useState(initialQuery)
-  const [status, setStatus] = useState<string[]>(initialStatus)
-  const [sort, setSort] = useState(initialSort)
-  const [range, setRange] = useState(initialRange)
-  const [order, setOrder] = useState(initialOrder)
-  const [pageSort, setPageSort] = useState(initialPageSort)
-  const [pageOrder, setPageOrder] = useState(initialPageOrder)
-  const [statusOrder, setStatusOrder] = useState(initialStatusOrder)
+  const [statusValue, setStatusValue] = useState(initialStatusValue)
   const prevInitialQueryRef = useRef(initialQuery)
-  const expectedStatusRef = useRef<string[] | null>(null)
 
   useEffect(() => {
     if (initialQuery !== prevInitialQueryRef.current) {
       prevInitialQueryRef.current = initialQuery
       setQuery(initialQuery)
     }
-    if (
-      expectedStatusRef.current === null ||
-      JSON.stringify(initialStatus) === JSON.stringify(expectedStatusRef.current)
-    ) {
-      setStatus(initialStatus)
-      expectedStatusRef.current = null
-    }
-    setSort(initialSort)
-    setRange(initialRange)
-    setOrder(initialOrder)
-    setPageSort(initialPageSort)
-    setPageOrder(initialPageOrder)
-    setStatusOrder(initialStatusOrder)
-  }, [
-    initialOrder,
-    initialPageOrder,
-    initialPageSort,
-    initialQuery,
-    initialRange,
-    initialSort,
-    initialStatus,
-    initialStatusOrder,
-  ])
+    setStatusValue(initialStatusValue)
+  }, [initialQuery, initialStatusValue])
 
   const updateUrl = (next: {
     q?: string
@@ -136,56 +123,37 @@ export default function ExploreFilters({
     return () => debouncedQueryUpdate.cancel()
   }, [debouncedQueryUpdate, query])
 
-  const statusOptions = [
-    { value: "Open", label: "Ouvert" },
-    { value: "In Progress", label: "En cours" },
-    { value: "Done", label: "Terminé" },
-    { value: "Won't Do", label: "Ne sera pas fait" },
-  ]
+  const handleStatusChange = (value: string) => {
+    setStatusValue(value)
+    updateUrl({ status: value === "all" ? "" : value })
+  }
 
   return (
-    <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-      <Input
-        name="q"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Chercher une proposition"
-        className="h-10 flex-1 sm:min-w-0 sm:max-w-md"
-      />
-      <div className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="status" value={status.join(",")} />
-        {statusOptions.map((option) => {
-          const checked = status.includes(option.value)
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="checkbox"
-              aria-checked={checked}
-              onClick={() => {
-                const nextStatus = checked
-                  ? status.filter((value) => value !== option.value)
-                  : [...status, option.value]
-                expectedStatusRef.current = nextStatus
-                setStatus(nextStatus)
-                updateUrl({
-                  status: nextStatus.length ? nextStatus.join(",") : "",
-                })
-              }}
-              className={`inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
-                checked
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              {option.label}
-            </button>
-          )
-        })}
+    <div className="flex flex-col gap-3 px-4 pb-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex w-full flex-wrap gap-2">
+        <Input
+          name="q"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Chercher une proposition"
+          className="h-10 w-full md:max-w-sm"
+        />
+        <Select value={statusValue} onValueChange={handleStatusChange}>
+          <SelectTrigger className="h-10 w-full md:w-48">
+            <SelectValue placeholder="Statut" />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
-      <input type="hidden" name="sort" value={sort} />
-      <input type="hidden" name="order" value={order} />
-      <input type="hidden" name="range" value={range} />
+      <input type="hidden" name="sort" value={initialSort} />
+      <input type="hidden" name="order" value={initialOrder} />
+      <input type="hidden" name="range" value={initialRange} />
     </div>
   )
 }

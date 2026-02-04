@@ -203,7 +203,7 @@ import { useEffect, useMemo, useState } from "react"
       <div className="space-y-3">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-muted-foreground">
+            <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Proposition</th>
                 <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Page</th>
@@ -239,7 +239,7 @@ import { useEffect, useMemo, useState } from "react"
     <div className="space-y-3">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/50 text-muted-foreground">
+          <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Proposition</th>
               <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Page</th>
@@ -271,7 +271,7 @@ import { useEffect, useMemo, useState } from "react"
                         <div className="flex h-7 items-center">
                           <Badge variant="outline">{item.status ?? "Open"}</Badge>
                         </div>
-                        <div className="ml-auto flex h-7 shrink-0 items-center [&_button]:h-7 [&_button]:py-0.5">
+                        <div className="ml-auto flex h-7 shrink-0 items-center [&_span]:text-xs [&_button]:h-7 [&_button]:py-0.5">
                           <PageVoteToggle
                             propositionId={item.id}
                             initialVotes={item.votes_count ?? 0}
