@@ -140,7 +140,13 @@ export function CreatePageClient() {
 
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
-      <div className="mx-auto w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-3xl space-y-3">
+        <a
+          href="/"
+          className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Retour
+        </a>
         <Card>
           <CardHeader>
             <CardTitle>Créer une page</CardTitle>
@@ -193,10 +199,7 @@ export function CreatePageClient() {
             {successMessage && (
               <p className="text-sm text-muted-foreground">{successMessage}</p>
             )}
-            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-between">
-              <Button variant="ghost" onClick={() => router.push("/")}>
-                Retour
-              </Button>
+            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
               <Button onClick={handleSubmit} disabled={loading || !name.trim()}>
                 {loading ? "Création..." : "Créer la page"}
               </Button>

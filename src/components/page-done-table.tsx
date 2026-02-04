@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useState } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseClient } from "@/utils/supabase/client"
@@ -20,30 +20,6 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
   const [items, setItems] = useState<DoneItem[]>(initialItems)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= 20)
-  const sentinelRef = useRef<HTMLTableRowElement | null>(null)
-
-  useEffect(() => {
-    if (!hasMore) return
-    if (!sentinelRef.current) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries
-        if (entry.isIntersecting && !loadingMore) {
-          void loadMore()
-        }
-      },
-      {
-        root: null,
-        rootMargin: "200px",
-        threshold: 0.1,
-      }
-    )
-
-    observer.observe(sentinelRef.current)
-    return () => observer.disconnect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasMore, loadingMore, items.length])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return
@@ -57,7 +33,7 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
       .eq("page_id", pageId)
       .eq("status", "Done")
       .order("created_at", { ascending: false })
-      .range(items.length, items.length + 9)
+      .range(items.length, items.length + 19)
 
     if (error) {
       setLoadingMore(false)
@@ -72,7 +48,7 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
     }
 
     setItems((prev) => [...prev, ...newItems])
-    if (newItems.length < 10) {
+    if (newItems.length < 20) {
       setHasMore(false)
     }
     setLoadingMore(false)
@@ -105,8 +81,9 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="space-y-3">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
         <thead className="bg-muted/50 text-muted-foreground">
           <tr>
             <th className="px-4 py-3 text-left font-medium">Proposition</th>
@@ -138,18 +115,21 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
               </td>
             </tr>
           ))}
-          {hasMore && (
-            <tr ref={sentinelRef}>
-              <td
-                colSpan={3}
-                className="px-4 py-3 text-center text-xs text-muted-foreground"
-              >
-                {loadingMore ? "Chargement..." : "Faites défiler pour voir plus"}
-              </td>
-            </tr>
-          )}
         </tbody>
-      </table>
+        </table>
+      </div>
+      {hasMore && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+          >
+            {loadingMore ? "Chargement..." : "Voir plus"}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -7,6 +7,7 @@ import { PageOwnerMenu } from "@/components/page-owner-menu"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
 import { PageDoneTable } from "@/components/page-done-table"
+import { PagePropositionsTable } from "@/components/page-propositions-table"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 type Props = {
@@ -77,7 +78,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     propositionQuery.order("votes_count", { ascending: false })
   }
 
-  const { data: propositions } = await propositionQuery
+  const { data: propositions } = await propositionQuery.limit(20)
   const sortedPropositions = [...(propositions ?? [])].sort((a, b) => {
     if (statusSort === "status") {
       const statusA = a.status ?? "Open"
@@ -270,94 +271,15 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     />
                   </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                  <thead className="bg-muted/50 text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium">
-                        Proposition
-                      </th>
-                      <th className="px-4 py-3 text-right font-medium">
-                        <Link
-                          href={`/pages/${slug}?${new URLSearchParams({
-                            ...(query ? { q: query } : {}),
-                            ...(status ? { status } : {}),
-                            sort,
-                            statusSort: "status",
-                            statusOrder: statusOrder === "asc" ? "desc" : "asc",
-                            tab: "propositions",
-                          }).toString()}`}
-                          className="inline-flex items-center gap-1 hover:underline"
-                        >
-                          Statut
-                          <span aria-hidden="true">
-                            {statusOrder === "asc" ? "▲" : "▼"}
-                          </span>
-                        </Link>
-                      </th>
-                      <th className="px-4 py-3 text-right font-medium">
-                        <Link
-                          href={`/pages/${slug}?${new URLSearchParams({
-                            ...(query ? { q: query } : {}),
-                            ...(status ? { status } : {}),
-                            sort: sort === "top" ? "recent" : "top",
-                            ...(statusSort ? { statusSort } : {}),
-                            ...(statusOrder ? { statusOrder } : {}),
-                            tab: "propositions",
-                          }).toString()}`}
-                          className="inline-flex items-center gap-1 hover:underline"
-                        >
-                          Votes
-                          <span aria-hidden="true">
-                            {sort === "top" ? "▲" : "↕"}
-                          </span>
-                        </Link>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedPropositions.map((item) => (
-                      <tr key={item.id} className="border-t border-border transition-colors duration-150 hover:bg-muted/30">
-                        <td className="px-4 py-3">
-                          <Link
-                            href={`/propositions/${item.id}`}
-                            className="font-medium text-foreground hover:underline"
-                          >
-                            {item.title}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <Badge variant="outline">{item.status ?? "Open"}</Badge>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <PageVoteToggle
-                            propositionId={item.id}
-                            initialVotes={item.votes_count ?? 0}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {sortedPropositions.length === 0 && (
-                      <tr>
-                        <td
-                          colSpan={3}
-                          className="px-4 py-6 text-center"
-                        >
-                          <Link
-                            href={`/propositions/create?${new URLSearchParams({
-                              ...(query ? { title: query } : {}),
-                              page: slug,
-                            }).toString()}`}
-                            className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                          >
-                            + Ajouter une proposition
-                          </Link>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  </table>
-                </div>
+                <PagePropositionsTable
+                  pageId={page.id}
+                  initialItems={sortedPropositions as { id: string; title: string | null; status: string | null; votes_count: number | null }[]}
+                  query={query}
+                  status={status}
+                  sort={sort}
+                  statusSort={statusSort}
+                  statusOrder={statusOrder}
+                />
               </CardContent>
             </Card>
           )}

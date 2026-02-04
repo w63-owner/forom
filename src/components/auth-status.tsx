@@ -4,11 +4,13 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
+import { useToast } from "@/components/ui/toast"
 import { getSupabaseClient } from "@/utils/supabase/client"
 
 export function AuthStatus() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const { showToast } = useToast()
 
   useEffect(() => {
     const supabase = getSupabaseClient()
@@ -36,6 +38,11 @@ export function AuthStatus() {
     const supabase = getSupabaseClient()
     if (!supabase) return
     await supabase.auth.signOut()
+    showToast({
+      variant: "info",
+      title: "Déconnecté",
+      description: "Vous êtes maintenant déconnecté.",
+    })
     router.refresh()
   }
 
@@ -49,7 +56,7 @@ export function AuthStatus() {
 
   if (!isAuthenticated) {
     return (
-      <Button asChild size="sm" variant="outline">
+      <Button asChild size="sm" variant="outline" className="link-nav">
         <Link href="/login">Se connecter</Link>
       </Button>
     )
@@ -57,10 +64,10 @@ export function AuthStatus() {
 
   return (
     <div className="flex items-center gap-2">
-      <Button asChild size="sm" variant="ghost">
+      <Button asChild size="sm" variant="ghost" className="link-nav">
         <Link href="/profile">Profil</Link>
       </Button>
-      <Button size="sm" variant="ghost" onClick={handleSignOut}>
+      <Button size="sm" variant="ghost" onClick={handleSignOut} className="link-nav">
         Se déconnecter
       </Button>
     </div>

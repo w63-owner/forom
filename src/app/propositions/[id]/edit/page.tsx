@@ -23,7 +23,7 @@ export default async function PropositionEditPage({ params }: Props) {
 
   const { data, error } = await supabase
     .from("propositions")
-    .select("id, title, description, author_id, page_id, notify_comments, notify_volunteers, notify_solutions")
+    .select("id, title, description, author_id, page_id, notify_comments, notify_volunteers, notify_solutions, image_urls")
     .eq("id", id)
     .single()
 
@@ -52,6 +52,7 @@ export default async function PropositionEditPage({ params }: Props) {
       initialNotifyComments={data.notify_comments ?? true}
       initialNotifyVolunteers={data.notify_volunteers ?? true}
       initialNotifySolutions={data.notify_solutions ?? true}
+      initialImageUrls={(data.image_urls as { url: string; caption?: string }[] | null) ?? []}
     />
   )
 }

@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import debounce from "lodash/debounce"
+import { ImageIcon, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -34,6 +35,7 @@ type Props = {
   initialNotifyComments: boolean
   initialNotifyVolunteers: boolean
   initialNotifySolutions: boolean
+  initialImageUrls: { url: string; caption?: string }[]
 }
 
 export default function PropositionEditClient({
@@ -44,6 +46,7 @@ export default function PropositionEditClient({
   initialNotifyComments,
   initialNotifyVolunteers,
   initialNotifySolutions,
+  initialImageUrls,
 }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(initialTitle)
@@ -57,10 +60,76 @@ export default function PropositionEditClient({
   const [notifyComments, setNotifyComments] = useState(initialNotifyComments)
   const [notifyVolunteers, setNotifyVolunteers] = useState(initialNotifyVolunteers)
   const [notifySolutions, setNotifySolutions] = useState(initialNotifySolutions)
+  const [existingImages, setExistingImages] = useState<
+    { url: string; caption?: string }[]
+  >(initialImageUrls)
+  const [imageFiles, setImageFiles] = useState<(File | null)[]>([
+    null,
+    null,
+    null,
+    null,
+    null,
+  ])
+  const [previewUrls, setPreviewUrls] = useState<(string | null)[]>([
+    null,
+    null,
+    null,
+    null,
+    null,
+  ])
+  const previewUrlsRef = useRef<(string | null)[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const trimmedTitle = title.trim()
+
+  useEffect(() => {
+    previewUrlsRef.current = previewUrls
+    return () => {
+      previewUrlsRef.current.forEach((url) => {
+        if (url) URL.revokeObjectURL(url)
+      })
+    }
+  }, [previewUrls])
+
+  const handleImageChange = (index: number, event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    const ext = file.name.split(".").pop()?.toLowerCase()
+    if (!["png", "jpg", "jpeg"].includes(ext ?? "")) {
+      return
+    }
+    setPreviewUrls((prev) => {
+      const next = [...prev]
+      if (next[index]) URL.revokeObjectURL(next[index]!)
+      next[index] = URL.createObjectURL(file)
+      return next
+    })
+    setImageFiles((prev) => {
+      const next = [...prev]
+      next[index] = file
+      return next
+    })
+    event.target.value = ""
+  }
+
+  const handleImageRemove = (index: number) => {
+    setPreviewUrls((prev) => {
+      const next = [...prev]
+      if (next[index]) URL.revokeObjectURL(next[index]!)
+      next[index] = null
+      return next
+    })
+    setImageFiles((prev) => {
+      const next = [...prev]
+      next[index] = null
+      return next
+    })
+  }
+
+  const handleExistingImageRemove = (index: number) => {
+    setExistingImages((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const debouncedPageSearch = useMemo(
     () =>
@@ -125,6 +194,50 @@ export default function PropositionEditClient({
     }
 
     const descriptionText = stripHtml(description)
+    const imageUrls: { url: string; caption?: string }[] = [...existingImages]
+    const hasNewImages = imageFiles.some(Boolean)
+    if (hasNewImages) {
+      const ensureRes = await fetch("/api/ensure-storage-bucket", {
+        method: "POST",
+      })
+      if (!ensureRes.ok) {
+        const body = await ensureRes.json().catch(() => ({}))
+        setError(
+          body?.error ??
+            "Impossible de préparer le stockage des images. Créez le bucket « proposition-images » dans Supabase (Storage → New bucket, public)."
+        )
+        setLoading(false)
+        return
+      }
+    }
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i]
+      if (!file) continue
+      const ext = file.name.split(".").pop() ?? "jpg"
+      const path = `${propositionId}/${Date.now()}-${i}.${ext}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from("proposition-images")
+        .upload(path, file, {
+          contentType: file.type,
+          upsert: false,
+        })
+      if (uploadError) {
+        const isBucketMissing = uploadError.message
+          ?.toLowerCase()
+          .includes("bucket not found")
+        setError(
+          isBucketMissing
+            ? "Le bucket de stockage « proposition-images » n'existe pas. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local pour le créer automatiquement, ou créez-le dans Supabase : Storage → New bucket → nom « proposition-images », public."
+            : uploadError.message
+        )
+        setLoading(false)
+        return
+      }
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("proposition-images").getPublicUrl(uploadData.path)
+      imageUrls.push({ url: publicUrl })
+    }
     const { error: updateError } = await supabase
       .from("propositions")
       .update({
@@ -134,6 +247,7 @@ export default function PropositionEditClient({
         notify_comments: notifyComments,
         notify_volunteers: notifyVolunteers,
         notify_solutions: notifySolutions,
+        image_urls: imageUrls,
       })
       .eq("id", propositionId)
 
@@ -176,6 +290,69 @@ export default function PropositionEditClient({
               onChange={setDescription}
               placeholder="Décrivez votre proposition"
             />
+            {existingImages.length > 0 && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {existingImages.map((item, index) => (
+                    <div
+                      key={`${item.url}-${index}`}
+                      className="relative overflow-hidden rounded-lg border border-border bg-muted/30"
+                    >
+                      <img
+                        src={item.url}
+                        alt={item.caption ?? `Image ${index + 1}`}
+                        className="h-24 w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleExistingImageRemove(index)}
+                        className="absolute right-1 top-1 rounded-full bg-background/80 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
+                        aria-label="Supprimer l'image"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={`image-slot-${index}`}
+                  className="relative flex min-w-[80px] flex-1"
+                >
+                  {imageFiles[index] && previewUrls[index] ? (
+                    <div className="relative flex min-h-[64px] min-w-[80px] flex-1 overflow-hidden rounded-md border border-input bg-muted/30">
+                      <img
+                        src={previewUrls[index]!}
+                        alt=""
+                        className="h-full min-h-[64px] w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleImageRemove(index)}
+                        className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
+                        aria-label="Supprimer l'image"
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex min-h-[64px] min-w-[80px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-input bg-muted/30 px-2 py-3 text-center text-xs text-muted-foreground hover:bg-muted/50">
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                        className="sr-only"
+                        onChange={(e) => handleImageChange(index, e)}
+                      />
+                      <ImageIcon className="size-5 shrink-0" />
+                      <span>Image {index + 1} (PNG, JPG)</span>
+                    </label>
+                  )}
+                </div>
+              ))}
+            </div>
             <div className="space-y-2 text-sm">
               <p className="font-medium text-foreground">
                 Je souhaite recevoir un e-mail lorsque :

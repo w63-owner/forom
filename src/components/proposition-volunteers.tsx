@@ -129,7 +129,7 @@ export function PropositionVolunteersProvider({
     showToast({
       variant: "success",
       title: "Vous êtes volontaire",
-      description: "L’auteur sera notifié si la proposition est orpheline.",
+      description: "L'auteur sera notifié que vous souhaitez contribuer à sa proposition.",
     })
     setJoining(false)
   }, [propositionId, isOrphan, currentUserId, volunteers, showToast])

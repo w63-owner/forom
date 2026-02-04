@@ -219,15 +219,14 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-6 py-16">
       <div className="flex w-full max-w-md flex-col gap-3">
-        <Button
-          size="sm"
-          variant="ghost"
-          className="w-fit"
-          onClick={() => {
+        <a
+          href="/"
+          className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          onClick={(event) => {
             if (step === "email") {
-              router.push("/")
               return
             }
+            event.preventDefault()
             setStep("email")
             setPassword("")
             setError(null)
@@ -235,7 +234,7 @@ function LoginForm() {
           }}
         >
           ← Retour
-        </Button>
+        </a>
         <Card className="w-full">
           <CardHeader className="space-y-2">
           <CardTitle>
