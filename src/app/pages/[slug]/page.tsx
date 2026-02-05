@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageSubscribeButton } from "@/components/page-subscribe-button"
 import { PageOwnerMenu } from "@/components/page-owner-menu"
-import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
 import { PagePropositionsTable } from "@/components/page-propositions-table"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
@@ -39,7 +38,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
               <CardTitle>Supabase non configuré</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground">
-              Configurez les variables d'environnement Supabase.
+              Configurez les variables d&apos;environnement Supabase.
             </CardContent>
           </Card>
         </div>
@@ -157,7 +156,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   )}
                 </div>
                 {page.description && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-[#333D42]">
                     {page.description}
                   </p>
                 )}
@@ -206,7 +205,13 @@ export default async function PageDashboard({ params, searchParams }: Props) {
               </div>
               <PagePropositionsTable
                 pageId={page.id}
-                initialItems={sortedPropositions as { id: string; title: string | null; status: string | null; votes_count: number | null }[]}
+                pageName={page.name}
+                initialItems={sortedPropositions as {
+                  id: string
+                  title: string | null
+                  status: string | null
+                  votes_count: number | null
+                }[]}
                 query={query}
                 status={status}
                 sort={sort}

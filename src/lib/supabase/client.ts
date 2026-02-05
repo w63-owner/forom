@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { createBrowserClient } from "@supabase/ssr"
+import type { SupabaseClient } from "@supabase/supabase-js"
 
 let cachedClient: SupabaseClient | null | undefined
 
@@ -15,6 +16,10 @@ export const getSupabaseClient = (): SupabaseClient | null => {
     return cachedClient
   }
 
-  cachedClient = createClient(url, anonKey)
+  cachedClient = createBrowserClient(url, anonKey, {
+    auth: {
+      lock: async (_name, _acquireTimeout, fn) => await fn(),
+    },
+  })
   return cachedClient
 }

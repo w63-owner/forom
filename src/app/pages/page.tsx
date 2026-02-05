@@ -14,7 +14,7 @@ export default async function PagesIndex() {
               <CardTitle>Supabase non configuré</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground">
-              Configurez les variables d'environnement Supabase.
+              Configurez les variables d&apos;environnement Supabase.
             </CardContent>
           </Card>
         </div>

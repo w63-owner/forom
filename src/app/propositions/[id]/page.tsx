@@ -39,7 +39,7 @@ export default async function PropositionDetails({ params }: Props) {
               <CardTitle>Supabase non configuré</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground">
-              Configurez les variables d'environnement Supabase.
+              Configurez les variables d&apos;environnement Supabase.
             </CardContent>
           </Card>
         </div>
@@ -79,7 +79,7 @@ export default async function PropositionDetails({ params }: Props) {
               <CardTitle>Proposition introuvable</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Aucun résultat pour l'identifiant {id}.
+              Aucun résultat pour l&apos;identifiant {id}.
             </CardContent>
           </Card>
         </div>
@@ -176,19 +176,19 @@ export default async function PropositionDetails({ params }: Props) {
               <PropositionVoteBar
                 propositionId={data.id}
                 initialVotes={data.votes_count ?? 0}
-                initialStatus={data.status ?? "Open"}
                 propositionPageId={data.page_id}
-                pageOwnerId={pageData?.owner_id ?? null}
               />
             </CardHeader>
-            <CardContent className="text-muted-foreground space-y-4">
+            <CardContent className="space-y-4">
               {data.description?.replace(/<[^>]*>/g, "").trim() ? (
                 <div
-                  className="prose prose-sm max-w-none text-muted-foreground dark:prose-invert"
+                  className="prose prose-sm max-w-none text-[#333D42] dark:prose-invert"
                   dangerouslySetInnerHTML={{ __html: data.description ?? "" }}
                 />
               ) : (
-                "Aucune description fournie pour l'instant."
+                <p className="text-sm text-muted-foreground">
+                  Aucune description fournie pour l&apos;instant.
+                </p>
               )}
               {(() => {
                 const imageUrls = data.image_urls as { url: string; caption?: string }[] | null
@@ -205,6 +205,7 @@ export default async function PropositionDetails({ params }: Props) {
                             rel="noopener noreferrer"
                             className="block aspect-video w-full"
                           >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={item.url}
                               alt={item.caption ?? `Image ${index + 1}`}
@@ -228,10 +229,6 @@ export default async function PropositionDetails({ params }: Props) {
         <PropositionDetailClient
           propositionId={data.id}
           propositionAuthorId={data.author_id}
-          propositionPageId={data.page_id}
-          pageOwnerId={pageData?.owner_id ?? null}
-          initialVotes={data.votes_count ?? 0}
-          initialStatus={data.status ?? "Open"}
         />
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ThumbsDown, ThumbsUp } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -12,10 +12,6 @@ import { getSupabaseClient } from "@/utils/supabase/client"
 type Props = {
   propositionId: string
   propositionAuthorId: string | null
-  propositionPageId: string | null
-  pageOwnerId: string | null
-  initialVotes: number
-  initialStatus: string
 }
 
 type CommentItem = {
@@ -212,10 +208,6 @@ function CommentBlock({
 export default function PropositionDetailClient({
   propositionId,
   propositionAuthorId,
-  propositionPageId,
-  pageOwnerId,
-  initialVotes: _initialVotes,
-  initialStatus: _initialStatus,
 }: Props) {
   const router = useRouter()
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
@@ -259,8 +251,6 @@ export default function PropositionDetailClient({
   ): { username: string | null; email: string | null } | null =>
     (Array.isArray(users) ? users[0] : users) ?? null
 
-  const isOwner =
-    Boolean(currentUserId) && Boolean(pageOwnerId) && currentUserId === pageOwnerId
   const isAuthor =
     Boolean(currentUserId) &&
     Boolean(propositionAuthorId) &&
@@ -274,80 +264,98 @@ export default function PropositionDetailClient({
     })
   }, [])
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     const supabase = getSupabaseClient()
     if (!supabase) {
       setCommentsError("Supabase non configuré.")
+      setCommentsLoading(false)
       return
     }
     setCommentsLoading(true)
     setCommentsError(null)
-    const { data: rawComments, error: commentsError } = await supabase
-      .from("comments")
-      .select("id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email)")
-      .eq("proposition_id", propositionId)
-      .order("created_at", { ascending: false })
-    if (commentsError) {
-      setCommentsError(commentsError.message)
-      setComments([])
-      setCommentsLoading(false)
-      return
-    }
-    const list = (rawComments ?? []) as (CommentItem & { parent_id?: string | null })[]
-    const ids = list.map((c) => c.id)
-    const votesByComment = new Map<string, { count: number; userVote: "Upvote" | "Downvote" | null }>()
-    for (const id of ids) {
-      votesByComment.set(id, { count: 0, userVote: null })
-    }
-    if (ids.length > 0) {
-      const { data: allVotes } = await supabase
-        .from("comment_votes")
-        .select("comment_id, type")
-        .in("comment_id", ids)
-      for (const row of allVotes ?? []) {
-        const cur = votesByComment.get(row.comment_id)
-        if (cur) cur.count += row.type === "Upvote" ? 1 : -1
+    try {
+      const { data: rawComments, error: commentsError } = await supabase
+        .from("comments")
+        .select(
+          "id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email)"
+        )
+        .eq("proposition_id", propositionId)
+        .order("created_at", { ascending: false })
+      if (commentsError) {
+        setCommentsError(commentsError.message)
+        setComments([])
+        return
       }
-      if (currentUserId) {
-        const { data: userVotes } = await supabase
+      const list = (rawComments ?? []) as (CommentItem & {
+        parent_id?: string | null
+      })[]
+      const ids = list.map((c) => c.id)
+      const votesByComment = new Map<
+        string,
+        { count: number; userVote: "Upvote" | "Downvote" | null }
+      >()
+      for (const id of ids) {
+        votesByComment.set(id, { count: 0, userVote: null })
+      }
+      if (ids.length > 0) {
+        const { data: allVotes } = await supabase
           .from("comment_votes")
           .select("comment_id, type")
-          .eq("user_id", currentUserId)
           .in("comment_id", ids)
-        for (const row of userVotes ?? []) {
+        for (const row of allVotes ?? []) {
           const cur = votesByComment.get(row.comment_id)
-          if (cur) cur.userVote = row.type as "Upvote" | "Downvote"
+          if (cur) cur.count += row.type === "Upvote" ? 1 : -1
+        }
+        if (currentUserId) {
+          const { data: userVotes } = await supabase
+            .from("comment_votes")
+            .select("comment_id, type")
+            .eq("user_id", currentUserId)
+            .in("comment_id", ids)
+          for (const row of userVotes ?? []) {
+            const cur = votesByComment.get(row.comment_id)
+            if (cur) cur.userVote = row.type as "Upvote" | "Downvote"
+          }
         }
       }
+      const withVotes = list.map((c) => ({
+        ...c,
+        votesCount: votesByComment.get(c.id)?.count ?? 0,
+        currentUserVote: votesByComment.get(c.id)?.userVote ?? null,
+      }))
+      const buildTree = (
+        items: CommentItem[],
+        parentId: string | null
+      ): CommentItem[] =>
+        items
+          .filter((c) => (c.parent_id ?? null) === parentId)
+          .sort((a, b) => {
+            const timeA = new Date(a.created_at).getTime()
+            const timeB = new Date(b.created_at).getTime()
+            return timeA - timeB
+          })
+          .map((c) => ({
+            ...c,
+            replies: buildTree(items, c.id),
+          }))
+      const withReplies = buildTree(withVotes, null)
+      setComments(withReplies)
+    } catch (err) {
+      setCommentsError(
+        err instanceof Error ? err.message : "Erreur de chargement des commentaires."
+      )
+      setComments([])
+    } finally {
+      setCommentsLoading(false)
     }
-    const withVotes = list.map((c) => ({
-      ...c,
-      votesCount: votesByComment.get(c.id)?.count ?? 0,
-      currentUserVote: votesByComment.get(c.id)?.userVote ?? null,
-    }))
-    const buildTree = (
-      items: CommentItem[],
-      parentId: string | null
-    ): CommentItem[] =>
-      items
-        .filter((c) => (c.parent_id ?? null) === parentId)
-        .sort((a, b) => {
-          const timeA = new Date(a.created_at).getTime()
-          const timeB = new Date(b.created_at).getTime()
-          return timeA - timeB
-        })
-        .map((c) => ({
-          ...c,
-          replies: buildTree(items, c.id),
-        }))
-    const withReplies = buildTree(withVotes, null)
-    setComments(withReplies)
-    setCommentsLoading(false)
-  }
+  }, [currentUserId, propositionId])
 
   useEffect(() => {
-    fetchComments()
-  }, [propositionId, currentUserId])
+    const timeout = setTimeout(() => {
+      void fetchComments()
+    }, 0)
+    return () => clearTimeout(timeout)
+  }, [fetchComments])
 
   const handleSubmitComment = async () => {
     if (!commentValue.trim()) return

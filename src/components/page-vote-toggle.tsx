@@ -37,6 +37,7 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
   }, [propositionId])
 
   const toggleVote = async () => {
+    if (loading) return
     const supabase = getSupabaseClient()
     if (!supabase) return
     const { data: userData } = await supabase.auth.getUser()
@@ -46,11 +47,20 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
     }
     setLoading(true)
     if (hasVoted) {
-      await supabase
+      const { error } = await supabase
         .from("votes")
         .delete()
         .eq("proposition_id", propositionId)
         .eq("user_id", userData.user.id)
+      if (error) {
+        showToast({
+          variant: "error",
+          title: "Vote impossible",
+          description: error.message,
+        })
+        setLoading(false)
+        return
+      }
       setHasVoted(false)
       setVotes((prev) => Math.max(0, prev - 1))
       showToast({
@@ -58,7 +68,7 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
         title: "Vote retiré",
       })
     } else {
-      await supabase.from("votes").upsert(
+      const { error } = await supabase.from("votes").upsert(
         {
           user_id: userData.user.id,
           proposition_id: propositionId,
@@ -66,6 +76,15 @@ export function PageVoteToggle({ propositionId, initialVotes }: Props) {
         },
         { onConflict: "user_id,proposition_id" }
       )
+      if (error) {
+        showToast({
+          variant: "error",
+          title: "Vote impossible",
+          description: error.message,
+        })
+        setLoading(false)
+        return
+      }
       setHasVoted(true)
       setVotes((prev) => prev + 1)
       showToast({

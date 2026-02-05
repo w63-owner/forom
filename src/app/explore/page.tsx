@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExploreTopTable } from "@/components/explore-top-table"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
@@ -77,7 +76,7 @@ export default async function ExplorePage({ searchParams }: Props) {
               <CardTitle>Supabase non configuré</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground">
-              Configurez les variables d'environnement Supabase.
+              Configurez les variables d&apos;environnement Supabase.
             </CardContent>
           </Card>
         </div>
@@ -179,9 +178,6 @@ export default async function ExplorePage({ searchParams }: Props) {
                 initialSort={sort}
                 initialRange={range}
                 initialOrder={order}
-                initialPageSort={pageSort}
-                initialPageOrder={pageOrder}
-                initialStatusOrder={statusOrder}
               />
               <ExploreTopTable
                 initialItems={sortedTop as {

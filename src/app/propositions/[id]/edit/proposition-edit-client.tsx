@@ -166,10 +166,12 @@ export default function PropositionEditClient({
   useEffect(() => {
     if (linkChoice !== "existing") return
     if (!pageQuery.trim()) {
-      setPageResults([])
-      setPageError(null)
-      setPageLoading(false)
-      return
+      const timeout = setTimeout(() => {
+        setPageResults([])
+        setPageError(null)
+        setPageLoading(false)
+      }, 0)
+      return () => clearTimeout(timeout)
     }
     if (selectedPage && pageQuery === selectedPage.name) return
     debouncedPageSearch(pageQuery)
@@ -187,78 +189,79 @@ export default function PropositionEditClient({
 
     setLoading(true)
     setError(null)
-
-    if (linkChoice === "existing" && !selectedPage) {
-      setError("Sélectionnez une Page existante.")
-      return
-    }
-
-    const descriptionText = stripHtml(description)
-    const imageUrls: { url: string; caption?: string }[] = [...existingImages]
-    const hasNewImages = imageFiles.some(Boolean)
-    if (hasNewImages) {
-      const ensureRes = await fetch("/api/ensure-storage-bucket", {
-        method: "POST",
-      })
-      if (!ensureRes.ok) {
-        const body = await ensureRes.json().catch(() => ({}))
-        setError(
-          body?.error ??
-            "Impossible de préparer le stockage des images. Créez le bucket « proposition-images » dans Supabase (Storage → New bucket, public)."
-        )
-        setLoading(false)
+    try {
+      if (linkChoice === "existing" && !selectedPage) {
+        setError("Sélectionnez une Page existante.")
         return
       }
-    }
-    for (let i = 0; i < imageFiles.length; i++) {
-      const file = imageFiles[i]
-      if (!file) continue
-      const ext = file.name.split(".").pop() ?? "jpg"
-      const path = `${propositionId}/${Date.now()}-${i}.${ext}`
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("proposition-images")
-        .upload(path, file, {
-          contentType: file.type,
-          upsert: false,
+
+      const descriptionText = stripHtml(description)
+      const imageUrls: { url: string; caption?: string }[] = [...existingImages]
+      const hasNewImages = imageFiles.some(Boolean)
+      if (hasNewImages) {
+        const ensureRes = await fetch("/api/ensure-storage-bucket", {
+          method: "POST",
         })
-      if (uploadError) {
-        const isBucketMissing = uploadError.message
-          ?.toLowerCase()
-          .includes("bucket not found")
-        setError(
-          isBucketMissing
-            ? "Le bucket de stockage « proposition-images » n'existe pas. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local pour le créer automatiquement, ou créez-le dans Supabase : Storage → New bucket → nom « proposition-images », public."
-            : uploadError.message
-        )
-        setLoading(false)
+        if (!ensureRes.ok) {
+          const body = await ensureRes.json().catch(() => ({}))
+          setError(
+            body?.error ??
+              "Impossible de préparer le stockage des images. Créez le bucket « proposition-images » dans Supabase (Storage → New bucket, public)."
+          )
+          return
+        }
+      }
+      for (let i = 0; i < imageFiles.length; i++) {
+        const file = imageFiles[i]
+        if (!file) continue
+        const ext = file.name.split(".").pop() ?? "jpg"
+        const path = `${propositionId}/${Date.now()}-${i}.${ext}`
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("proposition-images")
+          .upload(path, file, {
+            contentType: file.type,
+            upsert: false,
+          })
+        if (uploadError) {
+          const isBucketMissing = uploadError.message
+            ?.toLowerCase()
+            .includes("bucket not found")
+          setError(
+            isBucketMissing
+              ? "Le bucket de stockage « proposition-images » n'existe pas. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local pour le créer automatiquement, ou créez-le dans Supabase : Storage → New bucket → nom « proposition-images », public."
+              : uploadError.message
+          )
+          return
+        }
+        const {
+          data: { publicUrl },
+        } = supabase.storage
+          .from("proposition-images")
+          .getPublicUrl(uploadData.path)
+        imageUrls.push({ url: publicUrl })
+      }
+      const { error: updateError } = await supabase
+        .from("propositions")
+        .update({
+          title: trimmedTitle,
+          description: descriptionText ? description : null,
+          page_id: selectedPage?.id ?? null,
+          notify_comments: notifyComments,
+          notify_volunteers: notifyVolunteers,
+          notify_solutions: notifySolutions,
+          image_urls: imageUrls,
+        })
+        .eq("id", propositionId)
+
+      if (updateError) {
+        setError(updateError.message)
         return
       }
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("proposition-images").getPublicUrl(uploadData.path)
-      imageUrls.push({ url: publicUrl })
+
+      router.push(`/propositions/${propositionId}`)
+    } finally {
+      setLoading(false)
     }
-    const { error: updateError } = await supabase
-      .from("propositions")
-      .update({
-        title: trimmedTitle,
-        description: descriptionText ? description : null,
-        page_id: selectedPage?.id ?? null,
-        notify_comments: notifyComments,
-        notify_volunteers: notifyVolunteers,
-        notify_solutions: notifySolutions,
-        image_urls: imageUrls,
-      })
-      .eq("id", propositionId)
-
-    setLoading(false)
-
-    if (updateError) {
-      setError(updateError.message)
-      return
-    }
-
-    router.push(`/propositions/${propositionId}`)
   }
 
   return (
@@ -298,6 +301,7 @@ export default function PropositionEditClient({
                       key={`${item.url}-${index}`}
                       className="relative overflow-hidden rounded-lg border border-border bg-muted/30"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.url}
                         alt={item.caption ?? `Image ${index + 1}`}
@@ -324,6 +328,7 @@ export default function PropositionEditClient({
                 >
                   {imageFiles[index] && previewUrls[index] ? (
                     <div className="relative flex min-h-[64px] min-w-[80px] flex-1 overflow-hidden rounded-md border border-input bg-muted/30">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={previewUrls[index]!}
                         alt=""

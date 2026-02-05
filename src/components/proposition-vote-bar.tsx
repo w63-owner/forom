@@ -10,24 +10,19 @@ import { useToast } from "@/components/ui/toast"
 type Props = {
   propositionId: string
   initialVotes: number
-  initialStatus: string
   propositionPageId: string | null
-  pageOwnerId: string | null
 }
 
 export function PropositionVoteBar({
   propositionId,
   initialVotes,
-  initialStatus: _initialStatus,
   propositionPageId,
-  pageOwnerId: _pageOwnerId,
 }: Props) {
   const router = useRouter()
   const [votes, setVotes] = useState(initialVotes)
   const [currentVote, setCurrentVote] = useState<"Upvote" | "Downvote" | null>(
     null
   )
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { showToast } = useToast()
@@ -69,7 +64,6 @@ export function PropositionVoteBar({
     if (!supabase) return
     supabase.auth.getUser().then(({ data: session }) => {
       const userId = session.user?.id ?? null
-      setCurrentUserId(userId)
       if (!userId) return
       supabase
         .from("votes")

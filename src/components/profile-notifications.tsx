@@ -2,19 +2,19 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/components/ui/toast"
 import { getSupabaseClient } from "@/utils/supabase/client"
 
 type PageSubscription = {
   page_id: string
-  page: { id: string; name: string; slug: string }
+  page: { id: string; name: string | null; slug: string | null }
 }
 
 type PropositionSubscription = {
   proposition_id: string
-  proposition: { id: string; title: string }
+  proposition: { id: string; title: string | null }
 }
 
 type Props = {
@@ -26,56 +26,102 @@ export function ProfileNotifications({
   pageSubscriptions,
   propositionSubscriptions,
 }: Props) {
-  const router = useRouter()
+  const { showToast } = useToast()
   const [removingPageId, setRemovingPageId] = useState<string | null>(null)
   const [removingPropositionId, setRemovingPropositionId] = useState<
     string | null
   >(null)
+  const [localPageSubscriptions, setLocalPageSubscriptions] =
+    useState<PageSubscription[]>(pageSubscriptions)
+  const [localPropositionSubscriptions, setLocalPropositionSubscriptions] =
+    useState<PropositionSubscription[]>(propositionSubscriptions)
 
   const handleUnsubscribePage = async (pageId: string) => {
     setRemovingPageId(pageId)
     const supabase = getSupabaseClient()
     if (!supabase) {
+      showToast({
+        variant: "error",
+        title: "Supabase non configuré",
+        description: "Impossible de retirer la page pour le moment.",
+      })
       setRemovingPageId(null)
       return
     }
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) {
+      showToast({
+        variant: "error",
+        title: "Connexion requise",
+        description: "Connectez-vous pour retirer cette page.",
+      })
       setRemovingPageId(null)
       return
     }
-    await supabase
+    const { error } = await supabase
       .from("page_subscriptions")
       .delete()
       .eq("page_id", pageId)
       .eq("user_id", userData.user.id)
+    if (error) {
+      showToast({
+        variant: "error",
+        title: "Impossible de retirer la page",
+        description: error.message,
+      })
+      setRemovingPageId(null)
+      return
+    }
+    setLocalPageSubscriptions((prev) =>
+      prev.filter((item) => item.page_id !== pageId)
+    )
     setRemovingPageId(null)
-    router.refresh()
   }
 
   const handleUnsubscribeProposition = async (propositionId: string) => {
     setRemovingPropositionId(propositionId)
     const supabase = getSupabaseClient()
     if (!supabase) {
+      showToast({
+        variant: "error",
+        title: "Supabase non configuré",
+        description: "Impossible de retirer la proposition pour le moment.",
+      })
       setRemovingPropositionId(null)
       return
     }
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) {
+      showToast({
+        variant: "error",
+        title: "Connexion requise",
+        description: "Connectez-vous pour retirer cette proposition.",
+      })
       setRemovingPropositionId(null)
       return
     }
-    await supabase
+    const { error } = await supabase
       .from("proposition_subscriptions")
       .delete()
       .eq("proposition_id", propositionId)
       .eq("user_id", userData.user.id)
+    if (error) {
+      showToast({
+        variant: "error",
+        title: "Impossible de retirer la proposition",
+        description: error.message,
+      })
+      setRemovingPropositionId(null)
+      return
+    }
+    setLocalPropositionSubscriptions((prev) =>
+      prev.filter((item) => item.proposition_id !== propositionId)
+    )
     setRemovingPropositionId(null)
-    router.refresh()
   }
 
   const totalCount =
-    pageSubscriptions.length + propositionSubscriptions.length
+    localPageSubscriptions.length + localPropositionSubscriptions.length
 
   if (totalCount === 0) {
     return (
@@ -85,7 +131,7 @@ export function ProfileNotifications({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Vous n'êtes abonné à aucune page ni aucune proposition. Vous serez
+            Vous n&apos;êtes abonné à aucune page ni aucune proposition. Vous serez
             notifié ici des pages et propositions pour lesquelles vous avez
             activé les notifications.
           </p>
@@ -104,21 +150,27 @@ export function ProfileNotifications({
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
-        {pageSubscriptions.length > 0 && (
+        {localPageSubscriptions.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Pages</h3>
             <ul className="space-y-2">
-              {pageSubscriptions.map(({ page_id, page }) => (
+              {localPageSubscriptions.map(({ page_id, page }) => (
                 <li
                   key={page_id}
                   className="flex items-center justify-between gap-3 text-sm"
                 >
-                  <Link
-                    href={`/pages/${page.slug}`}
-                    className="font-medium text-foreground hover:underline"
-                  >
-                    {page.name}
-                  </Link>
+                  {page.slug ? (
+                    <Link
+                      href={`/pages/${page.slug}`}
+                      className="font-medium text-foreground hover:underline"
+                    >
+                      {page.name ?? "Page"}
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-foreground">
+                      {page.name ?? "Page"}
+                    </span>
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
@@ -134,11 +186,11 @@ export function ProfileNotifications({
           </div>
         )}
 
-        {propositionSubscriptions.length > 0 && (
+        {localPropositionSubscriptions.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-foreground">Propositions</h3>
             <ul className="space-y-2">
-              {propositionSubscriptions.map(
+              {localPropositionSubscriptions.map(
                 ({ proposition_id, proposition }) => (
                   <li
                     key={proposition_id}
@@ -148,7 +200,7 @@ export function ProfileNotifications({
                       href={`/propositions/${proposition.id}`}
                       className="font-medium text-foreground hover:underline"
                     >
-                      {proposition.title}
+                      {proposition.title ?? "Proposition"}
                     </Link>
                     <Button
                       type="button"

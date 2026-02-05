@@ -52,37 +52,46 @@ export function Omnibar() {
 
   const placeholderSamples = useMemo(
     () => [
-      "UberEats : Proposer une option \"Commande groupée\"",
-      "Spotify : Créer un mode \"Sommeil\" qui baisse progressivement le volume de la musique sur les 15 dernières minutes.",
-      "LinkedIn : Ajouter un filtre \"Salaire affiché\" pour masquer les offres d'emploi qui ne mentionnent pas de fourchette de rémunération",
+      'UberEats : Proposer une option "Commande groupée"',
+      'Spotify : Créer un mode "Sommeil" qui baisse progressivement le volume de la musique sur les 15 dernières minutes.',
+      "LinkedIn : Ajouter un filtre 'Salaire affiché' pour masquer les offres d'emploi qui ne mentionnent pas de fourchette de rémunération",
       "Ouvrir le Metro 24H/24 à Paris",
       "SNCF : Indiquer les prix les moins chers par jour à l'ouverture du calendrier",
     ],
     []
   )
-  const randomPlaceholder = useMemo(
-    () =>
-      placeholderSamples[Math.floor(Math.random() * placeholderSamples.length)],
-    [placeholderSamples]
-  )
+  const randomPlaceholder = placeholderSamples[0] ?? ""
 
   const trimmedQuery = useMemo(() => query.trim(), [query])
 
-  const debouncedSearch = useMemo(
-    () =>
-      debounce(async (value: string) => {
-        const supabase = getSupabaseClient()
-        if (!supabase) {
-          setError("Supabase non configuré.")
-          setResults([])
-          setPageResults([])
-          setLoading(false)
-          return
-        }
+  const debouncedSearchRef = useRef<ReturnType<typeof debounce> | null>(null)
 
-        const currentRequest = (requestId.current += 1)
-        setLoading(true)
-        setError(null)
+  const handleQueryChange = (value: string) => {
+    setQuery(value)
+    if (!value.trim()) {
+      requestId.current += 1
+      setResults([])
+      setPageResults([])
+      setError(null)
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    debouncedSearchRef.current = debounce(async (value: string) => {
+      const supabase = getSupabaseClient()
+      if (!supabase) {
+        setError("Supabase non configuré.")
+        setResults([])
+        setPageResults([])
+        setLoading(false)
+        return
+      }
+
+      const currentRequest = (requestId.current += 1)
+      setLoading(true)
+      setError(null)
+      try {
         const safeQuery = sanitizeQuery(value)
         const [propositionsResponse, pagesResponse] = await Promise.all([
           supabase
@@ -109,36 +118,35 @@ export function Omnibar() {
           )
           setResults([])
           setPageResults([])
-        } else {
-          const unique = new Map<string, PropositionResult>()
-          for (const item of propositionsResponse.data ?? []) {
-            unique.set(item.id, item)
-          }
-          setResults(Array.from(unique.values()))
-          setPageResults(pagesResponse.data ?? [])
+          return
         }
-
+        const unique = new Map<string, PropositionResult>()
+        for (const item of propositionsResponse.data ?? []) {
+          unique.set(item.id, item)
+        }
+        setResults(Array.from(unique.values()))
+        setPageResults(pagesResponse.data ?? [])
+      } catch (err) {
+        if (currentRequest !== requestId.current) return
+        setError(
+          err instanceof Error ? err.message : "Erreur de recherche."
+        )
+        setResults([])
+        setPageResults([])
+      } finally {
+        if (currentRequest !== requestId.current) return
         setLoading(false)
-      }, 300),
-    []
-  )
+      }
+    }, 300)
 
-  const handleQueryChange = (value: string) => {
-    setQuery(value)
-    if (!value.trim()) {
-      requestId.current += 1
-      setResults([])
-      setPageResults([])
-      setError(null)
-      setLoading(false)
-    }
-  }
+    return () => debouncedSearchRef.current?.cancel()
+  }, [])
 
   useEffect(() => {
     if (!trimmedQuery) return
-    debouncedSearch(trimmedQuery)
-    return () => debouncedSearch.cancel()
-  }, [debouncedSearch, trimmedQuery])
+    debouncedSearchRef.current?.(trimmedQuery)
+    return () => debouncedSearchRef.current?.cancel()
+  }, [trimmedQuery])
 
   return (
     <div className="w-full max-w-2xl">

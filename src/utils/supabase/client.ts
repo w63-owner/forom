@@ -16,6 +16,10 @@ export const getSupabaseClient = (): SupabaseClient | null => {
     return cachedClient
   }
 
-  cachedClient = createBrowserClient(url, anonKey)
+  cachedClient = createBrowserClient(url, anonKey, {
+    auth: {
+      lock: async (_name, _acquireTimeout, fn) => await fn(),
+    },
+  })
   return cachedClient
 }

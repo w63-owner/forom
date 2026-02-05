@@ -68,7 +68,6 @@ export function PropositionVolunteersProvider({
   useEffect(() => {
     const supabase = getSupabaseClient()
     if (!supabase) {
-      setCurrentUserLoaded(true)
       return
     }
     supabase.auth.getUser().then(({ data: { user } }) => {

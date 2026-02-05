@@ -15,6 +15,7 @@ type PropositionItem = {
 
 type Props = {
   pageId: string
+  pageName?: string | null
   initialItems: PropositionItem[]
   query: string
   status: string | null
@@ -25,6 +26,7 @@ type Props = {
 
 export function PagePropositionsTable({
   pageId,
+  pageName,
   initialItems,
   query,
   status,
@@ -120,6 +122,7 @@ export function PagePropositionsTable({
                     href={`/propositions/create?${new URLSearchParams({
                       ...(query ? { title: query } : {}),
                       page: pageId,
+                      ...(pageName ? { pageName: pageName } : {}),
                     }).toString()}`}
                     className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                   >

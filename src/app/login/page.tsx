@@ -63,25 +63,40 @@ function LoginForm() {
     setLoading(true)
     setError(null)
     setInfo(null)
-    const { data, error: checkError } = await supabase
-      .from("users")
-      .select("id")
-      .eq("email", email.trim().toLowerCase())
-      .maybeSingle()
-    if (checkError) {
-      setError(
-        checkError.message === "email rate limit exceeded"
-          ? "Trop de tentatives. Réessayez dans quelques minutes."
-          : checkError.message
-      )
-      if (checkError.message === "email rate limit exceeded") {
-        startCooldown(120)
+    const isAbortError = (err: unknown) =>
+      err instanceof Error && err.name === "AbortError"
+    try {
+      const { data, error: checkError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email.trim().toLowerCase())
+        .maybeSingle()
+      if (checkError) {
+        if (checkError.name === "AbortError") {
+          setLoading(false)
+          return
+        }
+        setError(
+          checkError.message === "email rate limit exceeded"
+            ? "Trop de tentatives. Réessayez dans quelques minutes."
+            : checkError.message
+        )
+        if (checkError.message === "email rate limit exceeded") {
+          startCooldown(120)
+        }
+        setLoading(false)
+        return
       }
+      setStep(data ? "signin" : "signup")
       setLoading(false)
-      return
+    } catch (err) {
+      if (isAbortError(err)) {
+        setLoading(false)
+        return
+      }
+      setError("Une erreur est survenue. Réessayez.")
+      setLoading(false)
     }
-    setStep(data ? "signin" : "signup")
-    setLoading(false)
   }
 
   const handleEmailAuth = async (mode: "signin" | "signup") => {
@@ -94,69 +109,86 @@ function LoginForm() {
     setLoading(true)
     setError(null)
     setInfo(null)
-    if (mode === "signin") {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-    if (signInError) {
-      const message =
-        signInError.message === "email rate limit exceeded"
-          ? "Trop de tentatives. Réessayez dans quelques minutes."
-          : signInError.message === "Invalid login credentials"
-            ? "Email ou mot de passe incorrect. Vérifiez vos identifiants et réessayez."
-            : signInError.message
-      setError(message)
+    const isAbortError = (err: unknown) =>
+      err instanceof Error && err.name === "AbortError"
+    try {
+      if (mode === "signin") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (signInError) {
+          const message =
+            signInError.message === "email rate limit exceeded"
+              ? "Trop de tentatives. Réessayez dans quelques minutes."
+              : signInError.message === "Invalid login credentials"
+                ? "Email ou mot de passe incorrect. Vérifiez vos identifiants et réessayez."
+                : signInError.message
+          setError(message)
+          showToast({
+            variant: "error",
+            title: "Connexion impossible",
+            description: message,
+          })
+          if (signInError.message === "email rate limit exceeded") {
+            startCooldown(120)
+          }
+          setLoading(false)
+          return
+        }
+      } else {
+        const { error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username.trim(),
+            },
+            emailRedirectTo: `${appBase}/auth/callback?next=${encodeURIComponent(
+              redirectTo
+            )}`,
+          },
+        })
+        if (signUpError) {
+          setError(
+            signUpError.message === "email rate limit exceeded"
+              ? "Trop de tentatives. Réessayez dans quelques minutes."
+              : signUpError.message
+          )
+          showToast({
+            variant: "error",
+            title: "Inscription impossible",
+            description:
+              signUpError.message === "email rate limit exceeded"
+                ? "Trop de tentatives. Réessayez dans quelques minutes."
+                : signUpError.message,
+          })
+          if (signUpError.message === "email rate limit exceeded") {
+            startCooldown(120)
+          }
+          setLoading(false)
+          return
+        }
+
+        setInfo("Un email de confirmation vous a été envoyé.")
+        showToast({
+          variant: "success",
+          title: "Compte créé",
+          description: "Un email de confirmation vous a été envoyé.",
+        })
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      if (isAbortError(err)) {
+        setLoading(false)
+        return
+      }
+      setError("Une erreur est survenue. Réessayez.")
       showToast({
         variant: "error",
         title: "Connexion impossible",
-        description: message,
-      })
-      if (signInError.message === "email rate limit exceeded") {
-        startCooldown(120)
-      }
-        setLoading(false)
-        return
-      }
-    } else {
-      const { data, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username: username.trim(),
-          },
-          emailRedirectTo: `${appBase}/auth/callback?next=${encodeURIComponent(
-            redirectTo
-          )}`,
-        },
-      })
-      if (signUpError) {
-        setError(
-          signUpError.message === "email rate limit exceeded"
-            ? "Trop de tentatives. Réessayez dans quelques minutes."
-            : signUpError.message
-        )
-        showToast({
-          variant: "error",
-          title: "Inscription impossible",
-          description:
-            signUpError.message === "email rate limit exceeded"
-              ? "Trop de tentatives. Réessayez dans quelques minutes."
-              : signUpError.message,
-        })
-        if (signUpError.message === "email rate limit exceeded") {
-          startCooldown(120)
-        }
-        setLoading(false)
-        return
-      }
-
-      setInfo("Un email de confirmation vous a été envoyé.")
-      showToast({
-        variant: "success",
-        title: "Compte créé",
-        description: "Un email de confirmation vous a été envoyé.",
+        description: "Une erreur est survenue. Réessayez.",
       })
       setLoading(false)
       return
@@ -180,46 +212,64 @@ function LoginForm() {
     setLoading(true)
     setError(null)
     setInfo(null)
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      email.trim().toLowerCase(),
-      {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/profile")}`,
-      }
-    )
-    if (resetError) {
-      setError(
-        resetError.message === "email rate limit exceeded"
-          ? "Trop de tentatives. Réessayez dans quelques minutes."
-          : resetError.message
+    const isAbortError = (err: unknown) =>
+      err instanceof Error && err.name === "AbortError"
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email.trim().toLowerCase(),
+        {
+          redirectTo: `${origin}/auth/callback?next=${encodeURIComponent(
+            "/profile"
+          )}`,
+        }
       )
+      if (resetError) {
+        setError(
+          resetError.message === "email rate limit exceeded"
+            ? "Trop de tentatives. Réessayez dans quelques minutes."
+            : resetError.message
+        )
+        showToast({
+          variant: "error",
+          title: "Impossible d’envoyer l’email",
+          description:
+            resetError.message === "email rate limit exceeded"
+              ? "Trop de tentatives. Réessayez dans quelques minutes."
+              : resetError.message,
+        })
+        if (resetError.message === "email rate limit exceeded") {
+          startCooldown(120)
+        }
+        setLoading(false)
+        return
+      }
+      setInfo("Email de réinitialisation envoyé.")
+      showToast({
+        variant: "success",
+        title: "Email envoyé",
+        description: "Un email de réinitialisation vous a été envoyé.",
+      })
+      setLoading(false)
+    } catch (err) {
+      if (isAbortError(err)) {
+        setLoading(false)
+        return
+      }
+      setError("Une erreur est survenue. Réessayez.")
       showToast({
         variant: "error",
         title: "Impossible d’envoyer l’email",
-        description:
-          resetError.message === "email rate limit exceeded"
-            ? "Trop de tentatives. Réessayez dans quelques minutes."
-            : resetError.message,
+        description: "Une erreur est survenue. Réessayez.",
       })
-      if (resetError.message === "email rate limit exceeded") {
-        startCooldown(120)
-      }
       setLoading(false)
-      return
     }
-    setInfo("Email de réinitialisation envoyé.")
-    showToast({
-      variant: "success",
-      title: "Email envoyé",
-      description: "Un email de réinitialisation vous a été envoyé.",
-    })
-    setLoading(false)
   }
 
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 px-6 py-16">
       <div className="flex w-full max-w-md flex-col gap-3">
-        <a
+        <Link
           href="/"
           className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           onClick={(event) => {
@@ -234,7 +284,7 @@ function LoginForm() {
           }}
         >
           ← Retour
-        </a>
+        </Link>
         <Card className="w-full">
           <CardHeader className="space-y-2">
           <CardTitle>

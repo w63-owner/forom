@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import debounce from "lodash/debounce"
 import { Input } from "@/components/ui/input"
@@ -18,9 +18,6 @@ type Props = {
   initialSort: string
   initialRange: string
   initialOrder: string
-  initialPageSort: string
-  initialPageOrder: string
-  initialStatusOrder: string
 }
 
 const STATUS_OPTIONS = [
@@ -37,9 +34,6 @@ export default function ExploreFilters({
   initialSort,
   initialRange,
   initialOrder,
-  initialPageSort,
-  initialPageOrder,
-  initialStatusOrder,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -49,79 +43,78 @@ export default function ExploreFilters({
   const prevInitialQueryRef = useRef(initialQuery)
 
   useEffect(() => {
-    if (initialQuery !== prevInitialQueryRef.current) {
-      prevInitialQueryRef.current = initialQuery
-      setQuery(initialQuery)
-    }
-    setStatusValue(initialStatusValue)
+    const timeout = setTimeout(() => {
+      if (initialQuery !== prevInitialQueryRef.current) {
+        prevInitialQueryRef.current = initialQuery
+        setQuery(initialQuery)
+      }
+      setStatusValue(initialStatusValue)
+    }, 0)
+    return () => clearTimeout(timeout)
   }, [initialQuery, initialStatusValue])
 
-  const updateUrl = (next: {
+  const updateUrl = useCallback((next: {
     q?: string
     status?: string
     sort?: string
     range?: string
     order?: string
-    pageSort?: string
-    pageOrder?: string
-    statusOrder?: string
   }) => {
     const params = new URLSearchParams(searchParams?.toString())
     if (next.q !== undefined) {
-      next.q ? params.set("q", next.q) : params.delete("q")
+      if (next.q) {
+        params.set("q", next.q)
+      } else {
+        params.delete("q")
+      }
     }
     if (next.status !== undefined) {
-      next.status && next.status !== "all"
-        ? params.set("status", next.status)
-        : params.delete("status")
+      if (next.status && next.status !== "all") {
+        params.set("status", next.status)
+      } else {
+        params.delete("status")
+      }
     }
     if (next.sort !== undefined) {
-      next.sort ? params.set("sort", next.sort) : params.delete("sort")
+      if (next.sort) {
+        params.set("sort", next.sort)
+      } else {
+        params.delete("sort")
+      }
     }
     if (next.range !== undefined) {
-      next.range && next.range !== "all"
-        ? params.set("range", next.range)
-        : params.delete("range")
+      if (next.range && next.range !== "all") {
+        params.set("range", next.range)
+      } else {
+        params.delete("range")
+      }
     }
     if (next.order !== undefined) {
-      next.order && next.order !== "desc"
-        ? params.set("order", next.order)
-        : params.delete("order")
-    }
-    if (next.pageSort !== undefined) {
-      next.pageSort && next.pageSort !== "none"
-        ? params.set("pageSort", next.pageSort)
-        : params.delete("pageSort")
-    }
-    if (next.pageOrder !== undefined) {
-      next.pageOrder && next.pageOrder !== "asc"
-        ? params.set("pageOrder", next.pageOrder)
-        : params.delete("pageOrder")
-    }
-    if (next.statusOrder !== undefined) {
-      next.statusOrder && next.statusOrder !== "asc"
-        ? params.set("statusOrder", next.statusOrder)
-        : params.delete("statusOrder")
+      if (next.order && next.order !== "desc") {
+        params.set("order", next.order)
+      } else {
+        params.delete("order")
+      }
     }
 
     const queryString = params.toString()
     router.replace(queryString ? `${pathname}?${queryString}` : pathname)
-    router.refresh()
-  }
+  }, [pathname, router, searchParams])
 
-  const debouncedQueryUpdate = useMemo(
-    () =>
-      debounce((value: string) => {
-        updateUrl({ q: value })
-        prevInitialQueryRef.current = value
-      }, 400),
-    [pathname, searchParams]
-  )
+  const debouncedQueryUpdateRef = useRef<ReturnType<typeof debounce> | null>(null)
 
   useEffect(() => {
-    debouncedQueryUpdate(query)
-    return () => debouncedQueryUpdate.cancel()
-  }, [debouncedQueryUpdate, query])
+    debouncedQueryUpdateRef.current = debounce((value: string) => {
+      updateUrl({ q: value })
+      prevInitialQueryRef.current = value
+    }, 400)
+    return () => debouncedQueryUpdateRef.current?.cancel()
+  }, [updateUrl])
+
+  useEffect(() => {
+    debouncedQueryUpdateRef.current?.(query)
+    return () => debouncedQueryUpdateRef.current?.cancel()
+  }, [query])
 
   const handleStatusChange = (value: string) => {
     setStatusValue(value)

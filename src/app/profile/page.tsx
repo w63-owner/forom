@@ -1,9 +1,7 @@
 import Link from "next/link"
 import { redirect } from "next/navigation"
-import { Avatar } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ProfileNotifications } from "@/components/profile-notifications"
+import { ProfileShell } from "@/components/profile-shell"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 export default async function ProfilePage() {
@@ -17,7 +15,7 @@ export default async function ProfilePage() {
               <CardTitle>Supabase non configuré</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground">
-              Configurez les variables d'environnement Supabase.
+              Configurez les variables d&apos;environnement Supabase.
             </CardContent>
           </Card>
         </div>
@@ -74,31 +72,22 @@ export default async function ProfilePage() {
         >
           ← Retour
         </Link>
-        <Card>
-          <CardHeader>
-            <CardTitle>Profil</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Avatar
-                src={profile?.avatar_url}
-                name={profile?.username ?? profile?.email ?? "Utilisateur"}
-                size="lg"
-              />
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  {profile?.username ?? "Utilisateur"} ·{" "}
-                  {profile?.email ?? userData.user.email}
-                </p>
-                <Badge variant="secondary" className="mt-1">
-                  Niveau {doneCount ?? 0}
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        <ProfileNotifications
+        <ProfileShell
+          profile={profile ?? { username: null, email: null, avatar_url: null }}
+          userEmailFallback={userData.user.email ?? ""}
+          doneCount={doneCount ?? 0}
+          propositions={(propositions ?? []) as {
+            id: string
+            title: string | null
+            status: string | null
+            created_at: string | null
+          }[]}
+          ownedPages={(ownedPages ?? []) as {
+            id: string
+            name: string | null
+            slug: string | null
+          }[]}
           pageSubscriptions={(pageSubscriptions ?? [])
             .map((s) => {
               const page = Array.isArray(s.pages) ? s.pages[0] : s.pages
@@ -116,55 +105,6 @@ export default async function ProfilePage() {
             })
             .filter((x): x is NonNullable<typeof x> => x !== null)}
         />
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Mes propositions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(propositions ?? []).map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center justify-between gap-3 text-sm"
-              >
-                <Link
-                  href={`/propositions/${item.id}`}
-                  className="font-medium text-foreground hover:underline"
-                >
-                  {item.title}
-                </Link>
-                <Badge variant="outline">{item.status ?? "Open"}</Badge>
-              </div>
-            ))}
-            {propositions?.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Aucune proposition pour le moment.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Pages possédées</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {(ownedPages ?? []).map((page) => (
-              <Link
-                key={page.id}
-                href={`/pages/${page.slug}`}
-                className="block text-sm font-medium text-foreground hover:underline"
-              >
-                {page.name}
-              </Link>
-            ))}
-            {ownedPages?.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                Vous ne possédez aucune page.
-              </p>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   )

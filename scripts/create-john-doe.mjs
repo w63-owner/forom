@@ -28,7 +28,7 @@ const email = "john.doe@example.com"
 const password = "ChangeMe123!"
 const username = "John Doe"
 
-const { data, error } = await supabase.auth.admin.createUser({
+const { error } = await supabase.auth.admin.createUser({
   email,
   password,
   email_confirm: true,

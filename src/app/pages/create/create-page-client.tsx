@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -86,7 +87,10 @@ export function CreatePageClient() {
   useEffect(() => {
     const nextName = searchParams.get("name")
     if (nextName && !name.trim()) {
-      setName(nextName)
+      const timeout = setTimeout(() => {
+        setName(nextName)
+      }, 0)
+      return () => clearTimeout(timeout)
     }
   }, [name, searchParams])
 
@@ -141,12 +145,12 @@ export function CreatePageClient() {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-3xl space-y-3">
-        <a
+        <Link
           href="/"
           className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           ← Retour
-        </a>
+        </Link>
         <Card>
           <CardHeader>
             <CardTitle>Créer une page</CardTitle>
