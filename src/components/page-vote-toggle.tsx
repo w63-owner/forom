@@ -1,111 +1,97 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import { getSupabaseClient } from "@/utils/supabase/client"
+import { useTranslations } from "next-intl"
 import { useToast } from "@/components/ui/toast"
+import { AsyncTimeoutError } from "@/lib/async-resilience"
+import { PropositionVoteButton } from "@/components/proposition-vote-button"
+import { usePropositionVote } from "@/hooks/use-proposition-vote"
 
 type Props = {
   propositionId: string
   initialVotes: number
+  initialHasVoted?: boolean
+  onVoteChange?: (payload: {
+    propositionId: string
+    hasVoted: boolean
+    votes: number
+  }) => void
 }
 
-export function PageVoteToggle({ propositionId, initialVotes }: Props) {
-  const router = useRouter()
-  const [votes, setVotes] = useState(initialVotes)
-  const [loading, setLoading] = useState(false)
-  const [hasVoted, setHasVoted] = useState(false)
+export function PageVoteToggle({
+  propositionId,
+  initialVotes,
+  initialHasVoted,
+  onVoteChange,
+}: Props) {
+  const tCommon = useTranslations("Common")
+  const tVote = useTranslations("Vote")
   const { showToast } = useToast()
-
-  useEffect(() => {
-    const fetchVote = async () => {
-      const supabase = getSupabaseClient()
-      if (!supabase) return
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) return
-      const { data } = await supabase
-        .from("votes")
-        .select("type")
-        .eq("proposition_id", propositionId)
-        .eq("user_id", userData.user.id)
-        .maybeSingle()
-      if (data?.type === "Upvote") {
-        setHasVoted(true)
-      }
-    }
-    fetchVote()
-  }, [propositionId])
+  const { votes, hasVoted, loading, toggleVote: runToggleVote } = usePropositionVote({
+    propositionId,
+    initialVotes,
+    initialHasVoted,
+    syncOnMount: false,
+    syncOnVisibility: false,
+  })
 
   const toggleVote = async () => {
-    if (loading) return
-    const supabase = getSupabaseClient()
-    if (!supabase) return
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
-      router.push(`/login?next=/propositions/${propositionId}`)
-      return
-    }
-    setLoading(true)
-    if (hasVoted) {
-      const { error } = await supabase
-        .from("votes")
-        .delete()
-        .eq("proposition_id", propositionId)
-        .eq("user_id", userData.user.id)
-      if (error) {
+    try {
+      const result = await runToggleVote()
+      if (!result.ok) {
+        const description =
+          result.status === 401
+            ? tVote("loginRequiredBody")
+            : result.error ?? tVote("voteFailedTitle")
+        if (result.status === 401) {
+          showToast({
+            variant: "info",
+            title: tVote("loginRequiredTitle"),
+            description,
+          })
+          return
+        }
         showToast({
           variant: "error",
-          title: "Vote impossible",
-          description: error.message,
+          title: tVote("voteFailedTitle"),
+          description,
         })
-        setLoading(false)
         return
       }
-      setHasVoted(false)
-      setVotes((prev) => Math.max(0, prev - 1))
-      showToast({
-        variant: "info",
-        title: "Vote retiré",
+      onVoteChange?.({
+        propositionId,
+        hasVoted: result.hasVoted,
+        votes: result.votes,
       })
-    } else {
-      const { error } = await supabase.from("votes").upsert(
-        {
-          user_id: userData.user.id,
-          proposition_id: propositionId,
-          type: "Upvote",
-        },
-        { onConflict: "user_id,proposition_id" }
-      )
-      if (error) {
-        showToast({
-          variant: "error",
-          title: "Vote impossible",
-          description: error.message,
-        })
-        setLoading(false)
-        return
-      }
-      setHasVoted(true)
-      setVotes((prev) => prev + 1)
       showToast({
-        variant: "success",
-        title: "Vote enregistré",
+        variant: result.hasVoted ? "success" : "info",
+        title: result.hasVoted
+          ? tVote("voteRecordedTitle")
+          : tVote("voteRemovedTitle"),
+      })
+    } catch (error) {
+      const description =
+        error instanceof AsyncTimeoutError
+          ? "Request timed out. Please try again."
+          : error instanceof Error
+            ? error.message
+            : undefined
+      showToast({
+        variant: "error",
+        title: tVote("voteFailedTitle"),
+        description,
       })
     }
-    setLoading(false)
   }
 
   return (
-    <div className="flex items-center justify-end gap-3">
-      <span className="text-sm font-medium text-foreground">{votes}</span>
-      <button
-        type="button"
+    <div className="flex justify-end">
+      <PropositionVoteButton
+        votes={votes}
+        hasVoted={hasVoted}
+        loading={loading}
         onClick={toggleVote}
-        disabled={loading}
-        className="inline-flex items-center justify-center rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors transition-transform duration-150 hover:bg-accent active:scale-[0.98] disabled:opacity-50 w-16"
-      >
-        {hasVoted ? "✓" : "Voter"}
-      </button>
+        ariaLabel={hasVoted ? tVote("voteRecordedTitle") : tCommon("vote")}
+      />
     </div>
   )
 }

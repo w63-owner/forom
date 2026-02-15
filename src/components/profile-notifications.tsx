@@ -2,10 +2,12 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/toast"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
 type PageSubscription = {
   page_id: string
@@ -26,6 +28,8 @@ export function ProfileNotifications({
   pageSubscriptions,
   propositionSubscriptions,
 }: Props) {
+  const t = useTranslations("ProfileNotifications")
+  const tCommon = useTranslations("Common")
   const { showToast } = useToast()
   const [removingPageId, setRemovingPageId] = useState<string | null>(null)
   const [removingPropositionId, setRemovingPropositionId] = useState<
@@ -42,18 +46,21 @@ export function ProfileNotifications({
     if (!supabase) {
       showToast({
         variant: "error",
-        title: "Supabase non configuré",
-        description: "Impossible de retirer la page pour le moment.",
+        title: t("supabaseNotConfiguredTitle"),
+        description: t("supabaseNotConfiguredBodyPage"),
       })
       setRemovingPageId(null)
       return
     }
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (!user) {
       showToast({
         variant: "error",
-        title: "Connexion requise",
-        description: "Connectez-vous pour retirer cette page.",
+        title: t("loginRequiredTitle"),
+        description: t("loginRequiredBodyPage"),
       })
       setRemovingPageId(null)
       return
@@ -62,11 +69,11 @@ export function ProfileNotifications({
       .from("page_subscriptions")
       .delete()
       .eq("page_id", pageId)
-      .eq("user_id", userData.user.id)
+      .eq("user_id", user.id)
     if (error) {
       showToast({
         variant: "error",
-        title: "Impossible de retirer la page",
+        title: t("removePageErrorTitle"),
         description: error.message,
       })
       setRemovingPageId(null)
@@ -84,18 +91,21 @@ export function ProfileNotifications({
     if (!supabase) {
       showToast({
         variant: "error",
-        title: "Supabase non configuré",
-        description: "Impossible de retirer la proposition pour le moment.",
+        title: t("supabaseNotConfiguredTitle"),
+        description: t("supabaseNotConfiguredBodyProposition"),
       })
       setRemovingPropositionId(null)
       return
     }
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (!user) {
       showToast({
         variant: "error",
-        title: "Connexion requise",
-        description: "Connectez-vous pour retirer cette proposition.",
+        title: t("loginRequiredTitle"),
+        description: t("loginRequiredBodyProposition"),
       })
       setRemovingPropositionId(null)
       return
@@ -104,11 +114,11 @@ export function ProfileNotifications({
       .from("proposition_subscriptions")
       .delete()
       .eq("proposition_id", propositionId)
-      .eq("user_id", userData.user.id)
+      .eq("user_id", user.id)
     if (error) {
       showToast({
         variant: "error",
-        title: "Impossible de retirer la proposition",
+        title: t("removePropositionErrorTitle"),
         description: error.message,
       })
       setRemovingPropositionId(null)
@@ -127,13 +137,11 @@ export function ProfileNotifications({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Notifications</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Vous n&apos;êtes abonné à aucune page ni aucune proposition. Vous serez
-            notifié ici des pages et propositions pour lesquelles vous avez
-            activé les notifications.
+            {t("emptyState")}
           </p>
         </CardContent>
       </Card>
@@ -143,16 +151,15 @@ export function ProfileNotifications({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Notifications</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Pages et propositions pour lesquelles vous recevez des e-mails. Cliquez
-          sur « Retirer » pour ne plus être notifié.
+          {t("subtitle")}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">
         {localPageSubscriptions.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">Pages</h3>
+            <h3 className="text-sm font-medium text-foreground">{tCommon("page")}</h3>
             <ul className="space-y-2">
               {localPageSubscriptions.map(({ page_id, page }) => (
                 <li
@@ -164,11 +171,11 @@ export function ProfileNotifications({
                       href={`/pages/${page.slug}`}
                       className="font-medium text-foreground hover:underline"
                     >
-                      {page.name ?? "Page"}
+                      {page.name ?? tCommon("page")}
                     </Link>
                   ) : (
                     <span className="font-medium text-foreground">
-                      {page.name ?? "Page"}
+                      {page.name ?? tCommon("page")}
                     </span>
                   )}
                   <Button
@@ -178,7 +185,7 @@ export function ProfileNotifications({
                     onClick={() => handleUnsubscribePage(page_id)}
                     disabled={removingPageId === page_id}
                   >
-                    {removingPageId === page_id ? "..." : "Retirer"}
+                    {removingPageId === page_id ? "..." : tCommon("remove")}
                   </Button>
                 </li>
               ))}
@@ -188,7 +195,7 @@ export function ProfileNotifications({
 
         {localPropositionSubscriptions.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">Propositions</h3>
+            <h3 className="text-sm font-medium text-foreground">{tCommon("propositionPlural")}</h3>
             <ul className="space-y-2">
               {localPropositionSubscriptions.map(
                 ({ proposition_id, proposition }) => (
@@ -200,7 +207,7 @@ export function ProfileNotifications({
                       href={`/propositions/${proposition.id}`}
                       className="font-medium text-foreground hover:underline"
                     >
-                      {proposition.title ?? "Proposition"}
+                      {proposition.title ?? tCommon("proposition")}
                     </Link>
                     <Button
                       type="button"
@@ -213,7 +220,7 @@ export function ProfileNotifications({
                     >
                       {removingPropositionId === proposition_id
                         ? "..."
-                        : "Retirer"}
+                        : tCommon("remove")}
                     </Button>
                   </li>
                 )

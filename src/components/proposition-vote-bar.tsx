@@ -2,80 +2,49 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ThumbsDown, ThumbsUp } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { useLocale, useTranslations } from "next-intl"
+import { AsyncTimeoutError } from "@/lib/async-resilience"
+import { PropositionVoteButton } from "@/components/proposition-vote-button"
+import { usePropositionVote } from "@/hooks/use-proposition-vote"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { useToast } from "@/components/ui/toast"
 
 type Props = {
   propositionId: string
   initialVotes: number
+  initialHasVoted?: boolean
   propositionPageId: string | null
 }
 
 export function PropositionVoteBar({
   propositionId,
   initialVotes,
+  initialHasVoted,
   propositionPageId,
 }: Props) {
   const router = useRouter()
-  const [votes, setVotes] = useState(initialVotes)
-  const [currentVote, setCurrentVote] = useState<"Upvote" | "Downvote" | null>(
-    null
-  )
-  const [loading, setLoading] = useState(false)
+  const t = useTranslations("PropositionVotes")
+  const tCommon = useTranslations("Common")
+  const locale = useLocale()
   const [error, setError] = useState<string | null>(null)
   const { showToast } = useToast()
   const [ownerNotifyDaily, setOwnerNotifyDaily] = useState(false)
   const [ownerVoteThreshold, setOwnerVoteThreshold] = useState<number | null>(
     null
   )
-
-  const refreshVotes = async () => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
-    const { data: voteRows, error: votesError } = await supabase
-      .from("votes")
-      .select("type")
-      .eq("proposition_id", propositionId)
-    if (!votesError && voteRows) {
-      const computed = voteRows.reduce((sum, row) => {
-        if (row.type === "Upvote") return sum + 1
-        if (row.type === "Downvote") return sum - 1
-        return sum
-      }, 0)
-      setVotes(computed)
-      return computed
-    }
-    const { data } = await supabase
-      .from("propositions")
-      .select("votes_count")
-      .eq("id", propositionId)
-      .single()
-    if (data) {
-      const v = data.votes_count ?? 0
-      setVotes(v)
-      return v
-    }
-  }
-
-  useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
-    supabase.auth.getUser().then(({ data: session }) => {
-      const userId = session.user?.id ?? null
-      if (!userId) return
-      supabase
-        .from("votes")
-        .select("type")
-        .eq("proposition_id", propositionId)
-        .eq("user_id", userId)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (data?.type) setCurrentVote(data.type)
-        })
-    })
-  }, [propositionId])
+  const {
+    votes,
+    hasVoted,
+    loading,
+    ready,
+    toggleVote: runToggleVote,
+  } = usePropositionVote({
+    propositionId,
+    initialVotes,
+    // Trust server value only when it is explicitly true.
+    // "false" can be uncertain with transient auth/cookie issues during SSR.
+    initialHasVoted: initialHasVoted === true ? true : undefined,
+  })
 
   useEffect(() => {
     if (!propositionPageId) return
@@ -94,100 +63,86 @@ export function PropositionVoteBar({
       })
   }, [propositionPageId])
 
-  const handleVote = async (type: "Upvote" | "Downvote") => {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setError("Supabase non configuré.")
-      return
-    }
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
-      router.push(`/login?next=/propositions/${propositionId}`)
-      return
-    }
-    setLoading(true)
+  const handleVote = async () => {
     setError(null)
-    const { error: voteError } = await supabase.from("votes").upsert(
-      {
-        user_id: userData.user.id,
-        proposition_id: propositionId,
-        type,
-      },
-      { onConflict: "user_id,proposition_id" }
-    )
-    if (voteError) {
-      setError(voteError.message)
-      setLoading(false)
+    const previousVotes = votes
+    try {
+      const result = await runToggleVote()
+      if (!result.ok) {
+        const description =
+          result.status === 401
+            ? t("loginRequired")
+            : result.error ?? t("voteFailedTitle")
+        setError(description)
+        showToast({
+          variant: "error",
+          title: t("voteFailedTitle"),
+          description,
+        })
+        if (result.status === 401) {
+          router.push(`/${locale}/login?next=/${locale}/propositions/${propositionId}`)
+        }
+      } else {
+        const nextHasVoted = result.hasVoted
+        const nextVotes = result.votes
+        if (
+          nextHasVoted &&
+          propositionPageId &&
+          !ownerNotifyDaily &&
+          ownerVoteThreshold != null &&
+          typeof nextVotes === "number" &&
+          previousVotes < ownerVoteThreshold &&
+          nextVotes >= ownerVoteThreshold
+        ) {
+          fetch("/api/notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "owner_vote_threshold",
+              propositionId,
+              locale,
+            }),
+          }).catch(() => null)
+        }
+        showToast({
+          variant: nextHasVoted ? "success" : "info",
+          title: nextHasVoted ? t("upvoteRecorded") : t("voteRemovedTitle"),
+        })
+      }
+    } catch (caughtError) {
+      const description =
+        caughtError instanceof AsyncTimeoutError
+          ? "Request timed out. Please try again."
+          : caughtError instanceof Error
+            ? caughtError.message
+            : undefined
+      setError(description ?? t("voteFailedTitle"))
       showToast({
         variant: "error",
-        title: "Vote impossible",
-        description: voteError.message,
+        title: t("voteFailedTitle"),
+        description,
       })
-      return
     }
-    setCurrentVote(type)
-    const previousVotes = votes
-    const nextVotes = await refreshVotes()
-    if (
-      propositionPageId &&
-      !ownerNotifyDaily &&
-      ownerVoteThreshold != null &&
-      nextVotes != null &&
-      previousVotes < ownerVoteThreshold &&
-      nextVotes >= ownerVoteThreshold
-    ) {
-      fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "owner_vote_threshold",
-          propositionId,
-          actorUserId: userData.user.id,
-        }),
-      }).catch(() => null)
-    }
-    showToast({
-      variant: type === "Upvote" ? "success" : "info",
-      title: type === "Upvote" ? "Vote positif enregistré" : "Vote négatif enregistré",
-    })
-    setLoading(false)
   }
 
   return (
     <div className="space-y-2">
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className={
-              currentVote === "Upvote"
-                ? "text-primary"
-                : "text-muted-foreground"
-            }
-            onClick={() => handleVote("Upvote")}
-            disabled={loading}
-          >
-            <ThumbsUp className="size-4" />
-          </Button>
-          <span className="min-w-[1.75rem] text-center text-sm font-medium text-foreground">
-            {Math.max(0, votes)}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className={
-              currentVote === "Downvote"
-                ? "text-destructive"
-                : "text-muted-foreground"
-            }
-            onClick={() => handleVote("Downvote")}
-            disabled={loading}
-          >
-            <ThumbsDown className="size-4" />
-          </Button>
-        </div>
+        {!ready ? (
+          <div
+            aria-hidden="true"
+            className="h-12 w-12 animate-pulse rounded-xl border-2 border-border/60 bg-muted/40 md:h-11 md:w-11"
+          />
+        ) : (
+          <PropositionVoteButton
+            votes={votes}
+            hasVoted={hasVoted}
+            loading={loading}
+            onClick={handleVote}
+            ariaLabel={hasVoted ? t("voteRemovedTitle") : tCommon("vote")}
+          />
+        )}
       </div>
     </div>
   )

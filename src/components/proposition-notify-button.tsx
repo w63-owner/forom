@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
 
 // Bell outline (default / not subscribed)
@@ -51,6 +53,7 @@ type Props = {
 }
 
 export function PropositionNotifyButton({ propositionId, className }: Props) {
+  const t = useTranslations("PropositionNotify")
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
   const { showToast } = useToast()
@@ -59,13 +62,16 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
     const fetchSubscription = async () => {
       const supabase = getSupabaseClient()
       if (!supabase) return
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) return
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
+      if (!user) return
       const { data } = await supabase
         .from("proposition_subscriptions")
         .select("proposition_id")
         .eq("proposition_id", propositionId)
-        .eq("user_id", userData.user.id)
+        .eq("user_id", user.id)
         .maybeSingle()
       setSubscribed(Boolean(data))
     }
@@ -75,8 +81,11 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
   const handleClick = async () => {
     const supabase = getSupabaseClient()
     if (!supabase) return
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (!user) {
       window.location.href = `/login?next=/propositions/${propositionId}`
       return
     }
@@ -86,23 +95,23 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
         .from("proposition_subscriptions")
         .delete()
         .eq("proposition_id", propositionId)
-        .eq("user_id", userData.user.id)
+        .eq("user_id", user.id)
       setSubscribed(false)
       showToast({
         variant: "info",
-        title: "Notifications désactivées",
-        description: "Vous ne serez plus notifié des changements.",
+        title: t("disabledTitle"),
+        description: t("disabledBody"),
       })
     } else {
       await supabase.from("proposition_subscriptions").insert({
         proposition_id: propositionId,
-        user_id: userData.user.id,
+        user_id: user.id,
       })
       setSubscribed(true)
       showToast({
         variant: "success",
-        title: "Notifications activées",
-        description: "Vous serez notifié des changements de cette proposition.",
+        title: t("enabledTitle"),
+        description: t("enabledBody"),
       })
     }
     setLoading(false)
@@ -115,13 +124,13 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
       disabled={loading}
       title={
         subscribed
-          ? "Ne plus être notifié des changements"
-          : "Être notifié quand cette proposition change d'état (open, done…)"
+          ? t("unsubscribeTitle")
+          : t("subscribeTitle")
       }
       aria-label={
         subscribed
-          ? "Ne plus être notifié"
-          : "Activer les notifications pour cette proposition"
+          ? t("unsubscribeAria")
+          : t("subscribeAria")
       }
       className={cn(
         "inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors transition-transform duration-150 hover:bg-muted hover:text-foreground active:scale-95 disabled:opacity-50",

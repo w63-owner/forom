@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
 
 // Bell outline (default / not subscribed)
@@ -51,6 +53,8 @@ type Props = {
 }
 
 export function PageSubscribeButton({ pageId, className }: Props) {
+  const locale = useLocale()
+  const t = useTranslations("PageSubscribe")
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
   const { showToast } = useToast()
@@ -59,13 +63,16 @@ export function PageSubscribeButton({ pageId, className }: Props) {
     const fetchSubscription = async () => {
       const supabase = getSupabaseClient()
       if (!supabase) return
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user) return
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
+      if (!user) return
       const { data } = await supabase
         .from("page_subscriptions")
         .select("page_id")
         .eq("page_id", pageId)
-        .eq("user_id", userData.user.id)
+        .eq("user_id", user.id)
         .maybeSingle()
       setSubscribed(Boolean(data))
     }
@@ -75,9 +82,16 @@ export function PageSubscribeButton({ pageId, className }: Props) {
   const handleClick = async () => {
     const supabase = getSupabaseClient()
     if (!supabase) return
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) {
-      window.location.href = `/login?next=/pages/${pageId}`
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (!user) {
+      const currentPath =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : `/${locale}/pages`
+      window.location.href = `/${locale}/login?next=${encodeURIComponent(currentPath)}`
       return
     }
     setLoading(true)
@@ -86,23 +100,23 @@ export function PageSubscribeButton({ pageId, className }: Props) {
         .from("page_subscriptions")
         .delete()
         .eq("page_id", pageId)
-        .eq("user_id", userData.user.id)
+        .eq("user_id", user.id)
       setSubscribed(false)
       showToast({
         variant: "info",
-        title: "Désabonné",
-        description: "Vous ne recevrez plus de notifications pour cette page.",
+        title: t("unsubscribedTitle"),
+        description: t("unsubscribedBody"),
       })
     } else {
       await supabase.from("page_subscriptions").insert({
         page_id: pageId,
-        user_id: userData.user.id,
+        user_id: user.id,
       })
       setSubscribed(true)
       showToast({
         variant: "success",
-        title: "Abonné",
-        description: "Vous serez notifié des nouveautés de cette page.",
+        title: t("subscribedTitle"),
+        description: t("subscribedBody"),
       })
     }
     setLoading(false)
@@ -115,13 +129,13 @@ export function PageSubscribeButton({ pageId, className }: Props) {
       disabled={loading}
       title={
         subscribed
-          ? "Ne plus recevoir de notifications pour cette page"
-          : "S'abonner : vous recevrez un e-mail quand cette page publie une nouveauté ou réalise une proposition."
+          ? t("unsubscribeTitle")
+          : t("subscribeTitle")
       }
       aria-label={
         subscribed
-          ? "Se désabonner de cette page"
-          : "S'abonner aux notifications de cette page"
+          ? t("unsubscribeAria")
+          : t("subscribeAria")
       }
       className={cn(
         "inline-flex items-center justify-center rounded-md p-2 text-muted-foreground transition-colors transition-transform duration-150 hover:bg-muted hover:text-foreground active:scale-95 disabled:opacity-50",

@@ -3,10 +3,15 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { PageVerificationRequest } from "@/components/page-verification-request"
 import { ProfileNotifications } from "@/components/profile-notifications"
+import { getStatusKey } from "@/lib/status-labels"
 
 type Profile = {
   username: string | null
@@ -19,12 +24,16 @@ type Proposition = {
   title: string | null
   status: string | null
   created_at: string | null
+  votes_count?: number | null
+  comments?: { count: number }[] | { count: number } | null
 }
 
 type OwnedPage = {
   id: string
   name: string | null
   slug: string | null
+  is_verified?: boolean | null
+  certification_type?: string | null
 }
 
 type PageSubscription = {
@@ -45,6 +54,7 @@ type ProfileShellProps = {
   doneCount: number | null
   propositions: Proposition[]
   ownedPages: OwnedPage[]
+  ownerId: string
   pageSubscriptions: PageSubscription[]
   propositionSubscriptions: PropositionSubscription[]
 }
@@ -55,24 +65,29 @@ export function ProfileShell({
   doneCount,
   propositions,
   ownedPages,
+  ownerId,
   pageSubscriptions,
   propositionSubscriptions,
 }: ProfileShellProps) {
+  const tProfile = useTranslations("Profile")
+  const tCommon = useTranslations("Common")
+  const tStatus = useTranslations("Status")
+  const tVerification = useTranslations("PageVerification")
   const searchParams = useSearchParams()
   const urlView = (searchParams.get("view") as ViewKey | null) ?? "profil"
   const [view, setView] = useState<ViewKey>(urlView)
 
-  // Synchronise l'onglet affiché avec le paramètre d'URL (?view=...)
+  // Sync displayed tab with URL param (?view=...)
   useEffect(() => {
     setView(urlView)
   }, [urlView])
 
   return (
     <div className="flex flex-col gap-6 md:flex-row">
-      {/* Panneau de navigation à gauche */}
+      {/* Left navigation panel */}
       <aside className="w-full shrink-0 rounded-xl border bg-card px-4 py-4 text-sm md:w-60">
         <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Mon espace
+          {tProfile("mySpace")}
         </p>
         <nav className="flex flex-col gap-1">
           <button
@@ -80,39 +95,39 @@ export function ProfileShell({
             onClick={() => setView("profil")}
             className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
           >
-            Mon profil
+            {tProfile("myProfile")}
           </button>
           <button
             type="button"
             onClick={() => setView("notifications")}
             className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
           >
-            Paramètres de notifications
+            {tProfile("notificationSettings")}
           </button>
           <button
             type="button"
             onClick={() => setView("mes-propositions")}
             className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
           >
-            Mes propositions
+            {tProfile("myPropositions")}
           </button>
           <button
             type="button"
             onClick={() => setView("mes-pages")}
             className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
           >
-            Mes pages
+            {tProfile("myPages")}
           </button>
         </nav>
       </aside>
 
-      {/* Contenu principal à droite : un seul panneau à la fois */}
+      {/* Main content on the right: one panel at a time */}
       <div className="flex-1 space-y-6">
         {view === "profil" && (
           <section id="profil">
             <Card>
               <CardHeader>
-                <CardTitle>Profil</CardTitle>
+                <CardTitle>{tProfile("profileTitle")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center gap-3">
@@ -123,11 +138,11 @@ export function ProfileShell({
                   />
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      {profile?.username ?? "Utilisateur"} ·{" "}
+                      {profile?.username ?? tCommon("user")} ·{" "}
                       {profile?.email ?? userEmailFallback}
                     </p>
                     <Badge variant="secondary" className="mt-1">
-                      Niveau {doneCount ?? 0}
+                      {tProfile("levelLabel", { count: doneCount ?? 0 })}
                     </Badge>
                   </div>
                 </div>
@@ -149,13 +164,13 @@ export function ProfileShell({
           <section id="mes-propositions">
             <Card>
               <CardHeader>
-                <CardTitle>Mes propositions</CardTitle>
+                <CardTitle>{tProfile("myPropositions")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
                 {propositions.map((item) => (
                   <div
                     key={item.id}
-                    className="flex items-center justify-between gap-3 text-sm"
+                    className="flex flex-col gap-1 text-sm"
                   >
                     <Link
                       href={`/propositions/${item.id}`}
@@ -163,19 +178,34 @@ export function ProfileShell({
                     >
                       {item.title}
                     </Link>
-                    <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <span>
+                        {item.votes_count ?? 0} {tCommon("votes")}
+                      </span>
+                      <span>•</span>
+                      <span>
+                        {Array.isArray(item.comments)
+                          ? item.comments[0]?.count ?? 0
+                          : item.comments?.count ?? 0}{" "}
+                        {tCommon("replies")}
+                      </span>
+                      <span>•</span>
+                      <Badge variant="secondary">
+                        {tStatus(getStatusKey(item.status))}
+                      </Badge>
+                    </div>
                   </div>
                 ))}
                 {propositions.length === 0 && (
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Vous n&apos;avez pas encore de propositions.
+                      {tProfile("noPropositions")}
                     </p>
                     <Link
                       href="/propositions/create"
                       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
-                      + Créer une proposition
+                      {tCommon("addProposition")}
                     </Link>
                   </div>
                 )}
@@ -188,28 +218,68 @@ export function ProfileShell({
           <section id="mes-pages">
             <Card>
               <CardHeader>
-                <CardTitle>Pages possédées</CardTitle>
+                <CardTitle>{tProfile("ownedPages")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {ownedPages.map((page) => (
-                  <Link
-                    key={page.id}
-                    href={`/pages/${page.slug}`}
-                    className="block text-sm font-medium text-foreground hover:underline"
-                  >
-                    {page.name}
-                  </Link>
-                ))}
+                {ownedPages.map((page) => {
+                  const isVerified =
+                    Boolean(page.is_verified) ||
+                    page.certification_type === "OFFICIAL"
+                  return (
+                    <div
+                      key={page.id}
+                      className="flex flex-wrap items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/pages/${page.slug}`}
+                          className="text-sm font-medium text-foreground hover:underline"
+                        >
+                          {page.name}
+                        </Link>
+                        {isVerified && (
+                          <span
+                            className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-sky-500 text-[8px] font-semibold text-white"
+                            aria-label={tVerification("verifiedBadge")}
+                            title={tVerification("verifiedBadge")}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </div>
+                      {isVerified ? (
+                        <Badge variant="secondary">
+                          {tVerification("verifiedBadge")}
+                        </Badge>
+                      ) : (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              {tVerification("requestButton")}
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-2" align="end">
+                            <PageVerificationRequest
+                              pageId={page.id}
+                              ownerId={ownerId}
+                              isVerified={false}
+                            />
+                          </PopoverContent>
+                        </Popover>
+                      )}
+                    </div>
+                  )
+                })}
                 {ownedPages.length === 0 && (
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Vous ne possédez aucune page.
+                      {tProfile("noOwnedPages")}
                     </p>
                     <Link
                       href="/pages/create"
                       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
-                      + Créer une page
+                      {tCommon("createPage")}
                     </Link>
                   </div>
                 )}
@@ -221,4 +291,3 @@ export function ProfileShell({
     </div>
   )
 }
-

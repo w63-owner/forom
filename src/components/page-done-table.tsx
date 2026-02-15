@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { getStatusKey } from "@/lib/status-labels"
 
 type DoneItem = {
   id: string
@@ -17,6 +19,9 @@ type Props = {
 }
 
 export function PageDoneTable({ pageId, initialItems }: Props) {
+  const tCommon = useTranslations("Common")
+  const tStatus = useTranslations("Status")
+  const tPage = useTranslations("Page")
   const [items, setItems] = useState<DoneItem[]>(initialItems)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= 20)
@@ -65,9 +70,9 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
           <table className="w-full text-sm">
         <thead className="bg-muted/50 text-muted-foreground">
           <tr>
-            <th className="px-4 py-3 text-left font-medium">Proposition</th>
-            <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Date</th>
-            <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Statut</th>
+            <th className="px-4 py-3 text-left font-medium">{tCommon("proposition")}</th>
+            <th className="hidden px-4 py-3 text-left font-medium md:table-cell">{tCommon("date")}</th>
+            <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("status")}</th>
           </tr>
         </thead>
           <tbody>
@@ -76,7 +81,7 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
                 colSpan={3}
                 className="px-4 py-6 text-center text-muted-foreground"
               >
-                Aucun changement terminé pour le moment.
+                {tPage("noCompletedChanges")}
               </td>
             </tr>
           </tbody>
@@ -91,9 +96,9 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
         <table className="w-full text-sm">
         <thead className="bg-muted/50 text-muted-foreground">
           <tr>
-            <th className="px-4 py-3 text-left font-medium">Proposition</th>
-              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Date</th>
-              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Statut</th>
+            <th className="px-4 py-3 text-left font-medium">{tCommon("proposition")}</th>
+              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">{tCommon("date")}</th>
+              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -113,20 +118,20 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
                       <span>
                         {item.created_at
-                          ? new Date(item.created_at).toLocaleDateString("fr-FR")
+                          ? new Date(item.created_at).toLocaleDateString()
                           : "—"}
                       </span>
-                      <Badge variant="secondary">Done</Badge>
+                      <Badge variant="secondary">{tStatus(getStatusKey("Done"))}</Badge>
                     </div>
                   </div>
               </td>
                 <td className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                 {item.created_at
-                  ? new Date(item.created_at).toLocaleDateString("fr-FR")
+                  ? new Date(item.created_at).toLocaleDateString()
                   : "—"}
               </td>
                 <td className="hidden px-4 py-3 text-right md:table-cell">
-                <Badge variant="secondary">Done</Badge>
+                <Badge variant="secondary">{tStatus(getStatusKey("Done"))}</Badge>
               </td>
             </tr>
           ))}
@@ -141,11 +146,10 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
             disabled={loadingMore}
             className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
           >
-            {loadingMore ? "Chargement..." : "Voir plus"}
+            {loadingMore ? tCommon("loading") : tCommon("seeMore")}
           </button>
         </div>
       )}
     </div>
   )
 }
-

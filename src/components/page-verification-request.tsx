@@ -1,8 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
 type Props = {
   pageId: string
@@ -20,34 +22,38 @@ type VerificationRequest = {
   created_at: string
 }
 
-const methodOptions = [
-  {
-    value: "email",
-    label: "Email pro",
-    hint: "ex: nom@entreprise.com",
-  },
-  {
-    value: "dns",
-    label: "DNS TXT",
-    hint: "ex: TXT _forom-verification=xxxx",
-  },
-  {
-    value: "file",
-    label: "Fichier HTML",
-    hint: "ex: https://site.com/forom-verification.html",
-  },
-  {
-    value: "social",
-    label: "Lien compte officiel",
-    hint: "ex: https://linkedin.com/company/...",
-  },
-]
-
 export function PageVerificationRequest({
   pageId,
   ownerId,
   isVerified,
 }: Props) {
+  const t = useTranslations("PageVerification")
+  const tCommon = useTranslations("Common")
+  const methodOptions = useMemo(
+    () => [
+      {
+        value: "email",
+        label: t("methodEmail"),
+        hint: t("methodEmailHint"),
+      },
+      {
+        value: "dns",
+        label: t("methodDns"),
+        hint: t("methodDnsHint"),
+      },
+      {
+        value: "file",
+        label: t("methodFile"),
+        hint: t("methodFileHint"),
+      },
+      {
+        value: "social",
+        label: t("methodSocial"),
+        hint: t("methodSocialHint"),
+      },
+    ],
+    [t]
+  )
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,8 +73,11 @@ export function PageVerificationRequest({
     const fetchRequest = async () => {
       const supabase = getSupabaseClient()
       if (!supabase) return
-      const { data: userData } = await supabase.auth.getUser()
-      if (!userData.user || userData.user.id !== ownerId) return
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
+      if (!user || user.id !== ownerId) return
 
       const { data } = await supabase
         .from("page_verification_requests")
@@ -91,16 +100,19 @@ export function PageVerificationRequest({
   const handleSubmit = async () => {
     const supabase = getSupabaseClient()
     if (!supabase) {
-      setError("Supabase non configuré.")
+      setError(t("supabaseNotConfigured"))
       return
     }
-    const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user || userData.user.id !== ownerId) {
-      setError("Vous n'êtes pas autorisé.")
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (!user || user.id !== ownerId) {
+      setError(t("notAuthorized"))
       return
     }
     if (!proof.trim()) {
-      setError("Ajoutez une preuve pour la vérification.")
+      setError(t("missingProof"))
       return
     }
 
@@ -110,7 +122,7 @@ export function PageVerificationRequest({
       .from("page_verification_requests")
       .insert({
         page_id: pageId,
-        requested_by: userData.user.id,
+        requested_by: user.id,
         method,
         proof: proof.trim(),
         requester_note: note.trim() || null,
@@ -126,7 +138,7 @@ export function PageVerificationRequest({
       return
     }
 
-    setStatusMessage("Demande envoyée. Nous reviendrons vers vous rapidement.")
+    setStatusMessage(t("requestSent"))
     setLoading(false)
     setProof("")
     setNote("")
@@ -148,31 +160,31 @@ export function PageVerificationRequest({
 
   return (
     <div className="space-y-3 rounded-lg border border-border bg-background/60 p-4 text-sm">
-      <p className="font-medium text-foreground">Demande de vérification</p>
+      <p className="font-medium text-foreground">{t("title")}</p>
       {isVerified ? (
         <p className="text-muted-foreground">
-          Cette page est déjà vérifiée.
+          {t("alreadyVerified")}
         </p>
       ) : (
         <p className="text-muted-foreground">
-          Fournissez une preuve pour confirmer que vous représentez cette page.
+          {t("instructions")}
         </p>
       )}
 
       {currentRequest && (
         <div className="rounded-md border border-border bg-background p-3">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
-            Dernière demande
+            {t("latestRequest")}
           </p>
           <p className="text-sm text-foreground">
-            Statut:{" "}
+            {t("statusLabel")}{" "}
             <span className="font-medium capitalize">
               {currentRequest.status}
             </span>
           </p>
           {currentRequest.reviewer_note && (
             <p className="text-xs text-muted-foreground">
-              Note admin: {currentRequest.reviewer_note}
+              {t("adminNote", { note: currentRequest.reviewer_note })}
             </p>
           )}
         </div>
@@ -180,9 +192,11 @@ export function PageVerificationRequest({
 
       <div className="space-y-2">
         <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Méthode
+          {t("methodLabel")}
         </label>
         <select
+          id="page-verification-method"
+          name="verificationMethod"
           value={method}
           onChange={(event) => setMethod(event.target.value)}
           className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
@@ -201,12 +215,14 @@ export function PageVerificationRequest({
 
       <div className="space-y-2">
         <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Preuve
+          {t("proofLabel")}
         </label>
         <input
+          id="page-verification-proof"
+          name="verificationProof"
           value={proof}
           onChange={(event) => setProof(event.target.value)}
-          placeholder="Lien, email ou code de vérification"
+          placeholder={t("proofPlaceholder")}
           className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
           disabled={isVerified || isPending}
         />
@@ -214,12 +230,14 @@ export function PageVerificationRequest({
 
       <div className="space-y-2">
         <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          Note (optionnel)
+          {t("noteLabel")}
         </label>
         <textarea
+          id="page-verification-note"
+          name="verificationNote"
           value={note}
           onChange={(event) => setNote(event.target.value)}
-          placeholder="Ajoutez un contexte si besoin"
+          placeholder={t("notePlaceholder")}
           className="min-h-[80px] w-full rounded-md border border-border bg-background px-2 py-2 text-sm"
           disabled={isVerified || isPending}
         />
@@ -233,12 +251,12 @@ export function PageVerificationRequest({
       <div className="flex justify-end">
         <Button size="sm" onClick={handleSubmit} disabled={loading || isVerified || isPending}>
           {isVerified
-            ? "Page vérifiée"
+            ? t("verifiedButton")
             : isPending
-            ? "Demande en cours"
+            ? t("pendingButton")
             : loading
-            ? "Envoi..."
-            : "Demander une vérification"}
+            ? tCommon("submitting")
+            : t("requestButton")}
         </Button>
       </div>
     </div>

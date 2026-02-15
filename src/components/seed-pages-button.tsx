@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 
 export function SeedPagesButton() {
+  const t = useTranslations("SeedPages")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
 
@@ -14,19 +16,19 @@ export function SeedPagesButton() {
     if (!response.ok) {
       const detail = await response.text().catch(() => "")
       setMessage(
-        `Erreur lors de la création.${detail ? ` (${detail})` : ""}`
+        `${t("error")} ${detail ? `(${detail})` : ""}`.trim()
       )
       setLoading(false)
       return
     }
-    setMessage("Pages générées.")
+    setMessage(t("success"))
     setLoading(false)
   }
 
   return (
     <div className="space-y-2">
       <Button onClick={handleClick} disabled={loading}>
-        {loading ? "Génération..." : "Générer les pages"}
+        {loading ? t("loading") : t("button")}
       </Button>
       {message && <p className="text-xs text-muted-foreground">{message}</p>}
     </div>

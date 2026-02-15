@@ -2,8 +2,15 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
+import {
+  AsyncTimeoutError,
+  withRetry,
+  withTimeoutPromise,
+} from "@/lib/async-resilience"
 
 type Notification = {
   id: string
@@ -15,7 +22,10 @@ type Notification = {
 }
 
 export function ProfileUnreadNotifications() {
+  const t = useTranslations("ProfileNotifications")
+  const tCommon = useTranslations("Common")
   const [notifications, setNotifications] = useState<Notification[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -24,22 +34,51 @@ export function ProfileUnreadNotifications() {
         setNotifications([])
         return
       }
-      const { data: userData } = await supabase.auth.getUser()
-      const email = userData.user?.email
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
+      const email = user?.email
       if (!email) {
         setNotifications([])
         return
       }
-      const { data } = await supabase
-        .from("notifications")
-        .select("id, title, body, link, created_at, read_at")
-        .eq("email", email)
-        .order("created_at", { ascending: false })
-        .limit(20)
-      setNotifications(data ?? [])
+      try {
+        const runQuery = () =>
+          supabase
+            .from("notifications")
+            .select("id, title, body, link, created_at, read_at")
+            .eq("email", email)
+            .order("created_at", { ascending: false })
+            .limit(20)
+        const { data, error: queryError } = (await withRetry(
+          () => withTimeoutPromise(runQuery(), 12000),
+          {
+            attempts: 3,
+            delayMs: 250,
+            shouldRetry: () => true,
+          }
+        )) as Awaited<ReturnType<typeof runQuery>>
+        if (queryError) {
+          setError(queryError.message)
+          setNotifications([])
+          return
+        }
+        setError(null)
+        setNotifications(data ?? [])
+      } catch (loadError) {
+        setError(
+          loadError instanceof AsyncTimeoutError
+            ? t("noNotificationsYet")
+            : loadError instanceof Error
+              ? loadError.message
+              : t("noNotificationsYet")
+        )
+        setNotifications([])
+      }
     }
     void load()
-  }, [])
+  }, [t])
 
   if (notifications === null) {
     return null
@@ -49,11 +88,11 @@ export function ProfileUnreadNotifications() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Notifications récentes</CardTitle>
+          <CardTitle>{t("recentTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Vous n&apos;avez pas encore de notifications.
+            {error ?? t("noNotificationsYet")}
           </p>
         </CardContent>
       </Card>
@@ -66,10 +105,10 @@ export function ProfileUnreadNotifications() {
     <Card>
       <CardHeader>
         <CardTitle>
-          Notifications récentes
+          {t("recentTitle")}
           {unreadCount > 0 && (
             <span className="ml-2 rounded-full bg-destructive px-2 py-0.5 text-xs font-medium text-destructive-foreground">
-              {unreadCount} non lue{unreadCount > 1 ? "s" : ""}
+              {t("unreadBadge", { count: unreadCount })}
             </span>
           )}
         </CardTitle>
@@ -95,7 +134,7 @@ export function ProfileUnreadNotifications() {
                 href={n.link}
                 className="text-xs font-medium text-primary hover:underline"
               >
-                Voir
+                {tCommon("view")}
               </Link>
             )}
           </div>
@@ -104,4 +143,3 @@ export function ProfileUnreadNotifications() {
     </Card>
   )
 }
-

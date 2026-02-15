@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import debounce from "lodash/debounce"
+import { useLocale, useTranslations } from "next-intl"
 import { getSupabaseClient } from "@/utils/supabase/client"
 
 export type PageResult = {
@@ -21,6 +22,8 @@ export function usePageSearch({
   initialPageName = "",
   enabled,
 }: UsePageSearchOptions) {
+  const t = useTranslations("PageSearch")
+  const locale = useLocale()
   const [query, setQuery] = useState(initialPageName)
   const [results, setResults] = useState<PageResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -28,6 +31,13 @@ export function usePageSearch({
   const [selectedPage, setSelectedPage] = useState<PageResult | null>(null)
   const [initialLoaded, setInitialLoaded] = useState(!initialPageId.trim())
   const [touched, setTouched] = useState(false)
+  const isAbortError = (err: unknown) =>
+    Boolean(
+      err &&
+        typeof err === "object" &&
+        "name" in err &&
+        (err as { name?: unknown }).name === "AbortError"
+    )
 
   const debouncedSearch = useMemo(
     () =>
@@ -38,7 +48,9 @@ export function usePageSearch({
         const timeout = setTimeout(() => controller.abort("timeout"), 5000)
         try {
           const response = await fetch(
-            `/api/pages/search?q=${encodeURIComponent(value.trim())}`,
+            `/api/pages/search?q=${encodeURIComponent(
+              value.trim()
+            )}&locale=${locale}`,
             { signal: controller.signal }
           )
           const payload = (await response.json()) as {
@@ -47,17 +59,17 @@ export function usePageSearch({
           }
 
           if (!response.ok || payload.error) {
-            setError(payload.error ?? "Impossible de récupérer les pages.")
+            setError(payload.error ?? t("fetchError"))
             setResults([])
           } else {
             setResults(payload.data ?? [])
           }
         } catch (err) {
-          if (err instanceof Error && err.name === "AbortError") {
+          if (isAbortError(err)) {
             setError(null)
             setResults([])
           } else {
-            setError("Impossible de récupérer les pages.")
+            setError(t("fetchError"))
             setResults([])
           }
         } finally {
@@ -65,7 +77,7 @@ export function usePageSearch({
           setLoading(false)
         }
       }, 300),
-    []
+    [locale, t]
   )
 
   useEffect(() => {
@@ -129,10 +141,15 @@ export function usePageSearch({
     setLoading(false)
   }, [debouncedSearch, enabled])
 
-  const onQueryChange = (value: string) => {
+  const onQueryChange = (
+    value: string,
+    options?: { keepSelection?: boolean; touched?: boolean }
+  ) => {
     setQuery(value)
-    setSelectedPage(null)
-    setTouched(true)
+    if (!options?.keepSelection) {
+      setSelectedPage(null)
+    }
+    setTouched(options?.touched ?? true)
   }
 
   const clearResults = useCallback(() => {

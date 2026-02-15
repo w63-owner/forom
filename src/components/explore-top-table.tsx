@@ -1,10 +1,17 @@
- "use client"
+"use client"
 
 import { useEffect, useMemo, useState } from "react"
- import Link from "next/link"
- import { Badge } from "@/components/ui/badge"
- import { PageVoteToggle } from "@/components/page-vote-toggle"
- import { getSupabaseClient } from "@/utils/supabase/client"
+import Link from "next/link"
+import { useTranslations } from "next-intl"
+import { Badge } from "@/components/ui/badge"
+import { PageVoteToggle } from "@/components/page-vote-toggle"
+import {
+  AsyncTimeoutError,
+  fetchWithTimeout,
+  withRetry,
+} from "@/lib/async-resilience"
+import { getSupabaseClient } from "@/utils/supabase/client"
+import { getStatusKey } from "@/lib/status-labels"
 
  type PageMeta = { name?: string | null; slug?: string | null }
 
@@ -19,6 +26,7 @@ import { useEffect, useMemo, useState } from "react"
 
  type Props = {
    initialItems: TopItem[]
+  initialVotedIds?: string[]
    query: string
    statusValues: string[]
    range: string
@@ -57,6 +65,7 @@ import { useEffect, useMemo, useState } from "react"
 
  export function ExploreTopTable({
    initialItems,
+  initialVotedIds,
    query,
    statusValues,
    range,
@@ -68,11 +77,53 @@ import { useEffect, useMemo, useState } from "react"
    pageOrder,
    statusOrder,
  }: Props) {
-   const [items, setItems] = useState<TopItem[]>(initialItems)
+  const tExplore = useTranslations("Explore")
+  const tCommon = useTranslations("Common")
+  const tNav = useTranslations("Nav")
+  const tStatus = useTranslations("Status")
+  const [items, setItems] = useState<TopItem[]>(initialItems)
    const [loadingMore, setLoadingMore] = useState(false)
    const [hasMore, setHasMore] = useState(initialItems.length >= 20)
    const [pageIds, setPageIds] = useState<string[]>([])
   const [pageIdsLoaded, setPageIdsLoaded] = useState(false)
+  const [votedIds, setVotedIds] = useState<Set<string>>(
+    new Set(initialVotedIds ?? [])
+  )
+  const [voteCountsById, setVoteCountsById] = useState<Record<string, number>>({})
+
+  const loadVotedIds = async (propositionIds: string[]) => {
+    if (propositionIds.length === 0) {
+      setVotedIds(new Set())
+      setVoteCountsById({})
+      return
+    }
+    const response = await withRetry(
+      () =>
+        fetchWithTimeout(
+          `/api/votes/state?ids=${encodeURIComponent(propositionIds.join(","))}`,
+          { cache: "no-store" },
+          8000
+        ),
+      {
+        attempts: 2,
+        delayMs: 200,
+        shouldRetry: (error) => error instanceof AsyncTimeoutError,
+      }
+    )
+    if (response.status === 401) {
+      return
+    }
+    if (!response.ok) {
+      throw new Error("votes_state_failed")
+    }
+    const payload = (await response.json()) as {
+      ok?: boolean
+      votedIds?: string[]
+      voteCountsById?: Record<string, number>
+    }
+    setVotedIds(new Set(payload.votedIds ?? []))
+    setVoteCountsById(payload.voteCountsById ?? {})
+  }
 
   const sortItems = useMemo(
     () => (list: TopItem[]) => {
@@ -109,6 +160,57 @@ import { useEffect, useMemo, useState } from "react"
      setItems(initialItems)
      setHasMore(initialItems.length >= 20)
    }, [initialItems])
+
+  useEffect(() => {
+    setVotedIds(new Set(initialVotedIds ?? []))
+  }, [initialVotedIds])
+
+  const handleVoteChange = ({
+    propositionId,
+    hasVoted,
+    votes,
+  }: {
+    propositionId: string
+    hasVoted: boolean
+    votes: number
+  }) => {
+    setVotedIds((prev) => {
+      const next = new Set(prev)
+      if (hasVoted) next.add(propositionId)
+      else next.delete(propositionId)
+      return next
+    })
+    setVoteCountsById((prev) => ({ ...prev, [propositionId]: votes }))
+  }
+
+  useEffect(() => {
+    let cancelled = false
+    const loadVotes = async () => {
+      try {
+        const propositionIds = Array.from(new Set(items.map((item) => item.id)))
+        await loadVotedIds(propositionIds)
+        if (cancelled) return
+      } catch {
+        // Keep previous voted state on transient failures.
+      }
+    }
+    void loadVotes()
+    return () => {
+      cancelled = true
+    }
+  }, [items])
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return
+      const propositionIds = Array.from(new Set(items.map((item) => item.id)))
+      void loadVotedIds(propositionIds).catch(() => null)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [items])
 
    useEffect(() => {
      let isMounted = true
@@ -205,10 +307,18 @@ import { useEffect, useMemo, useState } from "react"
           <table className="w-full text-sm">
             <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Proposition</th>
-                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Page</th>
-                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Statut</th>
-                <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Votes</th>
+                <th className="px-4 py-3 text-left font-medium">
+                  {tExplore("columnProposition")}
+                </th>
+                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                  {tExplore("columnPage")}
+                </th>
+                <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                  {tExplore("columnStatus")}
+                </th>
+                <th className="hidden px-4 py-3 text-right font-medium md:table-cell">
+                  {tExplore("columnVotes")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -218,12 +328,12 @@ import { useEffect, useMemo, useState } from "react"
                   className="px-4 py-6 text-center text-muted-foreground"
                 >
                   <div className="flex flex-col items-center gap-3">
-                    <span>Aucun résultat pour le moment.</span>
+                    <span>{tExplore("noResultsTop")}</span>
                     <Link
                       href={createHref}
                       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
-                      + Ajouter une proposition
+                      + {tNav("addProposition")}
                     </Link>
                   </div>
                 </td>
@@ -241,10 +351,18 @@ import { useEffect, useMemo, useState } from "react"
         <table className="w-full text-sm">
           <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
             <tr>
-              <th className="px-4 py-3 text-left font-medium">Proposition</th>
-              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Page</th>
-              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">Statut</th>
-              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">Votes</th>
+              <th className="px-4 py-3 text-left font-medium">
+                {tExplore("columnProposition")}
+              </th>
+              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                {tExplore("columnPage")}
+              </th>
+              <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                {tExplore("columnStatus")}
+              </th>
+              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">
+                {tExplore("columnVotes")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -253,30 +371,42 @@ import { useEffect, useMemo, useState } from "react"
               return (
                 <tr key={item.id} className="border-t border-border">
                   <td className="px-4 py-3">
-                    <div className="space-y-1">
+                    <div className="hidden space-y-2 md:block">
                       <Link
                         href={`/propositions/${item.id}`}
                         className="font-medium text-foreground hover:underline"
                       >
                         {item.title}
                       </Link>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
-                        {page?.name && page.slug ? (
-                          <Badge variant="outline" asChild>
-                            <Link href={`/pages/${page.slug}`}>{page.name}</Link>
-                          </Badge>
-                        ) : (
-                          <span>—</span>
-                        )}
-                        <div className="flex h-7 items-center">
-                          <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 md:hidden">
+                      <div className="min-w-0 space-y-2">
+                        <Link
+                          href={`/propositions/${item.id}`}
+                          className="block font-medium text-foreground hover:underline"
+                        >
+                          {item.title}
+                        </Link>
+                        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          {page?.name && page.slug ? (
+                            <Badge variant="outline" asChild>
+                              <Link href={`/pages/${page.slug}`}>{page.name}</Link>
+                            </Badge>
+                          ) : (
+                            <span>—</span>
+                          )}
+                          <div className="flex h-7 items-center">
+                            <Badge variant="outline">{tStatus(getStatusKey(item.status))}</Badge>
+                          </div>
                         </div>
-                        <div className="ml-auto flex h-7 shrink-0 items-center [&_span]:text-xs [&_button]:h-7 [&_button]:py-0.5">
-                          <PageVoteToggle
-                            propositionId={item.id}
-                            initialVotes={item.votes_count ?? 0}
-                          />
-                        </div>
+                      </div>
+                      <div className="shrink-0">
+                        <PageVoteToggle
+                          propositionId={item.id}
+                          initialVotes={voteCountsById[item.id] ?? (item.votes_count ?? 0)}
+                          initialHasVoted={votedIds.has(item.id)}
+                          onVoteChange={handleVoteChange}
+                        />
                       </div>
                     </div>
                   </td>
@@ -290,12 +420,14 @@ import { useEffect, useMemo, useState } from "react"
                     )}
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
-                    <Badge variant="outline">{item.status ?? "Open"}</Badge>
+                    <Badge variant="outline">{tStatus(getStatusKey(item.status))}</Badge>
                   </td>
                   <td className="hidden px-4 py-3 text-right md:table-cell">
                     <PageVoteToggle
                       propositionId={item.id}
-                      initialVotes={item.votes_count ?? 0}
+                      initialVotes={voteCountsById[item.id] ?? (item.votes_count ?? 0)}
+                      initialHasVoted={votedIds.has(item.id)}
+                      onVoteChange={handleVoteChange}
                     />
                   </td>
                 </tr>
@@ -312,11 +444,10 @@ import { useEffect, useMemo, useState } from "react"
             disabled={loadingMore}
             className="rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
           >
-            {loadingMore ? "Chargement..." : "Voir plus"}
+            {loadingMore ? tCommon("loading") : tCommon("seeMore")}
           </button>
         </div>
       )}
     </div>
   )
 }
-

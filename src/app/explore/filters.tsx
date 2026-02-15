@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import debounce from "lodash/debounce"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { useTranslations } from "next-intl"
 
 type Props = {
   initialQuery: string
@@ -20,14 +21,6 @@ type Props = {
   initialOrder: string
 }
 
-const STATUS_OPTIONS = [
-  { value: "all", label: "Tous les statuts" },
-  { value: "Open", label: "Ouvert" },
-  { value: "In Progress", label: "En cours" },
-  { value: "Done", label: "Terminé" },
-  { value: "Won't Do", label: "Ne sera pas fait" },
-]
-
 export default function ExploreFilters({
   initialQuery,
   initialStatusValue,
@@ -35,23 +28,31 @@ export default function ExploreFilters({
   initialRange,
   initialOrder,
 }: Props) {
+  const tExplore = useTranslations("Explore")
+  const tStatus = useTranslations("Status")
+
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [query, setQuery] = useState(initialQuery)
   const [statusValue, setStatusValue] = useState(initialStatusValue)
-  const prevInitialQueryRef = useRef(initialQuery)
 
+  // Ne pas resynchroniser query depuis initialQuery : après notre debounce,
+  // le re-render renverrait l’ancienne valeur et effacerait la frappe en cours.
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (initialQuery !== prevInitialQueryRef.current) {
-        prevInitialQueryRef.current = initialQuery
-        setQuery(initialQuery)
-      }
-      setStatusValue(initialStatusValue)
-    }, 0)
-    return () => clearTimeout(timeout)
-  }, [initialQuery, initialStatusValue])
+    setStatusValue(initialStatusValue)
+  }, [initialStatusValue])
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "all", label: tStatus("all") },
+      { value: "Open", label: tStatus("open") },
+      { value: "In Progress", label: tStatus("inProgress") },
+      { value: "Done", label: tStatus("done") },
+      { value: "Won't Do", label: tStatus("wontDo") },
+    ],
+    [tStatus]
+  )
 
   const updateUrl = useCallback((next: {
     q?: string
@@ -106,7 +107,6 @@ export default function ExploreFilters({
   useEffect(() => {
     debouncedQueryUpdateRef.current = debounce((value: string) => {
       updateUrl({ q: value })
-      prevInitialQueryRef.current = value
     }, 400)
     return () => debouncedQueryUpdateRef.current?.cancel()
   }, [updateUrl])
@@ -128,15 +128,15 @@ export default function ExploreFilters({
           name="q"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Chercher une proposition"
+          placeholder={tExplore("searchPlaceholder")}
           className="h-10 w-full md:max-w-sm"
         />
         <Select value={statusValue} onValueChange={handleStatusChange}>
           <SelectTrigger className="h-10 w-full md:w-48">
-            <SelectValue placeholder="Statut" />
+            <SelectValue placeholder={tExplore("statusPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            {STATUS_OPTIONS.map((opt) => (
+            {statusOptions.map((opt) => (
               <SelectItem key={opt.value} value={opt.value}>
                 {opt.label}
               </SelectItem>

@@ -1,0 +1,172 @@
+universe,category,sub_category
+MOBILITY_TRAVEL,Aviation Commerciale,Parcours d'enregistrement & Bagages
+MOBILITY_TRAVEL,Aviation Commerciale,Contrôles de Sécurité & Fluidité
+MOBILITY_TRAVEL,Aviation Commerciale,Confort Cabine (Siège/Espace)
+MOBILITY_TRAVEL,Aviation Commerciale,Divertissement à bord & Wi-Fi
+MOBILITY_TRAVEL,Aviation Commerciale,Repas & Service Restauration
+MOBILITY_TRAVEL,Aviation Commerciale,Gestion des Retards & Indemnisation
+MOBILITY_TRAVEL,Aviation Commerciale,Programmes de Fidélité (Miles)
+MOBILITY_TRAVEL,VTC & Taxis,Facilité de Réservation (App)
+MOBILITY_TRAVEL,VTC & Taxis,Temps d'attente & Disponibilité
+MOBILITY_TRAVEL,VTC & Taxis,Propreté du Véhicule & Confort
+MOBILITY_TRAVEL,VTC & Taxis,Courtoisie & Conduite du Chauffeur
+MOBILITY_TRAVEL,VTC & Taxis,Transparence des Prix & Majorations
+MOBILITY_TRAVEL,VTC & Taxis,Sécurité Passager & Signalement
+MOBILITY_TRAVEL,Location de Véhicules,Parcours de Prise en charge (Guichet)
+MOBILITY_TRAVEL,Location de Véhicules,État des Véhicules & Entretien
+MOBILITY_TRAVEL,Location de Véhicules,Transparence des Assurances & Franchises
+MOBILITY_TRAVEL,Location de Véhicules,Restitution & État des lieux
+MOBILITY_TRAVEL,Nouvelles Mobilités,Auto-partage (Free-floating)
+MOBILITY_TRAVEL,Nouvelles Mobilités,Trottinettes & Vélos en libre-service
+MOBILITY_TRAVEL,Nouvelles Mobilités,Covoiturage Longue Distance
+MOBILITY_TRAVEL,Hôtellerie & Voyage,Réservation & Comparateurs en ligne
+MOBILITY_TRAVEL,Hôtellerie & Voyage,Expérience Check-in/Check-out
+MOBILITY_TRAVEL,Hôtellerie & Voyage,Propreté & Hygiène des Chambres
+MOBILITY_TRAVEL,Hôtellerie & Voyage,Services Hôteliers (Spa/Petit-déj)
+PUBLIC_SERVICES,Transports Publics,Ponctualité & Régularité (Train/Métro)
+PUBLIC_SERVICES,Transports Publics,Propreté des Rames & Gares
+PUBLIC_SERVICES,Transports Publics,Sécurité & Sentiment d'insécurité
+PUBLIC_SERVICES,Transports Publics,Accessibilité PMR & Poussettes
+PUBLIC_SERVICES,Transports Publics,Information Voyageur & Signalétique
+PUBLIC_SERVICES,Transports Publics,Billetterie & Automates
+PUBLIC_SERVICES,Santé Publique,Temps d'attente aux Urgences
+PUBLIC_SERVICES,Santé Publique,Prise de RDV Médecins Spécialistes
+PUBLIC_SERVICES,Santé Publique,Qualité de l'Accueil Hospitalier
+PUBLIC_SERVICES,Santé Publique,Suivi Post-Opératoire & Dossier Médical
+PUBLIC_SERVICES,Santé Publique,Accès aux Soins en Zone Rurale
+PUBLIC_SERVICES,Administration,Délais de Traitement des Dossiers
+PUBLIC_SERVICES,Administration,Ergonomie des Sites Web de l'État
+PUBLIC_SERVICES,Administration,Joignabilité des Services (Tel/Mail)
+PUBLIC_SERVICES,Administration,Simplification des Formulaires
+PUBLIC_SERVICES,Administration,Identité Numérique & FranceConnect
+PUBLIC_SERVICES,Éducation,Effectifs & Encadrement en Classe
+PUBLIC_SERVICES,Éducation,Qualité de la Restauration Scolaire
+PUBLIC_SERVICES,Éducation,Outils Numériques (ENT/Pronote)
+PUBLIC_SERVICES,Éducation,Inclusion & AESH
+PUBLIC_SERVICES,Éducation,Orientation & Parcoursup
+PUBLIC_SERVICES,Sécurité & Justice,Délais de Justice & Audiences
+PUBLIC_SERVICES,Sécurité & Justice,Accueil en Commissariat & Gendarmerie
+PUBLIC_SERVICES,Sécurité & Justice,Présence Policière & Ronciers
+PUBLIC_SERVICES,Ville & Environnement,Gestion des Déchets & Poubelles
+PUBLIC_SERVICES,Ville & Environnement,Entretien des Espaces Verts
+PUBLIC_SERVICES,Ville & Environnement,Éclairage Public & Sécurité Nocturne
+TECH_PRODUCTS,SaaS & Logiciels B2B,Facilité de Prise en Main (Onboarding)
+TECH_PRODUCTS,SaaS & Logiciels B2B,Stabilité & Bugs Techniques
+TECH_PRODUCTS,SaaS & Logiciels B2B,Qualité du Support Client (Helpdesk)
+TECH_PRODUCTS,SaaS & Logiciels B2B,Intégrations & API
+TECH_PRODUCTS,SaaS & Logiciels B2B,Tarification & Transparence
+TECH_PRODUCTS,Apps Grand Public,Design d'Interface (UI) & Esthétique
+TECH_PRODUCTS,Apps Grand Public,Fluidité de Navigation (UX)
+TECH_PRODUCTS,Apps Grand Public,Gestion des Notifications & Intrusivité
+TECH_PRODUCTS,Apps Grand Public,Mode Sombre & Accessibilité
+TECH_PRODUCTS,Apps Grand Public,Consommation Batterie & Données
+TECH_PRODUCTS,Réseaux Sociaux,Modération des Contenus & Haine
+TECH_PRODUCTS,Réseaux Sociaux,Algorithmes de Recommandation
+TECH_PRODUCTS,Réseaux Sociaux,Protection de la Vie Privée
+TECH_PRODUCTS,Hardware & IoT,Durabilité & Solidité Matérielle
+TECH_PRODUCTS,Hardware & IoT,Réparabilité & Pièces Détachées
+TECH_PRODUCTS,Hardware & IoT,Autonomie & Batterie
+TECH_PRODUCTS,Hardware & IoT,Connectivité & Pairage Bluetooth
+TECH_PRODUCTS,IA & Data,Pertinence des Réponses (ChatGPT etc.)
+TECH_PRODUCTS,IA & Data,Biais Cognitifs & Éthique
+TECH_PRODUCTS,IA & Data,Sécurité des Données Personnelles
+CONSUMPTION,Retail Physique,Disponibilité des Stocks en Rayon
+CONSUMPTION,Retail Physique,Attente en Caisse & Fluidité
+CONSUMPTION,Retail Physique,Amabilité & Conseil des Vendeurs
+CONSUMPTION,Retail Physique,Programme de Fidélité & Cagnotte
+CONSUMPTION,Retail Physique,Propreté & Agencement Magasin
+CONSUMPTION,E-commerce,Facilité de Recherche Produit
+CONSUMPTION,E-commerce,Processus de Paiement & Sécurité
+CONSUMPTION,E-commerce,Respect des Délais de Livraison
+CONSUMPTION,E-commerce,Qualité de l'Emballage & Écologie
+CONSUMPTION,E-commerce,Politique de Retour & Remboursement
+CONSUMPTION,E-commerce,Service Après-Vente (SAV) & Chatbot
+CONSUMPTION,Services Financiers,Ergonomie App Bancaire
+CONSUMPTION,Services Financiers,Frais Bancaires & Transparence
+CONSUMPTION,Services Financiers,Réactivité Conseiller Bancaire
+CONSUMPTION,Services Financiers,Clarté des Contrats d'Assurance
+CONSUMPTION,Services Financiers,Rapidité d'Indemnisation Sinistre
+CONSUMPTION,Restauration,Qualité des Produits & Fraîcheur
+CONSUMPTION,Restauration,Rapport Qualité/Prix
+CONSUMPTION,Restauration,Service en Salle & Ambiance
+CONSUMPTION,Restauration,Livraison de Repas (Délais/État)
+LOCAL_LIFE,Quartier & Voirie,Propreté des Rues & Trottoirs
+LOCAL_LIFE,Quartier & Voirie,État de la Chaussée & Nids-de-poule
+LOCAL_LIFE,Quartier & Voirie,Mobilier Urbain (Bancs/Abribus)
+LOCAL_LIFE,Quartier & Voirie,Nuisances Sonores & Voisinage
+LOCAL_LIFE,Vie Sociale,Dynamisme Associatif & Bénévolat
+LOCAL_LIFE,Vie Sociale,Événements Locaux & Fêtes
+LOCAL_LIFE,Vie Sociale,Entraide & Solidarité Voisins
+LOCAL_LIFE,Économie Locale,Diversité des Commerces de Proximité
+LOCAL_LIFE,Économie Locale,Horaires & Animation des Marchés
+LOCAL_LIFE,Économie Locale,Soutien aux Artisans Locaux
+LOCAL_LIFE,Culture & Sport,État des Équipements Sportifs
+LOCAL_LIFE,Culture & Sport,Horaires Bibliothèques & Médiathèques
+LOCAL_LIFE,Culture & Sport,Offre Culturelle Municipale
+ENERGY_UTILITIES,Électricité & Gaz,Compréhension des Factures
+ENERGY_UTILITIES,Électricité & Gaz,Suivi de Consommation (Linky etc.)
+ENERGY_UTILITIES,Électricité & Gaz,Service Client & Résiliation
+ENERGY_UTILITIES,Électricité & Gaz,Offres Vertes & Renouvelables
+ENERGY_UTILITIES,Eau & Déchets,Qualité & Goût de l'Eau
+ENERGY_UTILITIES,Eau & Déchets,Fréquence de Collecte des Déchets
+ENERGY_UTILITIES,Télécoms,Stabilité Connexion Fibre/ADSL
+ENERGY_UTILITIES,Télécoms,Couverture Réseau Mobile (4G/5G)
+ENERGY_UTILITIES,Télécoms,Installation & Raccordement
+ENERGY_UTILITIES,Télécoms,Prix des Forfaits & Engagement
+MEDIA_CULTURE,Information,Indépendance & Pluralisme Média
+MEDIA_CULTURE,Information,Qualité des Enquêtes & Fact-checking
+MEDIA_CULTURE,Information,Accessibilité & Paywalls
+MEDIA_CULTURE,Streaming Vidéo,Catalogue de Contenus (Films/Séries)
+MEDIA_CULTURE,Streaming Vidéo,Recommandation & Découverte
+MEDIA_CULTURE,Streaming Vidéo,Qualité de Diffusion (4K/HDR)
+MEDIA_CULTURE,Musique & Audio,Qualité Sonore & Formats
+MEDIA_CULTURE,Musique & Audio,Rémunération des Artistes
+MEDIA_CULTURE,Gaming,Stabilité des Serveurs & Latence
+MEDIA_CULTURE,Gaming,Politique de Monétisation (Micro-transactions)
+MEDIA_CULTURE,Sorties,Facilité de Réservation Billetterie
+HOUSING_REAL_ESTATE,Location,Transparence des Annonces
+HOUSING_REAL_ESTATE,Location,Processus de Dépôt de Dossier
+HOUSING_REAL_ESTATE,Location,Réactivité Agence/Propriétaire
+HOUSING_REAL_ESTATE,Achat & Vente,Honoraires d'Agence & Frais
+HOUSING_REAL_ESTATE,Achat & Vente,Parcours Notarial & Délais
+HOUSING_REAL_ESTATE,Copropriété,Gestion du Syndic & Réactivité
+HOUSING_REAL_ESTATE,Copropriété,Transparence des Charges
+HOUSING_REAL_ESTATE,Travaux,Trouver des Artisans de Confiance
+HOUSING_REAL_ESTATE,Travaux,Respect des Devis & Délais
+HOUSING_REAL_ESTATE,Travaux,Aides à la Rénovation Énergétique
+PROFESSIONAL_LIFE,Recrutement,Transparence des Offres d'Emploi
+PROFESSIONAL_LIFE,Recrutement,Feedback après Entretien
+PROFESSIONAL_LIFE,Recrutement,Processus d'Onboarding
+PROFESSIONAL_LIFE,Vie au Travail,Équilibre Vie Pro / Vie Perso
+PROFESSIONAL_LIFE,Vie au Travail,Management & Culture d'Entreprise
+PROFESSIONAL_LIFE,Vie au Travail,Télétravail & Flexibilité
+PROFESSIONAL_LIFE,Outils Internes,Performance des Outils Métiers
+PROFESSIONAL_LIFE,Outils Internes,Matériel Informatique Fourni
+PROFESSIONAL_LIFE,Espaces de Travail,Confort & Ergonomie Bureau
+PROFESSIONAL_LIFE,Espaces de Travail,Espaces de Pause & Convivialité
+LUXE_LIFESTYLE,Haute Couture,Expérience en Boutique & Accueil
+LUXE_LIFESTYLE,Haute Couture,Qualité des Matières & Finitions
+LUXE_LIFESTYLE,Haute Couture,Service de Retouche & Sur-mesure
+LUXE_LIFESTYLE,Palaces & Hôtels 5*,Ultra-personnalisation du Service
+LUXE_LIFESTYLE,Palaces & Hôtels 5*,Discrétion & Privacy
+LUXE_LIFESTYLE,Palaces & Hôtels 5*,Conciergerie & Demandes Spéciales
+LUXE_LIFESTYLE,Gastronomie,Expérience Culinaire & Créativité
+LUXE_LIFESTYLE,Gastronomie,Service du Vin & Sommellerie
+LUXE_LIFESTYLE,Automobile de Luxe,Expérience d'Achat & Livraison
+LUXE_LIFESTYLE,Automobile de Luxe,Maintenance & Service Exclusif
+FINANCE_INVESTMENT,Banque Privée,Conseil Patrimonial & Expertise
+FINANCE_INVESTMENT,Banque Privée,Réactivité & Disponibilité
+FINANCE_INVESTMENT,Bourse & Trading,Ergonomie des Plateformes de Trading
+FINANCE_INVESTMENT,Bourse & Trading,Frais de Courtage & Spread
+FINANCE_INVESTMENT,Bourse & Trading,Outils d'Analyse & Data
+FINANCE_INVESTMENT,Crypto & Web3,Sécurité des Wallets & Clés
+FINANCE_INVESTMENT,Crypto & Web3,Expérience Utilisateur DeFi
+FINANCE_INVESTMENT,Crypto & Web3,On-ramp / Off-ramp (Fiat to Crypto)
+FINANCE_INVESTMENT,Fiscalité,Outils de Simulation & Déclaration
+INNOVATION_LAB,Exploration Spatiale,Tourisme Spatial & Accès
+INNOVATION_LAB,Exploration Spatiale,Impact Écologique des Lancements
+INNOVATION_LAB,Biotech & Santé,Éthique des Manipulations Génétiques
+INNOVATION_LAB,Biotech & Santé,Accessibilité des Nouveaux Traitements
+INNOVATION_LAB,Robotique,Interaction Homme-Machine
+INNOVATION_LAB,Robotique,Automatisation Domestique
+INNOVATION_LAB,DeepTech,Régulation des Nouvelles Technologies

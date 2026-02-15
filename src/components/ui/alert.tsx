@@ -43,4 +43,3 @@ export function Alert({ variant = "default", title, children, className }: Alert
     </div>
   )
 }
-

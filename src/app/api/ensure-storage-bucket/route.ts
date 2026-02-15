@@ -1,17 +1,37 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 const BUCKET_ID = "proposition-images"
 
-export async function POST() {
+export async function POST(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const locale = searchParams.get("locale") === "fr" ? "fr" : "en"
+  const t = (en: string, fr: string) => (locale === "fr" ? fr : en)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const sessionSupabase = await getSupabaseServerClient()
+  if (!sessionSupabase) {
+    return NextResponse.json(
+      { error: t("Supabase not configured.", "Supabase non configuré.") },
+      { status: 500 }
+    )
+  }
+  const { data: userData } = await sessionSupabase.auth.getUser()
+  if (!userData.user) {
+    return NextResponse.json(
+      { error: t("Unauthorized.", "Non autorisé.") },
+      { status: 401 }
+    )
+  }
 
   if (!url || !serviceRoleKey) {
     return NextResponse.json(
       {
-        error:
-          "SUPABASE_SERVICE_ROLE_KEY manquant. Ajoutez-la dans .env.local pour créer le bucket automatiquement, ou créez le bucket « proposition-images » dans Supabase (Storage → New bucket, public).",
+        error: t(
+          'SUPABASE_SERVICE_ROLE_KEY missing. Add it to .env.local to create the bucket automatically, or create the "proposition-images" bucket in Supabase (Storage → New bucket, public).',
+          'SUPABASE_SERVICE_ROLE_KEY manquante. Ajoutez-la à .env.local pour créer automatiquement le bucket, ou créez le bucket "proposition-images" dans Supabase (Storage → New bucket, public).'
+        ),
       },
       { status: 503 }
     )

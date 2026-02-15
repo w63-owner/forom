@@ -12,7 +12,42 @@ export interface Page {
   reactivity_score: number
   category?: string
   certification_type?: "NONE" | "OFFICIAL"
+  parent_page_id?: string | null
 }
+
+/** Universe for Discover section */
+export type Universe =
+  | "MOBILITY_TRAVEL"
+  | "PUBLIC_SERVICES"
+  | "TECH_PRODUCTS"
+  | "CONSUMPTION"
+  | "LOCAL_LIFE"
+  | "ENERGY_UTILITIES"
+  | "MEDIA_CULTURE"
+  | "HOUSING_REAL_ESTATE"
+  | "PROFESSIONAL_LIFE"
+  | "LUXE_LIFESTYLE"
+  | "FINANCE_INVESTMENT"
+  | "INNOVATION_LAB"
+
+export const UNIVERSE_SLUGS: Record<Universe, string> = {
+  MOBILITY_TRAVEL: "mobilite-voyage",
+  PUBLIC_SERVICES: "services-publics",
+  TECH_PRODUCTS: "produits-tech",
+  CONSUMPTION: "consommation",
+  LOCAL_LIFE: "vie-locale",
+  ENERGY_UTILITIES: "energie-utilities",
+  MEDIA_CULTURE: "media-culture",
+  HOUSING_REAL_ESTATE: "habitat-immobilier",
+  PROFESSIONAL_LIFE: "vie-professionnelle",
+  LUXE_LIFESTYLE: "luxe-lifestyle",
+  FINANCE_INVESTMENT: "finance-investissement",
+  INNOVATION_LAB: "innovation-lab",
+}
+
+export const SLUG_TO_UNIVERSE: Record<string, Universe> = Object.fromEntries(
+  (Object.entries(UNIVERSE_SLUGS) as [Universe, string][]).map(([u, s]) => [s, u])
+)
 
 export interface Proposition {
   id: string
@@ -20,6 +55,9 @@ export interface Proposition {
   title: string
   status: string
   votes_count: number
+  universe?: Universe | null
+  category?: string | null
+  sub_category?: string | null
 }
 
 export interface Vote {

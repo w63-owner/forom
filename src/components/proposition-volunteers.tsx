@@ -7,10 +7,12 @@ import {
   useEffect,
   useState,
 } from "react"
+import { useLocale, useTranslations } from "next-intl"
 import { UserMinus, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
 
 export type VolunteerItem = {
@@ -55,6 +57,8 @@ export function PropositionVolunteersProvider({
   initialVolunteers,
   children,
 }: ProviderProps) {
+  const t = useTranslations("Volunteers")
+  const locale = useLocale()
   const { showToast } = useToast()
   const [volunteers, setVolunteers] = useState<VolunteerItem[]>(initialVolunteers)
   const [joining, setJoining] = useState(false)
@@ -66,23 +70,27 @@ export function PropositionVolunteersProvider({
     currentUserId != null && volunteers.some((v) => v.user_id === currentUserId)
 
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      return
-    }
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const loadCurrentUser = async () => {
+      const supabase = getSupabaseClient()
+      if (!supabase) return
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
       setCurrentUserId(user?.id ?? null)
       setCurrentUserLoaded(true)
-    })
+    }
+    void loadCurrentUser()
   }, [])
 
   const onJoin = useCallback(async () => {
     const supabase = getSupabaseClient()
     if (!supabase || !currentUserId) return
     if (volunteers.some((v) => v.user_id === currentUserId)) return
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
     if (!user) return
 
     setJoining(true)
@@ -97,8 +105,8 @@ export function PropositionVolunteersProvider({
       setJoining(false)
       showToast({
         variant: "error",
-        title: "Impossible de vous ajouter comme volontaire",
-        description: "Une erreur est survenue. Réessayez dans quelques instants.",
+        title: t("joinErrorTitle"),
+        description: t("joinErrorBody"),
       })
       return
     }
@@ -122,16 +130,17 @@ export function PropositionVolunteersProvider({
         body: JSON.stringify({
           type: "volunteer_created",
           propositionId,
+          locale,
         }),
       })
     }
     showToast({
       variant: "success",
-      title: "Vous êtes volontaire",
-      description: "L'auteur sera notifié que vous souhaitez contribuer à sa proposition.",
+      title: t("joinSuccessTitle"),
+      description: t("joinSuccessBody"),
     })
     setJoining(false)
-  }, [propositionId, isOrphan, currentUserId, volunteers, showToast])
+  }, [propositionId, isOrphan, currentUserId, volunteers, showToast, locale])
 
   const onLeave = useCallback(async () => {
     const supabase = getSupabaseClient()
@@ -149,7 +158,7 @@ export function PropositionVolunteersProvider({
       setVolunteers((prev) => prev.filter((v) => v.user_id !== currentUserId))
       showToast({
         variant: "info",
-        title: "Vous n’êtes plus volontaire",
+        title: t("leaveSuccessTitle"),
       })
     }
     setLeaving(false)
@@ -174,12 +183,13 @@ export function PropositionVolunteersProvider({
   )
 }
 
-function displayName(v: VolunteerItem) {
-  return v.username || v.email || "Anonyme"
+function displayName(v: VolunteerItem, fallback: string) {
+  return v.username || v.email || fallback
 }
 
-/** Avatars + bouton/statut volontaire, à placer dans la toolbar (à gauche de Modifier). */
+/** Avatars + volunteer button/status, in toolbar (left of Edit). */
 export function PropositionVolunteerButton() {
+  const t = useTranslations("Volunteers")
   const {
     volunteers,
     isOrphan,
@@ -196,7 +206,7 @@ export function PropositionVolunteerButton() {
     return null
   }
 
-  // Volontaires uniquement pour les propositions orphelines.
+  // Volunteers only for orphan propositions.
   if (!isOrphan) {
     return null
   }
@@ -209,11 +219,11 @@ export function PropositionVolunteerButton() {
         <div
           key={v.user_id}
           className="relative z-0 rounded-full ring-2 ring-card first:ml-0 -ml-2"
-          title={displayName(v)}
+          title={displayName(v, t("anonymous"))}
         >
           <Avatar
             src={v.avatar_url}
-            name={displayName(v)}
+            name={displayName(v, t("anonymous"))}
             size="sm"
             className="shrink-0"
           />
@@ -239,7 +249,7 @@ export function PropositionVolunteerButton() {
           onClick={onLeave}
         >
           <UserMinus className="size-3" />
-          Se retirer
+          {t("leave")}
         </Button>
       </div>
     )
@@ -257,7 +267,7 @@ export function PropositionVolunteerButton() {
           className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
         >
           <UserPlus className="size-3" />
-          Rejoindre les volontaires
+          {t("join")}
         </Button>
       </div>
     )
@@ -267,8 +277,46 @@ export function PropositionVolunteerButton() {
     <div className="flex items-center gap-2">
       {avatars}
       <span className="text-xs text-muted-foreground">
-        Connectez-vous pour vous porter volontaire
+        {t("loginToVolunteer")}
       </span>
     </div>
+  )
+}
+
+/** Compact menu action for volunteers (mobile). */
+export function PropositionVolunteerMenuAction() {
+  const t = useTranslations("Volunteers")
+  const {
+    isOrphan,
+    currentUserId,
+    currentUserLoaded,
+    joining,
+    leaving,
+    isVolunteer,
+    onJoin,
+    onLeave,
+  } = useVolunteers()
+
+  if (!currentUserLoaded || !isOrphan) {
+    return null
+  }
+
+  if (!currentUserId) {
+    return (
+      <span className="px-2 py-1.5 text-xs text-muted-foreground">
+        {t("loginToVolunteer")}
+      </span>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={isVolunteer ? onLeave : onJoin}
+      disabled={isVolunteer ? leaving : joining}
+      className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-60"
+    >
+      {isVolunteer ? t("leave") : t("join")}
+    </button>
   )
 }

@@ -1,0 +1,132 @@
+{
+    "categories": {
+      "MOBILITY_TRAVEL": [
+        { "value": "Mobilité & Voyage", "key": "mobilite-voyage", "subCategories": [
+          { "value": "Transports", "key": "transports" },
+          { "value": "Voyage", "key": "voyage" },
+          { "value": "Mobilité douce", "key": "mobilite-douce" }
+        ]}
+      ],
+      "PUBLIC_SERVICES": [
+        { "value": "Transports", "key": "transports", "subCategories": [
+          { "value": "Mobilité douce", "key": "mobilite-douce" },
+          { "value": "Transports en commun", "key": "transports-commun" },
+          { "value": "Infrastructure", "key": "infrastructure" }
+        ]},
+        { "value": "Santé", "key": "sante", "subCategories": [
+          { "value": "Hôpitaux", "key": "hopitaux" },
+          { "value": "Médecine de ville", "key": "medecine-ville" },
+          { "value": "Prévention", "key": "prevention" }
+        ]},
+        { "value": "Éducation", "key": "education", "subCategories": [
+          { "value": "Scolarité", "key": "scolarite" },
+          { "value": "Enseignement supérieur", "key": "enseignement-superieur" },
+          { "value": "Formation", "key": "formation" }
+        ]},
+        { "value": "Services publics", "key": "services-publics", "subCategories": [] }
+      ],
+      "TECH_PRODUCTS": [
+        { "value": "Produits numériques", "key": "produits-numeriques", "subCategories": [
+          { "value": "Applications", "key": "applications" },
+          { "value": "Logiciels", "key": "logiciels" },
+          { "value": "Services en ligne", "key": "services-ligne" }
+        ]}
+      ],
+      "CONSUMPTION": [
+        { "value": "Consommation", "key": "consommation", "subCategories": [
+          { "value": "Retail", "key": "retail" },
+          { "value": "E-commerce", "key": "ecommerce" },
+          { "value": "Services", "key": "services" }
+        ]}
+      ],
+      "LOCAL_LIFE": [
+        { "value": "Vie locale", "key": "vie-locale", "subCategories": [
+          { "value": "Quartier", "key": "quartier" },
+          { "value": "Marchés", "key": "marches" },
+          { "value": "Associations", "key": "associations" }
+        ]}
+      ],
+      "ENERGY_UTILITIES": [
+        { "value": "Énergie & Utilities", "key": "energie-utilities", "subCategories": [
+          { "value": "Électricité", "key": "electricite" },
+          { "value": "Gaz", "key": "gaz" },
+          { "value": "Eau", "key": "eau" }
+        ]}
+      ],
+      "MEDIA_CULTURE": [
+        { "value": "Médias & Culture", "key": "media-culture", "subCategories": [
+          { "value": "Presse", "key": "presse" },
+          { "value": "Audiovisuel", "key": "audiovisuel" },
+          { "value": "Culture", "key": "culture" }
+        ]}
+      ],
+      "HOUSING_REAL_ESTATE": [
+        { "value": "Habitat & Immobilier", "key": "habitat-immobilier", "subCategories": [
+          { "value": "Logement", "key": "logement" },
+          { "value": "Immobilier", "key": "immobilier" },
+          { "value": "Rénovation", "key": "renovation" }
+        ]}
+      ],
+      "PROFESSIONAL_LIFE": [
+        { "value": "Vie professionnelle", "key": "vie-professionnelle", "subCategories": [
+          { "value": "Emploi", "key": "emploi" },
+          { "value": "Formation pro", "key": "formation-pro" },
+          { "value": "Entreprise", "key": "entreprise" }
+        ]}
+      ],
+      "LUXE_LIFESTYLE": [
+        { "value": "Luxe & Lifestyle", "key": "luxe-lifestyle", "subCategories": [
+          { "value": "Luxe", "key": "luxe" },
+          { "value": "Mode", "key": "mode" },
+          { "value": "Bien-être", "key": "bien-etre" }
+        ]}
+      ],
+      "FINANCE_INVESTMENT": [
+        { "value": "Finance & Investissement", "key": "finance-investissement", "subCategories": [
+          { "value": "Banque", "key": "banque" },
+          { "value": "Assurance", "key": "assurance" },
+          { "value": "Investissement", "key": "investissement" }
+        ]}
+      ],
+      "INNOVATION_LAB": [
+        { "value": "Innovation & Lab", "key": "innovation-lab", "subCategories": [
+          { "value": "R&D", "key": "rd" },
+          { "value": "Startup", "key": "startup" },
+          { "value": "Expérimentation", "key": "experimentation" }
+        ]}
+      ]
+    },
+    "seedKeywords": {
+      "MOBILITY_TRAVEL": ["sncf", "ratp", "blablacar", "uber", "train", "avion", "voiture", "transport", "voyage", "mobilité"],
+      "PUBLIC_SERVICES": ["région", "region", "mairie", "ville", "collectivité", "collectivite", "état", "etat", "gouvernement", "ministère", "ministere", "service-public", "france"],
+      "TECH_PRODUCTS": ["google", "apple", "meta", "microsoft", "amazon", "spotify", "netflix", "doctolib", "airbnb", "vinted", "leboncoin", "backmarket", "deezer", "notion", "slack", "discord", "github"],
+      "CONSUMPTION": ["carrefour", "leclerc", "auchan", "decathlon", "leroy", "orange", "bouygues", "free", "sfr"],
+      "LOCAL_LIFE": ["quartier", "voisin", "local", "marché", "marche"],
+      "ENERGY_UTILITIES": ["edf", "engie", "total", "energie", "électricité", "electricite", "gaz", "eau", "veolia", "suez"],
+      "MEDIA_CULTURE": ["tf1", "france", "radio", "presse", "media", "culture", "cinéma", "cinema", "musique", "livre"],
+      "HOUSING_REAL_ESTATE": ["immobilier", "logement", "habitat", "seloger", "leboncoin", "construction", "rénovation", "renovation"],
+      "PROFESSIONAL_LIFE": ["emploi", "linkedin", "pôle emploi", "pole emploi", "formation", "entreprise", "recrutement"],
+      "LUXE_LIFESTYLE": ["luxe", "lvmh", "hermes", "chanel", "mode", "bien-être", "bien-etre", "spa", "cosmétique"],
+      "FINANCE_INVESTMENT": ["banque", "boursorama", "credit agricole", "bnp", "société générale", "assurance", "axa", "investissement", "finance"],
+      "INNOVATION_LAB": ["startup", "innovation", "lab", "r&d", "rd", "expérimentation", "experimentation", "tech", "incubateur"]
+    },
+    "seedCategoryRules": {
+      "MOBILITY_TRAVEL": [{ "keywords": [], "category": "Mobilité & Voyage" }],
+      "PUBLIC_SERVICES": [
+        { "keywords": ["sncf", "ratp", "transport"], "category": "Transports" },
+        { "keywords": ["santé", "sante", "hôpital", "hopital", "doctolib"], "category": "Santé" },
+        { "keywords": ["école", "ecole", "université", "universite"], "category": "Éducation" },
+        { "keywords": [], "category": "Services publics" }
+      ],
+      "TECH_PRODUCTS": [{ "keywords": [], "category": "Produits numériques" }],
+      "CONSUMPTION": [{ "keywords": [], "category": "Consommation" }],
+      "LOCAL_LIFE": [{ "keywords": [], "category": "Vie locale" }],
+      "ENERGY_UTILITIES": [{ "keywords": [], "category": "Énergie & Utilities" }],
+      "MEDIA_CULTURE": [{ "keywords": [], "category": "Médias & Culture" }],
+      "HOUSING_REAL_ESTATE": [{ "keywords": [], "category": "Habitat & Immobilier" }],
+      "PROFESSIONAL_LIFE": [{ "keywords": [], "category": "Vie professionnelle" }],
+      "LUXE_LIFESTYLE": [{ "keywords": [], "category": "Luxe & Lifestyle" }],
+      "FINANCE_INVESTMENT": [{ "keywords": [], "category": "Finance & Investissement" }],
+      "INNOVATION_LAB": [{ "keywords": [], "category": "Innovation & Lab" }]
+    }
+  }

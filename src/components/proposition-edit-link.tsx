@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useTranslations } from "next-intl"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
 type Props = {
   propositionId: string
@@ -15,6 +17,7 @@ export function PropositionEditLink({
   authorId,
   className = "",
 }: Props) {
+  const t = useTranslations("PropositionEdit")
   const [isAuthor, setIsAuthor] = useState(false)
 
   useEffect(() => {
@@ -25,10 +28,13 @@ export function PropositionEditLink({
       }
       const supabase = getSupabaseClient()
       if (!supabase) return
-      const { data } = await supabase.auth.getUser()
-      setIsAuthor(Boolean(data.user?.id === authorId))
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
+      setIsAuthor(Boolean(user?.id === authorId))
     }
-    check()
+    void check()
   }, [authorId])
 
   if (!isAuthor) return null
@@ -38,7 +44,7 @@ export function PropositionEditLink({
       href={`/propositions/${propositionId}/edit`}
       className={`link-nav inline-flex items-center rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors transition-transform duration-150 hover:bg-muted hover:text-foreground active:scale-95 ${className}`}
     >
-      Modifier
+      {t("edit")}
     </Link>
   )
 }

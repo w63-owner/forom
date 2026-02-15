@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import {
   Popover,
@@ -9,21 +10,25 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { cn } from "@/lib/utils"
-
-const STATUS_OPTIONS = ["Open", "In Progress", "Done", "Won't Do"] as const
+import { getStatusKey, STATUS_VALUES } from "@/lib/status-labels"
 
 type Props = {
   propositionId: string
   initialStatus: string
   pageOwnerId: string | null
+  onStatusChange?: (propositionId: string, newStatus: string) => void
 }
 
 export function PropositionStatusBadge({
   propositionId,
   initialStatus,
   pageOwnerId,
+  onStatusChange,
 }: Props) {
+  const tStatus = useTranslations("Status")
+  const locale = useLocale()
   const [status, setStatus] = useState(initialStatus)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
@@ -33,11 +38,16 @@ export function PropositionStatusBadge({
     Boolean(currentUserId) && Boolean(pageOwnerId) && currentUserId === pageOwnerId
 
   useEffect(() => {
-    const supabase = getSupabaseClient()
-    if (!supabase) return
-    supabase.auth.getUser().then(({ data: session }) => {
-      setCurrentUserId(session.user?.id ?? null)
-    })
+    const loadCurrentUser = async () => {
+      const supabase = getSupabaseClient()
+      if (!supabase) return
+      const user = await resolveAuthUser(supabase, {
+        timeoutMs: 3500,
+        includeServerFallback: true,
+      })
+      setCurrentUserId(user?.id ?? null)
+    }
+    void loadCurrentUser()
   }, [])
 
   const handleSelect = async (nextStatus: string) => {
@@ -52,14 +62,21 @@ export function PropositionStatusBadge({
     if (!error) {
       setStatus(nextStatus)
       setOpen(false)
+      onStatusChange?.(propositionId, nextStatus)
       fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: nextStatus === "Done" ? "status_done" : "status_change",
           propositionId,
-          actorUserId: (await supabase.auth.getUser()).data.user?.id,
+          actorUserId: (
+            await resolveAuthUser(supabase, {
+              timeoutMs: 3500,
+              includeServerFallback: true,
+            })
+          )?.id,
           newStatus: nextStatus,
+          locale,
         }),
       }).catch(() => null)
     }
@@ -77,13 +94,13 @@ export function PropositionStatusBadge({
               open && "bg-accent"
             )}
           >
-            {status}
+            {tStatus(getStatusKey(status))}
             <ChevronDown className="size-3 opacity-70" />
           </Badge>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-1" align="start">
           <ul className="flex flex-col gap-0.5">
-            {STATUS_OPTIONS.map((option) => (
+            {STATUS_VALUES.map((option) => (
               <li key={option}>
                 <button
                   type="button"
@@ -94,7 +111,7 @@ export function PropositionStatusBadge({
                     status === option && "bg-accent font-medium"
                   )}
                 >
-                  {option}
+                  {tStatus(getStatusKey(option))}
                 </button>
               </li>
             ))}
@@ -106,7 +123,7 @@ export function PropositionStatusBadge({
 
   return (
     <Badge variant="outline" className="w-fit">
-      {status}
+      {tStatus(getStatusKey(status))}
     </Badge>
   )
 }

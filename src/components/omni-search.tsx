@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { Search } from "lucide-react"
 import {
   Command,
@@ -11,7 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { getSupabaseClient } from "@/lib/supabase/client"
+import { getSupabaseClient } from "@/utils/supabase/client"
 
 type PropositionResult = {
   id: string
@@ -23,6 +24,7 @@ const sanitizeQuery = (value: string) => value.replace(/[%_]/g, "\\$&")
 
 export function OmniSearch() {
   const router = useRouter()
+  const t = useTranslations("OmniSearch")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PropositionResult[]>([])
   const [loading, setLoading] = useState(false)
@@ -45,7 +47,7 @@ export function OmniSearch() {
     const handle = setTimeout(async () => {
       const supabase = getSupabaseClient()
       if (!supabase) {
-        setError("Supabase non configuré.")
+        setError(t("supabaseNotConfigured"))
         setResults([])
         return
       }
@@ -74,8 +76,8 @@ export function OmniSearch() {
   }, [trimmedQuery])
 
   const createLabel = trimmedQuery
-    ? `Créer la proposition : "${trimmedQuery}"`
-    : "Créer une proposition"
+    ? t("createWithTitle", { title: trimmedQuery })
+    : t("createFallback")
 
   return (
     <div id="omnibox" className="w-full max-w-2xl">
@@ -85,14 +87,14 @@ export function OmniSearch() {
           <CommandInput
             value={query}
             onValueChange={handleQueryChange}
-            placeholder="Décrivez votre idée ou cherchez une proposition..."
+            placeholder={t("placeholder")}
             className="h-12 text-base"
           />
         </div>
         <CommandList className="absolute left-0 right-0 top-full z-10 rounded-b-2xl border border-border border-t-0 bg-background shadow-xl">
           {loading && (
             <CommandItem disabled className="text-sm text-muted-foreground">
-              Recherche en cours...
+              {t("searching")}
             </CommandItem>
           )}
           {!loading && error && (
@@ -101,10 +103,10 @@ export function OmniSearch() {
             </CommandItem>
           )}
           <CommandEmpty>
-            {trimmedQuery ? "Aucune proposition trouvée." : "Commencez à taper."}
+            {trimmedQuery ? t("noResults") : t("startTyping")}
           </CommandEmpty>
           {results.length > 0 && (
-            <CommandGroup heading="Propositions similaires">
+            <CommandGroup heading={t("similarHeading")}>
               {results.map((item) => (
                 <CommandItem
                   key={item.id}
@@ -114,14 +116,14 @@ export function OmniSearch() {
                   <div className="flex w-full items-center justify-between gap-3">
                     <span className="truncate">{item.title}</span>
                     <span className="text-xs text-muted-foreground">
-                      {item.votes_count ?? 0} votes
+                      {t("votesLabel", { count: item.votes_count ?? 0 })}
                     </span>
                   </div>
                 </CommandItem>
               ))}
             </CommandGroup>
           )}
-          <CommandGroup heading="Créer">
+          <CommandGroup heading={t("createHeading")}>
             <CommandItem
               value={`create-${trimmedQuery}`}
               onSelect={() =>

@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js"
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const query = (searchParams.get("q") ?? "").trim()
+  const locale = searchParams.get("locale") === "fr" ? "fr" : "en"
+  const t = (en: string, fr: string) => (locale === "fr" ? fr : en)
   if (!query) {
     return NextResponse.json({ data: [] })
   }
@@ -12,16 +14,18 @@ export async function GET(request: Request) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) {
     return NextResponse.json(
-      { error: "Supabase non configuré." },
+      { error: t("Supabase not configured.", "Supabase non configuré.") },
       { status: 500 }
     )
   }
 
-  const supabase = createClient(url, anonKey)
+  const supabase = createClient(url, anonKey, {
+    auth: { persistSession: false },
+  })
   const { data, error } = await supabase
     .from("pages")
     .select("id, name, slug")
-    .ilike("name", `%${query}%`)
+    .or(`name.ilike.%${query}%,slug.ilike.%${query}%`)
     .order("name", { ascending: true })
     .limit(5)
 

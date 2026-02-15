@@ -1,5 +1,29 @@
 # Spécification Fonctionnelle — Plateforme de Feedback Collaboratif
 
+## Website purpose
+
+"Comme vous, j'utilise chaque jour des dizaines de services et d'applications. Et comme vous, je me suis souvent dit : 'Si seulement ils changeaient ce petit détail, ce serait parfait !'."
+
+Mais souvent, nos feedbacks finissent aux oubliettes. C'est pour cette raison que FOROM existe : le premier moteur de co-construction qui transforme les idées en actions concrètes.
+
+### Pourquoi cette aventure ?
+
+💡 **Pour les utilisateurs**
+- Donner un vrai pouvoir d'action.
+- Sur FOROM, une idée ne s'arrête pas à la suggestion : elle est portée, votée par la communauté, puis suivie jusqu'au statut "DONE".
+
+💎 **Pour les entreprises**
+- Les clients sont les meilleurs experts des produits.
+- FOROM apporte une mine de retours concrets pour prioriser ce que les gens veulent vraiment, tout en prouvant une vraie écoute.
+
+🌍 **Pour les entrepreneurs**
+- Créer un radar à opportunités pour détecter des problèmes réels encore sans solution satisfaisante.
+
+### Ambition
+
+Réduire la distance entre ceux qui utilisent et ceux qui fabriquent.  
+Passer de "J'aimerais que..." à "C'est fait !".
+
 ## 1. Objectifs et portée
 ### Objectifs
 - Centraliser les propositions d’amélioration, idées et signalements.
@@ -24,7 +48,7 @@
 - Rechercher via omnibar.
 
 **Utilisateur authentifié**
-- Créer une proposition.
+- Ajouter une proposition.
 - Voter (1 vote par proposition).
 - Commenter.
 - Se déclarer volontaire (orphelines).

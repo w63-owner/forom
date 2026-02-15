@@ -1,19 +1,29 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import debounce from "lodash/debounce"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { useToast } from "@/components/ui/toast"
 import {
   Command,
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command"
 import { getSupabaseClient } from "@/utils/supabase/client"
-import { Plus } from "lucide-react"
+import {
+  AsyncTimeoutError,
+  fetchWithTimeout,
+  withRetry,
+} from "@/lib/async-resilience"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
+import { FileText, Lightbulb, Plus } from "lucide-react"
 
 type PropositionResult = {
   id: string
@@ -27,44 +37,78 @@ type PageResult = {
   id: string
   name: string
   slug: string | null
-}
-
-const sanitizeQuery = (value: string) => value.replace(/[%_]/g, "\\$&")
-
-const statusVariants: Record<
-  string,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  Open: "secondary",
-  "In Progress": "default",
-  Done: "secondary",
-  "Won't Do": "outline",
+  is_verified: boolean | null
+  certification_type: string | null
 }
 
 export function Omnibar() {
   const router = useRouter()
+  const locale = useLocale()
+  const t = useTranslations("Omnibar")
+  const tCommon = useTranslations("Common")
+  const { showToast } = useToast()
   const requestId = useRef(0)
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PropositionResult[]>([])
   const [pageResults, setPageResults] = useState<PageResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [createPopoverOpen, setCreatePopoverOpen] = useState(false)
 
-  const placeholderSamples = useMemo(
-    () => [
-      'UberEats : Proposer une option "Commande groupée"',
-      'Spotify : Créer un mode "Sommeil" qui baisse progressivement le volume de la musique sur les 15 dernières minutes.',
-      "LinkedIn : Ajouter un filtre 'Salaire affiché' pour masquer les offres d'emploi qui ne mentionnent pas de fourchette de rémunération",
-      "Ouvrir le Metro 24H/24 à Paris",
-      "SNCF : Indiquer les prix les moins chers par jour à l'ouverture du calendrier",
-    ],
-    []
-  )
-  const randomPlaceholder = placeholderSamples[0] ?? ""
+  const placeholderSamples = useMemo(() => {
+    const raw = t.raw("placeholderSamples")
+    return Array.isArray(raw) ? raw : []
+  }, [t])
+  const randomPlaceholder = placeholderSamples[0] ?? t("placeholderFallback")
 
   const trimmedQuery = useMemo(() => query.trim(), [query])
 
   const debouncedSearchRef = useRef<ReturnType<typeof debounce> | null>(null)
+
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    void resolveAuthUser(supabase, {
+      timeoutMs: 1500,
+      includeServerFallback: false,
+    })
+  }, [])
+
+  const goToCreateProposition = async (href: string) => {
+    setCreatePopoverOpen(false)
+    if (!(await requireAuth())) return
+    router.push(href)
+  }
+
+  const goToCreatePage = async (href: string) => {
+    setCreatePopoverOpen(false)
+    if (!(await requireAuth())) return
+    router.push(href)
+  }
+
+  const requireAuth = async () => {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      showToast({
+        variant: "error",
+        title: t("supabaseNotConfigured"),
+      })
+      return false
+    }
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 4000,
+      includeServerFallback: true,
+    })
+    if (user) {
+      return true
+    }
+    showToast({
+      variant: "info",
+      title: tCommon("loginRequiredTitle"),
+      description: tCommon("loginRequiredBody"),
+    })
+    return false
+  }
 
   const handleQueryChange = (value: string) => {
     setQuery(value)
@@ -79,60 +123,59 @@ export function Omnibar() {
 
   useEffect(() => {
     debouncedSearchRef.current = debounce(async (value: string) => {
-      const supabase = getSupabaseClient()
-      if (!supabase) {
-        setError("Supabase non configuré.")
-        setResults([])
-        setPageResults([])
-        setLoading(false)
-        return
-      }
-
       const currentRequest = (requestId.current += 1)
       setLoading(true)
       setError(null)
+      const SEARCH_TIMEOUT_MS = 15_000
       try {
-        const safeQuery = sanitizeQuery(value)
-        const [propositionsResponse, pagesResponse] = await Promise.all([
-          supabase
-            .from("propositions")
-            .select("id, title, status, votes_count, pages(name)")
-            .or(`title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`)
-            .order("votes_count", { ascending: false })
-            .limit(8),
-          supabase
-            .from("pages")
-            .select("id, name, slug")
-            .ilike("name", `%${safeQuery}%`)
-            .order("name", { ascending: true })
-            .limit(6),
-        ])
+        const res = await withRetry(
+          () =>
+            fetchWithTimeout(
+              `/api/omnibar/search?q=${encodeURIComponent(value.trim())}&locale=${locale}`,
+              {},
+              SEARCH_TIMEOUT_MS
+            ),
+          {
+            attempts: 2,
+            delayMs: 200,
+            shouldRetry: (error) => !(error instanceof AsyncTimeoutError),
+          }
+        )
+        const data = (await res.json()) as {
+          propositions?: PropositionResult[]
+          pages?: PageResult[]
+          error?: string
+        }
 
         if (currentRequest !== requestId.current) return
 
-        if (propositionsResponse.error || pagesResponse.error) {
-          setError(
-            propositionsResponse.error?.message ||
-              pagesResponse.error?.message ||
-              "Erreur de recherche."
-          )
+        if (!res.ok || data.error) {
+          const errMsg = data.error ?? t("searchError")
+          setError(errMsg)
           setResults([])
           setPageResults([])
+          showToast({ variant: "error", title: t("searchFailedToast") })
+          setLoading(false)
           return
         }
         const unique = new Map<string, PropositionResult>()
-        for (const item of propositionsResponse.data ?? []) {
+        for (const item of data.propositions ?? []) {
           unique.set(item.id, item)
         }
         setResults(Array.from(unique.values()))
-        setPageResults(pagesResponse.data ?? [])
+        setPageResults(data.pages ?? [])
       } catch (err) {
         if (currentRequest !== requestId.current) return
-        setError(
-          err instanceof Error ? err.message : "Erreur de recherche."
-        )
+        const errMsg =
+          err instanceof AsyncTimeoutError
+            ? t("actionTimeoutToast")
+            : err instanceof Error
+              ? err.message
+              : t("searchError")
+        setError(errMsg)
         setResults([])
         setPageResults([])
+        showToast({ variant: "error", title: t("searchFailedToast") })
       } finally {
         if (currentRequest !== requestId.current) return
         setLoading(false)
@@ -140,7 +183,7 @@ export function Omnibar() {
     }, 300)
 
     return () => debouncedSearchRef.current?.cancel()
-  }, [])
+  }, [locale, t, showToast])
 
   useEffect(() => {
     if (!trimmedQuery) return
@@ -161,53 +204,62 @@ export function Omnibar() {
             placeholder={randomPlaceholder}
             className="h-11 min-w-0 flex-1 border-0 bg-transparent text-sm shadow-none focus-visible:ring-0"
           />
-          <Popover>
+          <Popover open={createPopoverOpen} onOpenChange={setCreatePopoverOpen}>
             <PopoverTrigger asChild>
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                aria-label="Créer"
+                aria-label={t("createAriaLabel")}
               >
                 <Plus className="size-4" />
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-56 p-1">
-              <button
-                type="button"
-                onClick={() => {
-                  router.push(
-                    trimmedQuery
-                      ? `/propositions/create?title=${encodeURIComponent(
-                          trimmedQuery
-                        )}`
-                      : "/propositions/create"
-                  )
+              <Link
+                href={
+                  trimmedQuery
+                    ? `/${locale}/propositions/create?title=${encodeURIComponent(trimmedQuery)}`
+                    : `/${locale}/propositions/create`
+                }
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted"
+                onClick={(e) => {
+                  e.preventDefault()
+                  const href =
+                    e.currentTarget.getAttribute("href") ??
+                    `/${locale}/propositions/create`
+                  void goToCreateProposition(href)
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted"
               >
-                Créer une proposition
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  router.push(
-                    trimmedQuery
-                      ? `/pages/create?name=${encodeURIComponent(trimmedQuery)}`
-                      : "/pages/create"
-                  )
+                <Lightbulb className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                {t("addProposition")}
+              </Link>
+              <Link
+                href={
+                  trimmedQuery
+                    ? `/${locale}/pages/create?name=${encodeURIComponent(trimmedQuery)}`
+                    : `/${locale}/pages/create`
+                }
+                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted"
+                onClick={(e) => {
+                  e.preventDefault()
+                  const href =
+                    e.currentTarget.getAttribute("href") ??
+                    `/${locale}/pages/create`
+                  void goToCreatePage(href)
                 }}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-muted"
               >
-                Créer une page
-              </button>
+                <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                {t("createPage")}
+              </Link>
             </PopoverContent>
           </Popover>
         </div>
-        <div className="max-h-[300px] scroll-py-1 overflow-x-hidden overflow-y-auto pb-3 pl-9 pr-3">
+        <CommandList className="pb-3 pl-9 pr-3">
           {loading && (
             <CommandItem disabled className="text-sm text-muted-foreground">
-              Recherche en cours...
+              {t("searching")}
             </CommandItem>
           )}
           {!loading && error && (
@@ -221,33 +273,46 @@ export function Omnibar() {
             results.length === 0 &&
             pageResults.length === 0 && (
             <CommandItem disabled className="px-0 text-sm text-muted-foreground">
-              Aucune proposition trouvée.
+              {t("noResults")}
             </CommandItem>
           )}
           {pageResults.length > 0 && (
             <CommandGroup className="p-0">
-              {pageResults.map((page) => (
+              {pageResults.map((page) => {
+                const isVerified =
+                  Boolean(page.is_verified) ||
+                  page.certification_type === "OFFICIAL"
+                return (
                 <CommandItem
                   key={page.id}
-                  value={`page-${page.name}`}
+                  value={`page-${page.id}`}
+                  className="px-0"
                   onSelect={() => {
                     if (!page.slug) return
-                    router.push(`/pages/${page.slug}`)
+                    router.push(`/${locale}/pages/${page.slug}`)
                   }}
                 >
-                  <div className="flex w-full items-center justify-between gap-3">
+                  <div className="flex w-full items-center justify-start gap-2">
+                    <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
                     <span className="truncate">{page.name}</span>
-                    <Badge variant="outline">Page</Badge>
+                    {isVerified && (
+                      <span
+                        className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-sky-500 text-[8px] font-semibold text-white"
+                        aria-label={t("verifiedBadge")}
+                        title={t("verifiedBadge")}
+                      >
+                        ✓
+                      </span>
+                    )}
                   </div>
                 </CommandItem>
-              ))}
+              )
+              })}
             </CommandGroup>
           )}
           {results.length > 0 && (
             <CommandGroup className="p-0">
               {results.map((item) => {
-                const statusLabel = item.status ?? "Open"
-                const votes = item.votes_count ?? 0
                 const pageName = Array.isArray(item.pages)
                   ? item.pages[0]?.name
                   : item.pages?.name
@@ -256,23 +321,20 @@ export function Omnibar() {
                     key={item.id}
                     value={item.title}
                     className="px-0"
-                    onSelect={() => router.push(`/propositions/${item.id}`)}
+                    onSelect={() => router.push(`/${locale}/propositions/${item.id}`)}
                   >
-                    <div className="flex w-full items-center justify-between gap-4">
-                      <span className="truncate font-medium text-foreground">
-                        {item.title}
-                      </span>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {pageName && (
-                          <Badge variant="outline" className="capitalize">
-                            {pageName}
-                          </Badge>
-                        )}
-                        <Badge variant={statusVariants[statusLabel] ?? "outline"}>
-                          {statusLabel}
-                        </Badge>
-                        <span>{votes} votes</span>
+                    <div className="flex w-full items-center justify-between gap-2 text-left">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        <Lightbulb className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+                        <span className="truncate font-normal text-foreground">
+                          {item.title}
+                        </span>
                       </div>
+                      {pageName && (
+                        <Badge variant="outline" className="shrink-0 capitalize">
+                          {pageName}
+                        </Badge>
+                      )}
                     </div>
                   </CommandItem>
                 )
@@ -286,8 +348,16 @@ export function Omnibar() {
               className="px-0"
               onSelect={() => {
                 if (!trimmedQuery) return
-                router.push(
-                  `/propositions/create?title=${encodeURIComponent(trimmedQuery)}`
+                void (async () => {
+                  await goToCreateProposition(
+                    `/${locale}/propositions/create?title=${encodeURIComponent(trimmedQuery)}`
+                  )
+                })()
+              }}
+              onClick={() => {
+                if (!trimmedQuery) return
+                void goToCreateProposition(
+                  `/${locale}/propositions/create?title=${encodeURIComponent(trimmedQuery)}`
                 )
               }}
             >
@@ -295,7 +365,7 @@ export function Omnibar() {
                 <span className="truncate font-medium text-foreground">
                   {query}
                 </span>
-                <Badge variant="outline">+ Ajouter une proposition</Badge>
+                <Badge variant="outline">{t("addPropositionBadge")}</Badge>
               </div>
             </CommandItem>
           )}
@@ -306,8 +376,16 @@ export function Omnibar() {
               className="px-0"
               onSelect={() => {
                 if (!trimmedQuery) return
-                router.push(
-                  `/pages/create?name=${encodeURIComponent(trimmedQuery)}`
+                void (async () => {
+                  await goToCreatePage(
+                    `/${locale}/pages/create?name=${encodeURIComponent(trimmedQuery)}`
+                  )
+                })()
+              }}
+              onClick={() => {
+                if (!trimmedQuery) return
+                void goToCreatePage(
+                  `/${locale}/pages/create?name=${encodeURIComponent(trimmedQuery)}`
                 )
               }}
             >
@@ -315,11 +393,11 @@ export function Omnibar() {
                 <span className="truncate font-medium text-foreground">
                   {query}
                 </span>
-                <Badge variant="outline">+ Créer une page</Badge>
+                <Badge variant="outline">{t("createPageBadge")}</Badge>
               </div>
             </CommandItem>
           )}
-        </div>
+        </CommandList>
       </Command>
     </div>
   )

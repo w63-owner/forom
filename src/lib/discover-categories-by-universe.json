@@ -1,0 +1,457 @@
+{
+    "MOBILITY_TRAVEL": [
+      {
+        "category": "Aviation Commerciale",
+        "subCategories": [
+          "Parcours d'enregistrement & Bagages",
+          "Contrôles de Sécurité & Fluidité",
+          "Confort Cabine (Siège/Espace)",
+          "Divertissement à bord & Wi-Fi",
+          "Repas & Service Restauration",
+          "Gestion des Retards & Indemnisation",
+          "Programmes de Fidélité (Miles)"
+        ]
+      },
+      {
+        "category": "VTC & Taxis",
+        "subCategories": [
+          "Facilité de Réservation (App)",
+          "Temps d'attente & Disponibilité",
+          "Propreté du Véhicule & Confort",
+          "Courtoisie & Conduite du Chauffeur",
+          "Transparence des Prix & Majorations",
+          "Sécurité Passager & Signalement"
+        ]
+      },
+      {
+        "category": "Location de Véhicules",
+        "subCategories": [
+          "Parcours de Prise en charge (Guichet)",
+          "État des Véhicules & Entretien",
+          "Transparence des Assurances & Franchises",
+          "Restitution & État des lieux"
+        ]
+      },
+      {
+        "category": "Nouvelles Mobilités",
+        "subCategories": [
+          "Auto-partage (Free-floating)",
+          "Trottinettes & Vélos en libre-service",
+          "Covoiturage Longue Distance"
+        ]
+      },
+      {
+        "category": "Hôtellerie & Voyage",
+        "subCategories": [
+          "Réservation & Comparateurs en ligne",
+          "Expérience Check-in/Check-out",
+          "Propreté & Hygiène des Chambres",
+          "Services Hôteliers (Spa/Petit-déj)"
+        ]
+      }
+    ],
+    "PUBLIC_SERVICES": [
+      {
+        "category": "Transports Publics",
+        "subCategories": [
+          "Ponctualité & Régularité (Train/Métro)",
+          "Propreté des Rames & Gares",
+          "Sécurité & Sentiment d'insécurité",
+          "Accessibilité PMR & Poussettes",
+          "Information Voyageur & Signalétique",
+          "Billetterie & Automates"
+        ]
+      },
+      {
+        "category": "Santé Publique",
+        "subCategories": [
+          "Temps d'attente aux Urgences",
+          "Prise de RDV Médecins Spécialistes",
+          "Qualité de l'Accueil Hospitalier",
+          "Suivi Post-Opératoire & Dossier Médical",
+          "Accès aux Soins en Zone Rurale"
+        ]
+      },
+      {
+        "category": "Administration",
+        "subCategories": [
+          "Délais de Traitement des Dossiers",
+          "Ergonomie des Sites Web de l'État",
+          "Joignabilité des Services (Tel/Mail)",
+          "Simplification des Formulaires",
+          "Identité Numérique & FranceConnect"
+        ]
+      },
+      {
+        "category": "Éducation",
+        "subCategories": [
+          "Effectifs & Encadrement en Classe",
+          "Qualité de la Restauration Scolaire",
+          "Outils Numériques (ENT/Pronote)",
+          "Inclusion & AESH",
+          "Orientation & Parcoursup"
+        ]
+      },
+      {
+        "category": "Sécurité & Justice",
+        "subCategories": [
+          "Délais de Justice & Audiences",
+          "Accueil en Commissariat & Gendarmerie",
+          "Présence Policière & Ronciers"
+        ]
+      },
+      {
+        "category": "Ville & Environnement",
+        "subCategories": [
+          "Gestion des Déchets & Poubelles",
+          "Entretien des Espaces Verts",
+          "Éclairage Public & Sécurité Nocturne"
+        ]
+      }
+    ],
+    "TECH_PRODUCTS": [
+      {
+        "category": "SaaS & Logiciels B2B",
+        "subCategories": [
+          "Facilité de Prise en Main (Onboarding)",
+          "Stabilité & Bugs Techniques",
+          "Qualité du Support Client (Helpdesk)",
+          "Intégrations & API",
+          "Tarification & Transparence"
+        ]
+      },
+      {
+        "category": "Apps Grand Public",
+        "subCategories": [
+          "Design d'Interface (UI) & Esthétique",
+          "Fluidité de Navigation (UX)",
+          "Gestion des Notifications & Intrusivité",
+          "Mode Sombre & Accessibilité",
+          "Consommation Batterie & Données"
+        ]
+      },
+      {
+        "category": "Réseaux Sociaux",
+        "subCategories": [
+          "Modération des Contenus & Haine",
+          "Algorithmes de Recommandation",
+          "Protection de la Vie Privée"
+        ]
+      },
+      {
+        "category": "Hardware & IoT",
+        "subCategories": [
+          "Durabilité & Solidité Matérielle",
+          "Réparabilité & Pièces Détachées",
+          "Autonomie & Batterie",
+          "Connectivité & Pairage Bluetooth"
+        ]
+      },
+      {
+        "category": "IA & Data",
+        "subCategories": [
+          "Pertinence des Réponses (ChatGPT etc.)",
+          "Biais Cognitifs & Éthique",
+          "Sécurité des Données Personnelles"
+        ]
+      }
+    ],
+    "CONSUMPTION": [
+      {
+        "category": "Retail Physique",
+        "subCategories": [
+          "Disponibilité des Stocks en Rayon",
+          "Attente en Caisse & Fluidité",
+          "Amabilité & Conseil des Vendeurs",
+          "Programme de Fidélité & Cagnotte",
+          "Propreté & Agencement Magasin"
+        ]
+      },
+      {
+        "category": "E-commerce",
+        "subCategories": [
+          "Facilité de Recherche Produit",
+          "Processus de Paiement & Sécurité",
+          "Respect des Délais de Livraison",
+          "Qualité de l'Emballage & Écologie",
+          "Politique de Retour & Remboursement",
+          "Service Après-Vente (SAV) & Chatbot"
+        ]
+      },
+      {
+        "category": "Services Financiers",
+        "subCategories": [
+          "Ergonomie App Bancaire",
+          "Frais Bancaires & Transparence",
+          "Réactivité Conseiller Bancaire",
+          "Clarté des Contrats d'Assurance",
+          "Rapidité d'Indemnisation Sinistre"
+        ]
+      },
+      {
+        "category": "Restauration",
+        "subCategories": [
+          "Qualité des Produits & Fraîcheur",
+          "Rapport Qualité/Prix",
+          "Service en Salle & Ambiance",
+          "Livraison de Repas (Délais/État)"
+        ]
+      }
+    ],
+    "LOCAL_LIFE": [
+      {
+        "category": "Quartier & Voirie",
+        "subCategories": [
+          "Propreté des Rues & Trottoirs",
+          "État de la Chaussée & Nids-de-poule",
+          "Mobilier Urbain (Bancs/Abribus)",
+          "Nuisances Sonores & Voisinage"
+        ]
+      },
+      {
+        "category": "Vie Sociale",
+        "subCategories": [
+          "Dynamisme Associatif & Bénévolat",
+          "Événements Locaux & Fêtes",
+          "Entraide & Solidarité Voisins"
+        ]
+      },
+      {
+        "category": "Économie Locale",
+        "subCategories": [
+          "Diversité des Commerces de Proximité",
+          "Horaires & Animation des Marchés",
+          "Soutien aux Artisans Locaux"
+        ]
+      },
+      {
+        "category": "Culture & Sport",
+        "subCategories": [
+          "État des Équipements Sportifs",
+          "Horaires Bibliothèques & Médiathèques",
+          "Offre Culturelle Municipale"
+        ]
+      }
+    ],
+    "ENERGY_UTILITIES": [
+      {
+        "category": "Électricité & Gaz",
+        "subCategories": [
+          "Compréhension des Factures",
+          "Suivi de Consommation (Linky etc.)",
+          "Service Client & Résiliation",
+          "Offres Vertes & Renouvelables"
+        ]
+      },
+      {
+        "category": "Eau & Déchets",
+        "subCategories": [
+          "Qualité & Goût de l'Eau",
+          "Fréquence de Collecte des Déchets"
+        ]
+      },
+      {
+        "category": "Télécoms",
+        "subCategories": [
+          "Stabilité Connexion Fibre/ADSL",
+          "Couverture Réseau Mobile (4G/5G)",
+          "Installation & Raccordement",
+          "Prix des Forfaits & Engagement"
+        ]
+      }
+    ],
+    "MEDIA_CULTURE": [
+      {
+        "category": "Information",
+        "subCategories": [
+          "Indépendance & Pluralisme Média",
+          "Qualité des Enquêtes & Fact-checking",
+          "Accessibilité & Paywalls"
+        ]
+      },
+      {
+        "category": "Streaming Vidéo",
+        "subCategories": [
+          "Catalogue de Contenus (Films/Séries)",
+          "Recommandation & Découverte",
+          "Qualité de Diffusion (4K/HDR)"
+        ]
+      },
+      {
+        "category": "Musique & Audio",
+        "subCategories": [
+          "Qualité Sonore & Formats",
+          "Rémunération des Artistes"
+        ]
+      },
+      {
+        "category": "Gaming",
+        "subCategories": [
+          "Stabilité des Serveurs & Latence",
+          "Politique de Monétisation (Micro-transactions)"
+        ]
+      },
+      {
+        "category": "Sorties",
+        "subCategories": [
+          "Facilité de Réservation Billetterie"
+        ]
+      }
+    ],
+    "HOUSING_REAL_ESTATE": [
+      {
+        "category": "Location",
+        "subCategories": [
+          "Transparence des Annonces",
+          "Processus de Dépôt de Dossier",
+          "Réactivité Agence/Propriétaire"
+        ]
+      },
+      {
+        "category": "Achat & Vente",
+        "subCategories": [
+          "Honoraires d'Agence & Frais",
+          "Parcours Notarial & Délais"
+        ]
+      },
+      {
+        "category": "Copropriété",
+        "subCategories": [
+          "Gestion du Syndic & Réactivité",
+          "Transparence des Charges"
+        ]
+      },
+      {
+        "category": "Travaux",
+        "subCategories": [
+          "Trouver des Artisans de Confiance",
+          "Respect des Devis & Délais",
+          "Aides à la Rénovation Énergétique"
+        ]
+      }
+    ],
+    "PROFESSIONAL_LIFE": [
+      {
+        "category": "Recrutement",
+        "subCategories": [
+          "Transparence des Offres d'Emploi",
+          "Feedback après Entretien",
+          "Processus d'Onboarding"
+        ]
+      },
+      {
+        "category": "Vie au Travail",
+        "subCategories": [
+          "Équilibre Vie Pro / Vie Perso",
+          "Management & Culture d'Entreprise",
+          "Télétravail & Flexibilité"
+        ]
+      },
+      {
+        "category": "Outils Internes",
+        "subCategories": [
+          "Performance des Outils Métiers",
+          "Matériel Informatique Fourni"
+        ]
+      },
+      {
+        "category": "Espaces de Travail",
+        "subCategories": [
+          "Confort & Ergonomie Bureau",
+          "Espaces de Pause & Convivialité"
+        ]
+      }
+    ],
+    "LUXE_LIFESTYLE": [
+      {
+        "category": "Haute Couture",
+        "subCategories": [
+          "Expérience en Boutique & Accueil",
+          "Qualité des Matières & Finitions",
+          "Service de Retouche & Sur-mesure"
+        ]
+      },
+      {
+        "category": "Palaces & Hôtels 5*",
+        "subCategories": [
+          "Ultra-personnalisation du Service",
+          "Discrétion & Privacy",
+          "Conciergerie & Demandes Spéciales"
+        ]
+      },
+      {
+        "category": "Gastronomie",
+        "subCategories": [
+          "Expérience Culinaire & Créativité",
+          "Service du Vin & Sommellerie"
+        ]
+      },
+      {
+        "category": "Automobile de Luxe",
+        "subCategories": [
+          "Expérience d'Achat & Livraison",
+          "Maintenance & Service Exclusif"
+        ]
+      }
+    ],
+    "FINANCE_INVESTMENT": [
+      {
+        "category": "Banque Privée",
+        "subCategories": [
+          "Conseil Patrimonial & Expertise",
+          "Réactivité & Disponibilité"
+        ]
+      },
+      {
+        "category": "Bourse & Trading",
+        "subCategories": [
+          "Ergonomie des Plateformes de Trading",
+          "Frais de Courtage & Spread",
+          "Outils d'Analyse & Data"
+        ]
+      },
+      {
+        "category": "Crypto & Web3",
+        "subCategories": [
+          "Sécurité des Wallets & Clés",
+          "Expérience Utilisateur DeFi",
+          "On-ramp / Off-ramp (Fiat to Crypto)"
+        ]
+      },
+      {
+        "category": "Fiscalité",
+        "subCategories": [
+          "Outils de Simulation & Déclaration"
+        ]
+      }
+    ],
+    "INNOVATION_LAB": [
+      {
+        "category": "Exploration Spatiale",
+        "subCategories": [
+          "Tourisme Spatial & Accès",
+          "Impact Écologique des Lancements"
+        ]
+      },
+      {
+        "category": "Biotech & Santé",
+        "subCategories": [
+          "Éthique des Manipulations Génétiques",
+          "Accessibilité des Nouveaux Traitements"
+        ]
+      },
+      {
+        "category": "Robotique",
+        "subCategories": [
+          "Interaction Homme-Machine",
+          "Automatisation Domestique"
+        ]
+      },
+      {
+        "category": "DeepTech",
+        "subCategories": [
+          "Régulation des Nouvelles Technologies"
+        ]
+      }
+    ]
+  }
