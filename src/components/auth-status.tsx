@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/toast"
 import { relativeTime } from "@/lib/utils"
+import { getLocalizedNotificationBody } from "@/lib/notification-text"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { shouldSetUnauthenticatedFromServerResult } from "@/utils/supabase/auth-rules"
@@ -727,13 +728,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
     <div className="flex items-center gap-2">
       {/* Cloche notifications */}
       {/* Notifications bell */}
-      <Popover
-        onOpenChange={(open) => {
-          if (open) {
-            void markAllRead()
-          }
-        }}
-      >
+      <Popover>
         <PopoverTrigger asChild>
           <Button
             size="sm"
@@ -758,9 +753,6 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
             <span className="text-sm font-medium">{t("notificationsTitle")}</span>
             {unread > 0 ? (
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-destructive px-2 py-0.5 text-xs font-medium text-destructive-foreground">
-                  {t("unreadBadge", { count: unread })}
-                </span>
                 <button
                   type="button"
                   onClick={() => void markAllRead()}
@@ -809,6 +801,11 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
                 const showActions =
                   requestId !== null && !isReviewing && persistedStatus === "pending"
                 const canOpenNotification = Boolean(notificationLink && !showActions)
+                const localizedBody =
+                  effectiveReviewStatus !== "approved" &&
+                  effectiveReviewStatus !== "rejected"
+                    ? getLocalizedNotificationBody(n, t)
+                    : null
                 return (
                   <div
                     key={n.id}
@@ -849,13 +846,11 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
                             ? t("notificationLinkRejected")
                             : n.title}
                       </div>
-                      {effectiveReviewStatus !== "approved" &&
-                        effectiveReviewStatus !== "rejected" &&
-                        n.body && (
+                      {localizedBody && (
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {n.body}
+                          {localizedBody}
                         </p>
-                        )}
+                      )}
                       <p className="mt-0.5 text-[11px] text-muted-foreground">
                         {formatNotificationAge(n.created_at, locale)}
                       </p>

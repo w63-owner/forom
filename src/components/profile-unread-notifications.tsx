@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getLocalizedNotificationBody } from "@/lib/notification-text"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import {
@@ -14,6 +15,7 @@ import {
 
 type Notification = {
   id: string
+  type: string
   title: string
   body: string | null
   link: string | null
@@ -24,6 +26,7 @@ type Notification = {
 export function ProfileUnreadNotifications() {
   const t = useTranslations("ProfileNotifications")
   const tCommon = useTranslations("Common")
+  const tAuth = useTranslations("Auth")
   const [notifications, setNotifications] = useState<Notification[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,7 +50,7 @@ export function ProfileUnreadNotifications() {
         const runQuery = () =>
           supabase
             .from("notifications")
-            .select("id, title, body, link, created_at, read_at")
+            .select("id, type, title, body, link, created_at, read_at")
             .eq("email", email)
             .order("created_at", { ascending: false })
             .limit(20)
@@ -114,31 +117,34 @@ export function ProfileUnreadNotifications() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
-        {notifications.map((n) => (
-          <div
-            key={n.id}
-            className={`flex items-start justify-between gap-3 rounded-md px-2 py-2 ${
-              n.read_at ? "opacity-75" : "bg-muted/40"
-            }`}
-          >
-            <div>
-              <div className="font-medium text-[#333D42]">{n.title}</div>
-              {n.body && (
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {n.body}
-                </p>
+        {notifications.map((n) => {
+          const localizedBody = getLocalizedNotificationBody(n, tAuth)
+          return (
+            <div
+              key={n.id}
+              className={`flex items-start justify-between gap-3 rounded-md px-2 py-2 ${
+                n.read_at ? "opacity-75" : "bg-muted/40"
+              }`}
+            >
+              <div>
+                <div className="font-medium text-[#333D42]">{n.title}</div>
+                {localizedBody && (
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {localizedBody}
+                  </p>
+                )}
+              </div>
+              {n.link && (
+                <Link
+                  href={n.link}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {tCommon("view")}
+                </Link>
               )}
             </div>
-            {n.link && (
-              <Link
-                href={n.link}
-                className="text-xs font-medium text-primary hover:underline"
-              >
-                {tCommon("view")}
-              </Link>
-            )}
-          </div>
-        ))}
+          )
+        })}
       </CardContent>
     </Card>
   )
