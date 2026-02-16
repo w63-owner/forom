@@ -10,13 +10,13 @@ import { PropositionEditLink } from "@/components/proposition-edit-link"
 import { PropositionDeleteButton } from "@/components/proposition-delete-button"
 import { PropositionNotifyButton } from "@/components/proposition-notify-button"
 import { PropositionActionsMenu } from "@/components/proposition-actions-menu"
+import { SanitizedHtml } from "@/components/sanitized-html"
 import {
   PropositionVolunteersProvider,
   PropositionVolunteerButton,
 } from "@/components/proposition-volunteers"
 import { BackLink } from "@/components/back-link"
 import { relativeTime } from "@/lib/utils"
-import { sanitizeHtml } from "@/lib/sanitize"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionDetailClient from "./proposition-detail-client"
 
@@ -253,11 +253,9 @@ export default async function PropositionDetails({ params }: Props) {
             </CardHeader>
             <CardContent className="space-y-4">
               {data.description?.replace(/<[^>]*>/g, "").trim() ? (
-                <div
+                <SanitizedHtml
+                  html={data.description ?? ""}
                   className="prose prose-sm max-w-none text-[#333D42] dark:prose-invert"
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeHtml(data.description ?? ""),
-                  }}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">
