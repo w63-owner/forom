@@ -22,8 +22,6 @@ import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
 
-const sanitizeLikeValue = (value: string) => value.replace(/[\\%_]/g, "\\$&")
-
 export function CreatePageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -47,11 +45,8 @@ export function CreatePageClient() {
   const parentAnchorRef = useRef<HTMLInputElement | null>(null)
   const [parentPopoverWidth, setParentPopoverWidth] = useState<number | null>(null)
   const [loading, setLoading] = useState(false)
-  const [nameCheckLoading, setNameCheckLoading] = useState(false)
-  const [isNameTaken, setIsNameTaken] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const latestNameCheckIdRef = useRef(0)
   const {
     query: parentQuery,
     setQuery: setParentQuery,
@@ -181,42 +176,6 @@ export function CreatePageClient() {
     clearParentResults()
   }
 
-  useEffect(() => {
-    const trimmedName = name.trim()
-    if (!trimmedName) {
-      setNameCheckLoading(false)
-      setIsNameTaken(false)
-      return
-    }
-    const timeout = setTimeout(async () => {
-      const checkId = latestNameCheckIdRef.current + 1
-      latestNameCheckIdRef.current = checkId
-      setNameCheckLoading(true)
-      const supabase = getSupabaseClient()
-      if (!supabase) {
-        if (latestNameCheckIdRef.current === checkId) {
-          setIsNameTaken(false)
-          setNameCheckLoading(false)
-        }
-        return
-      }
-      const { data, error: queryError } = await supabase
-        .from("pages")
-        .select("id")
-        .ilike("name", sanitizeLikeValue(trimmedName))
-        .limit(1)
-      if (latestNameCheckIdRef.current !== checkId) return
-      if (queryError) {
-        setIsNameTaken(false)
-        setNameCheckLoading(false)
-        return
-      }
-      setIsNameTaken((data?.length ?? 0) > 0)
-      setNameCheckLoading(false)
-    }, 300)
-    return () => clearTimeout(timeout)
-  }, [name])
-
   const handleSubmit = async () => {
     if (!name.trim()) {
       setError(t("nameRequired"))
@@ -232,16 +191,6 @@ export function CreatePageClient() {
       return
     }
     const trimmedName = name.trim()
-    const { data: existingPages, error: nameQueryError } = await supabase
-      .from("pages")
-      .select("id")
-      .ilike("name", sanitizeLikeValue(trimmedName))
-      .limit(1)
-    if (!nameQueryError && (existingPages?.length ?? 0) > 0) {
-      setError(t("duplicatePageError"))
-      setIsNameTaken(true)
-      return
-    }
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
@@ -253,102 +202,108 @@ export function CreatePageClient() {
 
     setLoading(true)
     setError(null)
-    const { data, error: insertError } = await supabase
-      .from("pages")
-      .insert({
-        owner_id: user.id,
-        name: trimmedName,
-        description: description.trim() || null,
-        category: category.trim() || null,
-        certification_type: "NONE",
-        is_verified: false,
-      })
-      .select("id, slug")
-      .single()
-
-    if (insertError || !data) {
-      const message =
-        insertError?.code === "23505" ||
-        insertError?.message?.includes("pages_slug_unique")
-          ? t("duplicatePageError")
-          : insertError?.message ?? t("createPageError")
-      setError(message)
-      setLoading(false)
-      return
-    }
-
-    if (selectedParent?.id) {
-      const { error: parentError } = await supabase
-        .from("page_parent_requests")
-        .upsert(
-          {
-            child_page_id: data.id,
-            parent_page_id: selectedParent.id,
-            requested_by: user.id,
-          },
-          { onConflict: "child_page_id" }
-        )
-      if (parentError) {
-        showToast({
-          variant: "error",
-          title: t("parentRequestError"),
-          description: parentError.message,
-        })
-      } else {
-        showToast({
-          variant: "info",
-          title: t("parentRequestSent"),
-        })
-        fetch("/api/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "page_parent_request",
-            pageId: selectedParent.id,
-            childPageId: data.id,
-            actorUserId: user.id,
-            locale,
-          }),
-        }).catch(() => null)
-      }
-    }
-
-    if (isRepresentative) {
-      const { error: verificationError } = await supabase
-        .from("page_verification_requests")
+    try {
+      const { data, error: insertError } = await supabase
+        .from("pages")
         .insert({
-          page_id: data.id,
-          requested_by: user.id,
-          method: verificationMethod,
-          proof: verificationProof.trim(),
-          requester_note: verificationNote.trim() || null,
+          owner_id: user.id,
+          name: trimmedName,
+          description: description.trim() || null,
+          category: category.trim() || null,
+          certification_type: "NONE",
+          is_verified: false,
         })
+        .select("id, slug")
+        .single()
 
-      if (verificationError) {
-        setError(t("verificationRequestError"))
-        setLoading(false)
+      if (insertError || !data) {
+        const message =
+          insertError?.code === "23505" ||
+          insertError?.message?.includes("pages_slug_unique")
+            ? t("duplicatePageError")
+            : insertError?.message ?? t("createPageError")
+        setError(message)
         return
       }
-    }
 
-    setSuccessMessage(
-      t("createSuccess")
-    )
-    showToast({
-      variant: "success",
-      title: t("createSuccessTitle"),
-      description: t("createSuccess"),
-    })
-    if (isRepresentative) {
+      if (selectedParent?.id) {
+        const { error: parentError } = await supabase
+          .from("page_parent_requests")
+          .upsert(
+            {
+              child_page_id: data.id,
+              parent_page_id: selectedParent.id,
+              requested_by: user.id,
+            },
+            { onConflict: "child_page_id" }
+          )
+        if (parentError) {
+          showToast({
+            variant: "error",
+            title: t("parentRequestError"),
+            description: parentError.message,
+          })
+        } else {
+          showToast({
+            variant: "info",
+            title: t("parentRequestSent"),
+          })
+          fetch("/api/notifications", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              type: "page_parent_request",
+              pageId: selectedParent.id,
+              childPageId: data.id,
+              actorUserId: user.id,
+              locale,
+            }),
+          }).catch(() => null)
+        }
+      }
+
+      if (isRepresentative) {
+        const { error: verificationError } = await supabase
+          .from("page_verification_requests")
+          .insert({
+            page_id: data.id,
+            requested_by: user.id,
+            method: verificationMethod,
+            proof: verificationProof.trim(),
+            requester_note: verificationNote.trim() || null,
+          })
+
+        if (verificationError) {
+          setError(t("verificationRequestError"))
+          return
+        }
+      }
+
+      setSuccessMessage(
+        t("createSuccess")
+      )
       showToast({
-        variant: "info",
-        title: t("verificationRequestTitle"),
-        description: t("verificationRequestSent"),
+        variant: "success",
+        title: t("createSuccessTitle"),
+        description: t("createSuccess"),
       })
-    }
-    setLoading(false)
-    if (data.slug) {
-      router.push(`/pages/${data.slug}`)
+      if (isRepresentative) {
+        showToast({
+          variant: "info",
+          title: t("verificationRequestTitle"),
+          description: t("verificationRequestSent"),
+        })
+      }
+      if (data.slug) {
+        router.push(`/pages/${data.slug}`)
+      }
+    } catch (err) {
+      const fallbackMessage = t("createPageError")
+      const message =
+        err instanceof Error && err.message.trim() ? err.message : fallbackMessage
+      setError(message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -377,12 +332,6 @@ export function CreatePageClient() {
               }}
               placeholder={t("namePlaceholder")}
             />
-            {nameCheckLoading && (
-              <p className="text-xs text-muted-foreground">{tCommon("loading")}</p>
-            )}
-            {!nameCheckLoading && isNameTaken && (
-              <p className="text-xs text-destructive">{t("duplicatePageError")}</p>
-            )}
             <Textarea
               id="page-description"
               name="description"
@@ -603,9 +552,7 @@ export function CreatePageClient() {
             <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
               <Button
                 onClick={handleSubmit}
-                disabled={
-                  loading || nameCheckLoading || isNameTaken || !name.trim()
-                }
+                disabled={loading || !name.trim()}
               >
                 {loading ? tCommon("saving") : t("createButton")}
               </Button>
