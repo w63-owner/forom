@@ -177,6 +177,47 @@ export function useNotifications(email: string | null): UseNotificationsResult {
     void refresh()
   }, [refresh])
 
+  useEffect(() => {
+    if (!email) return
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+
+    const channel = supabase
+      .channel(`notifications:${email}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `email=eq.${email}`,
+        },
+        (payload) => {
+          const row = payload.new as NotificationItem & { email?: string }
+          if (!row?.id) return
+          if (
+            typeof row.email === "string" &&
+            row.email.toLowerCase() !== email.toLowerCase()
+          ) {
+            return
+          }
+
+          safeSet(() => {
+            setNotifications((prev) => {
+              const current = prev ?? []
+              if (current.some((item) => item.id === row.id)) return current
+              return [row, ...current].slice(0, 20)
+            })
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      void supabase.removeChannel(channel)
+    }
+  }, [email, safeSet])
+
   const unreadCount = (notifications ?? []).filter((n) => !n.read_at).length
 
   return {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient, type SupabaseClient } from "@supabase/supabase-js"
+import { createClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 type NotificationPayload = {
@@ -88,34 +88,6 @@ const sendEmail = async ({
   }
 }
 
-const createNotification = async ({
-  supabase,
-  email,
-  type,
-  title,
-  body: content,
-  link,
-}: {
-  supabase: SupabaseClient<any>
-  email: string
-  type: NotificationPayload["type"]
-  title: string
-  body: string
-  link: string
-}) => {
-  if (!email) return
-  const { error } = await supabase.from("notifications").insert({
-    email,
-    type,
-    title,
-    body: content,
-    link,
-  } as any)
-  if (error) {
-    throw new Error(error.message)
-  }
-}
-
 export async function POST(request: Request) {
   let payload: NotificationPayload | null = null
   try {
@@ -182,25 +154,13 @@ export async function POST(request: Request) {
     }
   }
 
-  const safeCreateNotification = async (
-    args: Parameters<typeof createNotification>[0]
-  ) => {
-    try {
-      await createNotification(args)
-    } catch (error) {
-      console.error("Failed to create notification", error)
-    }
-  }
-
+  // Database triggers are now the source of truth for in-app notifications.
+  // This API route only handles outbound emails as a side effect.
   const notifyRecipient = async ({
     email,
     subject,
-    message,
-    link,
     html,
-    type,
-    notificationTitle,
-    notificationBody,
+    ...notificationPayload
   }: {
     email: string
     subject: string
@@ -211,21 +171,13 @@ export async function POST(request: Request) {
     notificationTitle?: string
     notificationBody?: string
   }) => {
-    await Promise.all([
-      safeSendEmail({
-        to: email,
-        subject,
-        html,
-      }),
-      safeCreateNotification({
-        supabase,
-        email,
-        type,
-        title: notificationTitle ?? subject,
-        body: notificationBody ?? message,
-        link,
-      }),
-    ])
+    // Keep payload fields for compatibility with existing call sites.
+    void notificationPayload
+    await safeSendEmail({
+      to: email,
+      subject,
+      html,
+    })
   }
 
   if (payload.type === "page_parent_request") {
