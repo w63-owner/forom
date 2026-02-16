@@ -16,6 +16,7 @@ import {
 } from "@/components/proposition-volunteers"
 import { BackLink } from "@/components/back-link"
 import { relativeTime } from "@/lib/utils"
+import { sanitizeHtml } from "@/lib/sanitize"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionDetailClient from "./proposition-detail-client"
 
@@ -254,7 +255,9 @@ export default async function PropositionDetails({ params }: Props) {
               {data.description?.replace(/<[^>]*>/g, "").trim() ? (
                 <div
                   className="prose prose-sm max-w-none text-[#333D42] dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: data.description ?? "" }}
+                  dangerouslySetInnerHTML={{
+                    __html: sanitizeHtml(data.description ?? ""),
+                  }}
                 />
               ) : (
                 <p className="text-sm text-muted-foreground">

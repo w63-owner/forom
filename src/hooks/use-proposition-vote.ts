@@ -221,7 +221,18 @@ export function usePropositionVote({
     if (loading) {
       return { ok: false, status: 409, error: "Vote already in progress." }
     }
+
+    const prevVotes = votes
+    const prevHasVoted = hasVoted
+    const predictedHasVoted = !prevHasVoted
+    const predictedVotes = prevHasVoted
+      ? Math.max(prevVotes - 1, 0)
+      : prevVotes + 1
+
+    // Optimistic update: apply predicted state immediately
+    applyVoteState(predictedHasVoted, predictedVotes, { broadcast: true })
     setLoading(true)
+
     try {
       const response = await withRetry(
         () =>
@@ -230,10 +241,7 @@ export function usePropositionVote({
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                propositionId,
-                target: hasVoted ? "none" : "upvote",
-              }),
+              body: JSON.stringify({ propositionId }),
             },
             8000
           ),
@@ -246,22 +254,32 @@ export function usePropositionVote({
       const payload = (await response.json().catch(() => null)) as
         | ToggleVotePayload
         | null
+
       if (!response.ok || !payload?.ok) {
+        applyVoteState(prevHasVoted, prevVotes)
         return {
           ok: false,
           status: response.status,
           error: payload?.error,
         }
       }
+
       const nextHasVoted = Boolean(payload.hasVoted)
       const nextVotes =
         typeof payload.votes === "number"
           ? payload.votes
-          : hasVoted
-            ? Math.max(votes - 1, 0)
-            : votes + 1
+          : predictedVotes
       applyVoteState(nextHasVoted, nextVotes, { broadcast: true })
       return { ok: true, hasVoted: nextHasVoted, votes: nextVotes }
+    } catch (err) {
+      applyVoteState(prevHasVoted, prevVotes)
+      const error =
+        err instanceof Error
+          ? err.message
+          : typeof err === "string"
+            ? err
+            : "Vote failed"
+      return { ok: false, status: 500, error }
     } finally {
       setLoading(false)
     }
