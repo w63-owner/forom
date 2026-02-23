@@ -37,7 +37,7 @@ const statusCanBeUpdatedByActor = async ({
   propositionAuthorId: string | null
   propositionPageId: string | null
   actorUserId: string
-  supabase: ReturnType<typeof createClient>
+  supabase: any
 }): Promise<boolean> => {
   if (!propositionPageId) {
     return propositionAuthorId === actorUserId
@@ -47,7 +47,8 @@ const statusCanBeUpdatedByActor = async ({
     .select("owner_id")
     .eq("id", propositionPageId)
     .maybeSingle()
-  return page?.owner_id === actorUserId
+  const pageOwnerId = (page as { owner_id?: string | null } | null)?.owner_id ?? null
+  return pageOwnerId === actorUserId
 }
 
 export const validateNotificationAuthorization = async ({
@@ -56,7 +57,7 @@ export const validateNotificationAuthorization = async ({
   authenticatedUserId,
   proposition,
 }: {
-  supabase: ReturnType<typeof createClient>
+  supabase: any
   payload: NotificationPayload
   authenticatedUserId: string
   proposition: {
@@ -326,7 +327,7 @@ export async function POST(request: Request) {
   }
   const supabase = createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
-  })
+  }) as any
 
   const safeSendEmail = async (args: Parameters<typeof sendEmail>[0]) => {
     try {
@@ -503,6 +504,9 @@ export async function POST(request: Request) {
       { ok: false, error: "Missing propositionId." },
       { status: 400 }
     )
+  }
+  if (!proposition) {
+    return NextResponse.json({ ok: true })
   }
 
   const { data: author, error: authorError } = await supabase
@@ -693,7 +697,7 @@ export async function POST(request: Request) {
       .select("user_id, users(email)")
       .eq("page_id", proposition.page_id)
     await Promise.allSettled(
-      (subscribers ?? []).map(async (subscriber) => {
+      (subscribers ?? []).map(async (subscriber: any) => {
         const email = getUserEmail(subscriber.users)
         if (!email) return
         const subject = t(
@@ -779,7 +783,7 @@ export async function POST(request: Request) {
     const label =
       statusLabels[locale]?.[payload.newStatus] ?? payload.newStatus
     await Promise.allSettled(
-      (subscribers ?? []).map(async (subscriber) => {
+      (subscribers ?? []).map(async (subscriber: any) => {
         const email = getUserEmail(subscriber.users)
         if (!email) return
         const subject = t(

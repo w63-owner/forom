@@ -3,8 +3,9 @@ import { routing } from "@/i18n/routing"
 export const stripLocalePrefix = (pathname: string): { locale: string; normalizedPath: string } => {
   const segments = pathname.split("/").filter(Boolean)
   const firstSegment = segments[0] ?? ""
-  const locale = routing.locales.includes(firstSegment) ? firstSegment : routing.defaultLocale
-  const normalizedPath = routing.locales.includes(firstSegment)
+  const isLocale = (routing.locales as readonly string[]).includes(firstSegment)
+  const locale = isLocale ? firstSegment : routing.defaultLocale
+  const normalizedPath = isLocale
     ? `/${segments.slice(1).join("/") || ""}`.replace(/\/+$/, "") || "/"
     : pathname
   return { locale, normalizedPath }
