@@ -22,8 +22,11 @@ const TYPE_MAP: Record<string, string> = {
   comment_created: "notificationBody_commentCreated",
   volunteer_created: "notificationBody_volunteerCreated",
   status_done: "notificationBody_statusDoneSubscriber",
+  status_change: "notificationBody_statusChange",
   solution_marked: "notificationBody_solutionMarked",
   solution_unmarked: "notificationBody_solutionUnmarked",
+  page_parent_request: "notificationBody_pageParentRequest",
+  proposition_created_linked: "notificationBody_propositionCreatedLinked",
 }
 
 export function getLocalizedNotificationBody(

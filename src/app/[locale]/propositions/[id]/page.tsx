@@ -220,6 +220,7 @@ export default async function PropositionDetails({ params }: Props) {
                   propositionId={data.id}
                   initialStatus={data.status ?? "Open"}
                   pageOwnerId={pageData?.owner_id ?? null}
+                  currentUserId={currentUser?.id ?? null}
                 />
               </div>
               <div className="flex items-center justify-between gap-3">

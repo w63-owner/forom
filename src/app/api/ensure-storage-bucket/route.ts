@@ -1,10 +1,23 @@
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
 const BUCKET_ID = "proposition-images"
 
 export async function POST(request: Request) {
+  const originValidation = validateMutationOrigin(request)
+  if (!originValidation.ok) {
+    return NextResponse.json(
+      {
+        error:
+          originValidation.reason ??
+          "Forbidden origin.",
+      },
+      { status: 403 }
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const locale = searchParams.get("locale") === "fr" ? "fr" : "en"
   const t = (en: string, fr: string) => (locale === "fr" ? fr : en)

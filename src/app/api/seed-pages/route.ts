@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { validateMutationOrigin } from "@/lib/security/origin-guard"
+import { canUseSeedPagesEndpoint } from "@/lib/security/seed-pages-access"
 
 const featuredPages = [
   { name: "France", slug: "france", category: "country" },
@@ -24,7 +26,15 @@ const featuredPages = [
   { name: "Netflix", slug: "netflix", category: "brand" },
 ]
 
-export async function POST() {
+export async function POST(request: Request) {
+  const originValidation = validateMutationOrigin(request)
+  if (!originValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: originValidation.reason ?? "Forbidden origin." },
+      { status: 403 }
+    )
+  }
+
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
     return NextResponse.json({ ok: false }, { status: 500 })
@@ -33,6 +43,18 @@ export async function POST() {
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) {
     return NextResponse.json({ ok: false }, { status: 401 })
+  }
+
+  const isAllowed = canUseSeedPagesEndpoint({
+    userId: userData.user.id,
+    nodeEnv: process.env.NODE_ENV,
+    adminUserIdsEnv: process.env.SEED_PAGES_ADMIN_USER_IDS,
+  })
+  if (!isAllowed) {
+    return NextResponse.json(
+      { ok: false, error: "Forbidden: admin only in production." },
+      { status: 403 }
+    )
   }
 
   const payload = featuredPages.map((page) => ({

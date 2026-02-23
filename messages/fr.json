@@ -344,11 +344,14 @@
       "notificationBody_volunteerCreated": "Un nouveau volontaire a rejoint votre proposition.",
       "notificationBody_statusDoneAuthor": "Le statut de votre proposition est passé à « Terminé ».",
       "notificationBody_statusDoneSubscriber": "Une proposition liée à cette page a été marquée comme terminée.",
+      "notificationBody_statusChange": "Le statut d'une proposition a été mis à jour.",
       "notificationBody_solutionMarked": "Votre commentaire a été marqué comme solution.",
       "notificationBody_solutionUnmarked": "Votre commentaire n'est plus marqué comme solution.",
+      "notificationBody_pageParentRequest": "Une demande de liaison de sous-page a été soumise.",
+      "notificationBody_propositionCreatedLinked": "Une nouvelle proposition a été ajoutée.",
       "notificationLinkApproved": "Vous avez approuvé la demande de liaison",
       "notificationLinkRejected": "Vous avez refusé la demande de liaison",
-      "toastLinkApproved": "Demande acceptée : la page enfant est maintenant reliée à votre page.",
+      "toastLinkApproved": "Demande acceptée : la sous-page est maintenant reliée à votre page.",
       "toastLinkRejected": "Demande refusée : la page ne sera pas reliée.",
       "toastReviewFailed": "Cette action n'a pas pu être effectuée. Vérifiez que vous êtes bien le propriétaire de la page mère.",
       "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter.",
@@ -437,7 +440,7 @@
       "notifications": "Notifications",
       "verification": "Vérification",
       "parentLink": "Page mère",
-      "parentRequests": "Pages enfants proposées"
+      "parentRequests": "Sous-pages proposées"
     },
     "PageParent": {
       "title": "Page mère",
@@ -456,7 +459,7 @@
       "rejected": "Refusée"
     },
     "PageParentRequests": {
-      "title": "Pages enfants proposées",
+      "title": "Sous-pages proposées",
       "empty": "Aucune demande en attente.",
       "approve": "Approuver",
       "reject": "Refuser",
@@ -672,14 +675,14 @@
       "verifiedPage": "Page vérifiée",
       "reactivityScore": "Score de réactivité",
       "parentLabel": "Page mère :",
-      "childPagesTitle": "Pages enfants",
+      "childPagesTitle": "Sous-pages",
       "breadcrumbLabel": "Fil d'Ariane",
       "embedCopyBadge": "Intégrer ce tableau sur mon site",
       "embedCopySuccess": "Code d’intégration copié",
       "embedCopyReady": "Collez ce code dans votre site pour afficher le tableau des propositions.",
       "embedCopyError": "Impossible de copier le code embed.",
       "unlinkChildConfirmTitle": "Supprimer le lien",
-      "unlinkChildConfirmDescription": "Êtes-vous sûr de vouloir supprimer le lien entre cette page et « {childName} » ? La page enfant ne sera plus rattachée à cette page.",
+      "unlinkChildConfirmDescription": "Êtes-vous sûr de vouloir supprimer le lien entre cette page et « {childName} » ? La sous-page ne sera plus rattachée à cette page.",
       "unlinkChildConfirm": "Supprimer le lien",
       "unlinkChildCancel": "Annuler",
       "unlinkChildError": "Impossible de supprimer le lien."

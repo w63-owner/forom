@@ -47,6 +47,8 @@ type AuthStatusProps = {
 
 const AUTH_SYNC_CHANNEL = "forom:auth-state"
 const AUTH_SYNC_STORAGE_KEY = "forom:auth-state-event"
+// Client-tab sync is UX-only and must never be used for authorization decisions.
+// All sensitive actions are still validated server-side.
 
 function toCurrentUser(user: SessionUser | null): CurrentUser | null {
   if (!user?.email) return null

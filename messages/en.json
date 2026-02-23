@@ -344,11 +344,14 @@
       "notificationBody_volunteerCreated": "A new volunteer joined your proposition.",
       "notificationBody_statusDoneAuthor": "Your proposition status changed to Done.",
       "notificationBody_statusDoneSubscriber": "A proposition linked to this page was marked as done.",
+      "notificationBody_statusChange": "A proposition status was updated.",
       "notificationBody_solutionMarked": "Your comment was marked as a solution.",
       "notificationBody_solutionUnmarked": "Your comment is no longer marked as a solution.",
+      "notificationBody_pageParentRequest": "A sub-page link request was submitted.",
+      "notificationBody_propositionCreatedLinked": "A new proposition has been added.",
       "notificationLinkApproved": "You approved the link request",
       "notificationLinkRejected": "You rejected the link request",
-      "toastLinkApproved": "Request accepted: the child page is now linked to your page.",
+      "toastLinkApproved": "Request accepted: the sub-page is now linked to your page.",
       "toastLinkRejected": "Request rejected: the page will not be linked.",
       "toastReviewFailed": "This action could not be completed. Make sure you are the owner of the parent page.",
       "sessionExpired": "Your session has expired. Please sign in again.",
@@ -437,7 +440,7 @@
       "notifications": "Notifications",
       "verification": "Verification",
       "parentLink": "Mother page",
-      "parentRequests": "Child page requests"
+      "parentRequests": "Sub-page requests"
     },
     "PageParent": {
       "title": "Mother page",
@@ -456,7 +459,7 @@
       "rejected": "Rejected"
     },
     "PageParentRequests": {
-      "title": "Child page requests",
+      "title": "Sub-page requests",
       "empty": "No pending requests.",
       "approve": "Approve",
       "reject": "Reject",
@@ -671,14 +674,14 @@
       "verifiedPage": "Verified page",
       "reactivityScore": "Reactivity score",
       "parentLabel": "Mother page:",
-      "childPagesTitle": "Child pages",
+      "childPagesTitle": "Sub-pages",
       "breadcrumbLabel": "Breadcrumb",
       "embedCopyBadge": "Embed this board on my website",
       "embedCopySuccess": "Embed code copied",
       "embedCopyReady": "Paste this code into your website to display the propositions board.",
       "embedCopyError": "Unable to copy embed code.",
       "unlinkChildConfirmTitle": "Remove link",
-      "unlinkChildConfirmDescription": "Are you sure you want to remove the link between this page and \"{childName}\"? The child page will no longer be linked to this page.",
+      "unlinkChildConfirmDescription": "Are you sure you want to remove the link between this page and \"{childName}\"? The sub-page will no longer be linked to this page.",
       "unlinkChildConfirm": "Remove link",
       "unlinkChildCancel": "Cancel",
       "unlinkChildError": "Unable to remove the link."

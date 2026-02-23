@@ -319,6 +319,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                 statusSort={statusSort}
                 statusOrder={statusOrder}
                 pageOwnerId={page.owner_id ?? null}
+                currentUserId={userData.user?.id ?? null}
               />
             </CardContent>
           </Card>

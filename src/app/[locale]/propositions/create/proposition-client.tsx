@@ -962,17 +962,6 @@ export default function CreatePropositionClient({
       return
     }
 
-    if (selectedPage?.id) {
-      fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "proposition_created_linked",
-          propositionId: data.id,
-          locale,
-        }),
-      }).catch(() => null)
-    }
     router.push(`/propositions/${data.id}`)
   }, [
     description,

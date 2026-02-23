@@ -9,8 +9,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { getSupabaseClient } from "@/utils/supabase/client"
-import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { cn } from "@/lib/utils"
 import { getStatusKey, STATUS_VALUES } from "@/lib/status-labels"
 
@@ -18,6 +16,7 @@ type Props = {
   propositionId: string
   initialStatus: string
   pageOwnerId: string | null
+  currentUserId: string | null
   onStatusChange?: (propositionId: string, newStatus: string) => void
 }
 
@@ -25,12 +24,12 @@ export function PropositionStatusBadge({
   propositionId,
   initialStatus,
   pageOwnerId,
+  currentUserId,
   onStatusChange,
 }: Props) {
   const tStatus = useTranslations("Status")
   const locale = useLocale()
   const [status, setStatus] = useState(initialStatus)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -38,64 +37,75 @@ export function PropositionStatusBadge({
     Boolean(currentUserId) && Boolean(pageOwnerId) && currentUserId === pageOwnerId
 
   useEffect(() => {
-    const loadCurrentUser = async () => {
-      const supabase = getSupabaseClient()
-      if (!supabase) return
-      const user = await resolveAuthUser(supabase, {
-        timeoutMs: 3500,
-        includeServerFallback: true,
-      })
-      setCurrentUserId(user?.id ?? null)
-    }
-    void loadCurrentUser()
-  }, [])
+    setStatus(initialStatus)
+  }, [initialStatus])
 
   const handleSelect = async (nextStatus: string) => {
     if (!isOwner) return
-    const supabase = getSupabaseClient()
-    if (!supabase) return
-    setLoading(true)
-    const { error } = await supabase
-      .from("propositions")
-      .update({ status: nextStatus })
-      .eq("id", propositionId)
-    if (!error) {
-      setStatus(nextStatus)
+    if (nextStatus === status) {
       setOpen(false)
-      onStatusChange?.(propositionId, nextStatus)
-      fetch("/api/notifications", {
+      return
+    }
+
+    const previousStatus = status
+    setLoading(true)
+    setStatus(nextStatus)
+    setOpen(false)
+    onStatusChange?.(propositionId, nextStatus)
+
+    try {
+      const response = await fetch("/api/propositions/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propositionId,
+          status: nextStatus,
+        }),
+      })
+
+      if (!response.ok) {
+        setStatus(previousStatus)
+        onStatusChange?.(propositionId, previousStatus)
+        return
+      }
+
+      // Fire-and-forget notification endpoint; UI state is already updated.
+      void fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: nextStatus === "Done" ? "status_done" : "status_change",
           propositionId,
-          actorUserId: (
-            await resolveAuthUser(supabase, {
-              timeoutMs: 3500,
-              includeServerFallback: true,
-            })
-          )?.id,
+          actorUserId: currentUserId ?? undefined,
           newStatus: nextStatus,
           locale,
         }),
       }).catch(() => null)
+    } catch {
+      setStatus(previousStatus)
+      onStatusChange?.(propositionId, previousStatus)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   if (isOwner) {
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Badge
-            variant="outline"
-            className={cn(
-              "w-fit cursor-pointer gap-1 transition-colors hover:bg-accent",
-              open && "bg-accent"
-            )}
-          >
-            {tStatus(getStatusKey(status))}
-            <ChevronDown className="size-3 opacity-70" />
+          <Badge asChild variant="outline">
+            <button
+              type="button"
+              disabled={loading}
+              aria-label={tStatus(getStatusKey(status))}
+              className={cn(
+                "w-fit cursor-pointer gap-1 transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-70",
+                open && "bg-accent"
+              )}
+            >
+              {tStatus(getStatusKey(status))}
+              <ChevronDown className="size-3 opacity-70" />
+            </button>
           </Badge>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-1" align="start">

@@ -4,7 +4,6 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
-import type { PostgrestSingleResponse } from "@supabase/supabase-js"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -93,53 +92,42 @@ function LoginForm() {
       setError(t("supabaseNotConfigured"))
       return
     }
+
     setLoading(true)
     setError(null)
     setInfo(null)
     try {
-      logAuth("check email start", { email })
-      const { data, error: checkError } = await withTimeout<
-        PostgrestSingleResponse<{ id: string } | null>
-      >(
+      const normalizedEmail = email.trim().toLowerCase()
+      const { data, error: lookupError } = await withTimeout(
         supabase
           .from("users")
           .select("id")
-          .eq("email", email.trim().toLowerCase())
-          .maybeSingle(),
-        8000,
+          .eq("email", normalizedEmail)
+          .limit(1),
+        10000,
         "check email"
       )
-      if (checkError) {
-        if (isAbortLikeError(checkError)) {
-          logAuth("check email aborted")
-          setStep("signin")
-          setInfo(t("verifyAccountFallback"))
-          return
-        }
-        setError(
-          checkError.message === "email rate limit exceeded"
-            ? t("tooManyAttempts")
-            : checkError.message
-        )
-        if (checkError.message === "email rate limit exceeded") {
-          startCooldown(120)
-        }
-        logAuth("check email error", { message: checkError.message })
+
+      if (lookupError) {
+        setError(lookupError.message || t("genericError"))
+        logAuth("check email failed", { message: lookupError.message })
         return
       }
-      logAuth("check email success", { hasUser: Boolean(data) })
-      setStep(data ? "signin" : "signup")
+
+      const exists = Boolean(data && data.length > 0)
+      setEmail(normalizedEmail)
+      setPassword("")
+      setUsername("")
+      setStep(exists ? "signin" : "signup")
+      logAuth("check email resolved", { exists })
     } catch (err) {
       if (isAbortLikeError(err)) {
         logAuth("check email aborted", { error: "catch" })
-        setStep("signin")
-        setInfo(t("verifyAccountFallback"))
         return
       }
       if (err instanceof Error && err.message.includes("timeout")) {
         logAuth("check email timeout")
-        setStep("signin")
-        setInfo(t("verifyTimeout"))
+        setError(t("verifyTimeout"))
         return
       }
       setError(t("genericError"))

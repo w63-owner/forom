@@ -1,11 +1,13 @@
 import { createServerClient } from "@supabase/ssr"
 import createIntlMiddleware from "next-intl/middleware"
 import { NextResponse, type NextRequest } from "next/server"
+import { isProtectedAppPath, stripLocalePrefix } from "@/lib/security/protected-routes"
 import { routing } from "@/i18n/routing"
 
 const intlMiddleware = createIntlMiddleware(routing)
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
+  const { locale, normalizedPath } = stripLocalePrefix(request.nextUrl.pathname)
   const response =
     request.nextUrl.pathname.startsWith("/api") ||
     request.nextUrl.pathname.startsWith("/auth")
@@ -30,7 +32,14 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  await supabase.auth.getUser()
+  const { data } = await supabase.auth.getUser()
+
+  if (isProtectedAppPath(normalizedPath) && !data.user) {
+    const nextPath = `${normalizedPath}${request.nextUrl.search}`
+    const loginUrl = new URL(`/${locale}/login`, request.url)
+    loginUrl.searchParams.set("next", nextPath)
+    return NextResponse.redirect(loginUrl)
+  }
 
   return response
 }

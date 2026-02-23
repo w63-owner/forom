@@ -39,6 +39,7 @@ type Props = {
   itemLinkPrefix?: string
   itemLinkOpenNewTab?: boolean
   pageOwnerId?: string | null
+  currentUserId?: string | null
 }
 
 export function PagePropositionsTable({
@@ -59,6 +60,7 @@ export function PagePropositionsTable({
   itemLinkPrefix = "/propositions",
   itemLinkOpenNewTab = false,
   pageOwnerId = null,
+  currentUserId = null,
 }: Props) {
   const tCommon = useTranslations("Common")
   const { showToast } = useToast()
@@ -341,6 +343,7 @@ export function PagePropositionsTable({
                             propositionId={item.id}
                             initialStatus={item.status ?? "Open"}
                             pageOwnerId={pageOwnerId ?? null}
+                            currentUserId={currentUserId}
                             onStatusChange={handleStatusChange}
                           />
                         </div>
@@ -361,6 +364,7 @@ export function PagePropositionsTable({
                     propositionId={item.id}
                     initialStatus={item.status ?? "Open"}
                     pageOwnerId={pageOwnerId ?? null}
+                    currentUserId={currentUserId}
                     onStatusChange={handleStatusChange}
                   />
                 </td>

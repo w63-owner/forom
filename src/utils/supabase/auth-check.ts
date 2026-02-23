@@ -25,6 +25,8 @@ const snapshot: AuthSnapshot = {
 const readSessionUserFromStorage = (): User | null => {
   if (typeof window === "undefined") return null
   try {
+    // UX optimization only: never use localStorage state as an authorization source.
+    // Server-side checks and RLS remain the source of truth for protected actions.
     for (let i = 0; i < window.localStorage.length; i += 1) {
       const key = window.localStorage.key(i)
       if (!key || !key.startsWith("sb-") || !key.endsWith("-auth-token")) continue

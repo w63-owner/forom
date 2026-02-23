@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
 type ToggleVoteBody = { propositionId?: string }
 
@@ -7,6 +8,14 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 export async function POST(request: Request) {
+  const originValidation = validateMutationOrigin(request)
+  if (!originValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: originValidation.reason ?? "Forbidden origin." },
+      { status: 403 }
+    )
+  }
+
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
     return NextResponse.json(

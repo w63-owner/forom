@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
 export async function POST(request: Request) {
+  const originValidation = validateMutationOrigin(request)
+  if (!originValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: originValidation.reason ?? "Forbidden origin." },
+      { status: 403 }
+    )
+  }
+
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
     return NextResponse.json({ ok: false, error: "Supabase not configured" }, { status: 500 })

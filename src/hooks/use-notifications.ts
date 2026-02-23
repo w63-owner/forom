@@ -96,7 +96,11 @@ export function useNotifications(email: string | null): UseNotificationsResult {
         notifications?: NotificationItem[]
       }
       safeSet(() => {
-        setNotifications(payload.notifications ?? [])
+        const sorted = [...(payload.notifications ?? [])].sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        setNotifications(sorted)
       })
     } catch (error) {
       safeSet(() => {
@@ -139,8 +143,7 @@ export function useNotifications(email: string | null): UseNotificationsResult {
               supabase
                 .from("notifications")
                 .update({ read_at: now })
-                .in("id", ids)
-                .eq("email", email),
+                .in("id", ids),
               12000
             ),
           {
@@ -182,22 +185,23 @@ export function useNotifications(email: string | null): UseNotificationsResult {
     const supabase = getSupabaseClient()
     if (!supabase) return
 
+    const normalizedEmail = email.trim().toLowerCase()
+    const channelName = `notifications:${encodeURIComponent(normalizedEmail)}`
     const channel = supabase
-      .channel(`notifications:${email}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "notifications",
-          filter: `email=eq.${email}`,
         },
         (payload) => {
           const row = payload.new as NotificationItem & { email?: string }
           if (!row?.id) return
           if (
             typeof row.email === "string" &&
-            row.email.toLowerCase() !== email.toLowerCase()
+            row.email.toLowerCase() !== normalizedEmail
           ) {
             return
           }
@@ -206,17 +210,50 @@ export function useNotifications(email: string | null): UseNotificationsResult {
             setNotifications((prev) => {
               const current = prev ?? []
               if (current.some((item) => item.id === row.id)) return current
-              return [row, ...current].slice(0, 20)
+              return [row, ...current]
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at).getTime() -
+                    new Date(a.created_at).getTime()
+                )
+                .slice(0, 50)
             })
           })
         }
       )
-      .subscribe()
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "notifications",
+        },
+        (payload) => {
+          const row = payload.new as NotificationItem & { email?: string }
+          if (!row?.id) return
+          if (
+            typeof row.email === "string" &&
+            row.email.toLowerCase() !== normalizedEmail
+          ) {
+            return
+          }
+          safeSet(() => {
+            setNotifications((prev) =>
+              (prev ?? []).map((item) => (item.id === row.id ? row : item))
+            )
+          })
+        }
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          void refresh()
+        }
+      })
 
     return () => {
       void supabase.removeChannel(channel)
     }
-  }, [email, safeSet])
+  }, [email, safeSet, refresh])
 
   const unreadCount = (notifications ?? []).filter((n) => !n.read_at).length
 

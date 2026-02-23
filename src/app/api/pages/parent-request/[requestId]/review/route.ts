@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
 const getSupabaseAdminClient = (): SupabaseClient | null => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -17,6 +18,14 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ requestId: string }> }
 ) {
+  const originValidation = validateMutationOrigin(request)
+  if (!originValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: originValidation.reason ?? "Forbidden origin." },
+      { status: 403 }
+    )
+  }
+
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
     return NextResponse.json(

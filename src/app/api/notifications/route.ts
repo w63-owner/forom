@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import {
+  INTERNAL_SIGNATURE_HEADER,
+  INTERNAL_TIMESTAMP_HEADER,
+  verifyInternalRequestSignature,
+} from "@/lib/security/internal-signature"
+import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
 type NotificationPayload = {
   type:
@@ -20,6 +26,163 @@ type NotificationPayload = {
   actorUserId?: string
   newStatus?: string
   locale?: "en" | "fr"
+}
+
+const statusCanBeUpdatedByActor = async ({
+  propositionAuthorId,
+  propositionPageId,
+  actorUserId,
+  supabase,
+}: {
+  propositionAuthorId: string | null
+  propositionPageId: string | null
+  actorUserId: string
+  supabase: ReturnType<typeof createClient>
+}): Promise<boolean> => {
+  if (!propositionPageId) {
+    return propositionAuthorId === actorUserId
+  }
+  const { data: page } = await supabase
+    .from("pages")
+    .select("owner_id")
+    .eq("id", propositionPageId)
+    .maybeSingle()
+  return page?.owner_id === actorUserId
+}
+
+export const validateNotificationAuthorization = async ({
+  supabase,
+  payload,
+  authenticatedUserId,
+  proposition,
+}: {
+  supabase: ReturnType<typeof createClient>
+  payload: NotificationPayload
+  authenticatedUserId: string
+  proposition: {
+    id: string
+    author_id: string | null
+    page_id: string | null
+  } | null
+}): Promise<{ ok: true; actorUserId: string } | { ok: false; error: string }> => {
+  const actorUserId = payload.actorUserId ?? authenticatedUserId
+  if (actorUserId !== authenticatedUserId) {
+    return { ok: false, error: "Forbidden actorUserId." }
+  }
+
+  if (payload.type === "page_parent_request") {
+    if (!payload.pageId || !payload.childPageId) {
+      return { ok: false, error: "Missing mother page payload." }
+    }
+    const { data: requestRow } = await supabase
+      .from("page_parent_requests")
+      .select("id, requested_by")
+      .eq("parent_page_id", payload.pageId)
+      .eq("child_page_id", payload.childPageId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!requestRow || requestRow.requested_by !== actorUserId) {
+      return { ok: false, error: "Forbidden parent request actor." }
+    }
+    return { ok: true, actorUserId }
+  }
+
+  if (
+    payload.type === "comment_created" ||
+    payload.type === "solution_marked" ||
+    payload.type === "solution_unmarked"
+  ) {
+    if (!payload.commentId || !payload.propositionId) {
+      return { ok: false, error: "Missing comment payload." }
+    }
+    const { data: comment } = await supabase
+      .from("comments")
+      .select("id, proposition_id, user_id")
+      .eq("id", payload.commentId)
+      .maybeSingle()
+    if (!comment || comment.proposition_id !== payload.propositionId) {
+      return { ok: false, error: "Comment/proposition mismatch." }
+    }
+    if (payload.type === "comment_created" && comment.user_id !== actorUserId) {
+      return { ok: false, error: "Forbidden comment actor." }
+    }
+    if (payload.type !== "comment_created") {
+      if (!proposition) {
+        return { ok: false, error: "Missing proposition for status checks." }
+      }
+      const canManageSolution = await statusCanBeUpdatedByActor({
+        propositionAuthorId: proposition.author_id,
+        propositionPageId: proposition.page_id,
+        actorUserId,
+        supabase,
+      })
+      if (!canManageSolution) {
+        return { ok: false, error: "Forbidden solution actor." }
+      }
+    }
+    return { ok: true, actorUserId }
+  }
+
+  if (payload.type === "volunteer_created") {
+    if (!payload.propositionId) {
+      return { ok: false, error: "Missing propositionId." }
+    }
+    const { data: volunteer } = await supabase
+      .from("volunteers")
+      .select("user_id")
+      .eq("proposition_id", payload.propositionId)
+      .eq("user_id", actorUserId)
+      .maybeSingle()
+    if (!volunteer) {
+      return { ok: false, error: "Forbidden volunteer actor." }
+    }
+    return { ok: true, actorUserId }
+  }
+
+  if (
+    payload.type === "status_done" ||
+    payload.type === "status_change" ||
+    payload.type === "proposition_created_linked"
+  ) {
+    if (!proposition) {
+      return { ok: false, error: "Missing proposition." }
+    }
+    if (payload.type === "proposition_created_linked") {
+      if (proposition.author_id !== actorUserId) {
+        return { ok: false, error: "Forbidden proposition actor." }
+      }
+      return { ok: true, actorUserId }
+    }
+    const canUpdateStatus = await statusCanBeUpdatedByActor({
+      propositionAuthorId: proposition.author_id,
+      propositionPageId: proposition.page_id,
+      actorUserId,
+      supabase,
+    })
+    if (!canUpdateStatus) {
+      return { ok: false, error: "Forbidden status actor." }
+    }
+    return { ok: true, actorUserId }
+  }
+
+  if (payload.type === "owner_vote_threshold") {
+    if (!payload.propositionId) {
+      return { ok: false, error: "Missing propositionId." }
+    }
+    const { data: vote } = await supabase
+      .from("votes")
+      .select("user_id")
+      .eq("proposition_id", payload.propositionId)
+      .eq("user_id", actorUserId)
+      .maybeSingle()
+    if (!vote) {
+      return { ok: false, error: "Forbidden vote actor." }
+    }
+    return { ok: true, actorUserId }
+  }
+
+  return { ok: false, error: "Unsupported notification type." }
 }
 
 export async function GET() {
@@ -44,9 +207,8 @@ export async function GET() {
   const { data, error } = await supabase
     .from("notifications")
     .select("id, type, title, body, link, created_at, read_at")
-    .eq("email", email)
     .order("created_at", { ascending: false })
-    .limit(20)
+    .limit(50)
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
@@ -89,9 +251,32 @@ const sendEmail = async ({
 }
 
 export async function POST(request: Request) {
+  const originValidation = validateMutationOrigin(request)
+  if (!originValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: originValidation.reason ?? "Forbidden origin." },
+      { status: 403 }
+    )
+  }
+
+  const rawBody = await request.text().catch(() => "")
+  const signatureValidation = verifyInternalRequestSignature({
+    payload: rawBody,
+    signature: request.headers.get(INTERNAL_SIGNATURE_HEADER),
+    timestamp: request.headers.get(INTERNAL_TIMESTAMP_HEADER),
+    secret: process.env.INTERNAL_API_SIGNING_SECRET,
+    required: process.env.INTERNAL_API_SIGNING_REQUIRED === "true",
+  })
+  if (!signatureValidation.ok) {
+    return NextResponse.json(
+      { ok: false, error: signatureValidation.reason ?? "Invalid signature." },
+      { status: 403 }
+    )
+  }
+
   let payload: NotificationPayload | null = null
   try {
-    payload = (await request.json()) as NotificationPayload
+    payload = JSON.parse(rawBody) as NotificationPayload
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid JSON." }, { status: 400 })
   }
@@ -139,9 +324,6 @@ export async function POST(request: Request) {
   if (!userData.user) {
     return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 })
   }
-  if (payload.actorUserId && payload.actorUserId !== userData.user.id) {
-    return NextResponse.json({ ok: false, error: "Forbidden actorUserId." }, { status: 403 })
-  }
   const supabase = createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
   })
@@ -180,6 +362,53 @@ export async function POST(request: Request) {
     })
   }
 
+  let proposition: {
+    id: string
+    title: string | null
+    author_id: string | null
+    page_id: string | null
+    notify_comments: boolean | null
+    notify_volunteers: boolean | null
+    notify_solutions: boolean | null
+  } | null = null
+
+  if (payload.propositionId) {
+    const { data: loadedProposition, error: propositionError } = await supabase
+      .from("propositions")
+      .select(
+        "id, title, author_id, page_id, notify_comments, notify_volunteers, notify_solutions"
+      )
+      .eq("id", payload.propositionId)
+      .maybeSingle()
+
+    if (propositionError) {
+      return NextResponse.json(
+        { ok: false, error: propositionError.message },
+        { status: 500 }
+      )
+    }
+    proposition = loadedProposition
+    if (!proposition) {
+      return NextResponse.json({ ok: true })
+    }
+  }
+
+  const authz = await validateNotificationAuthorization({
+    supabase,
+    payload,
+    authenticatedUserId: userData.user.id,
+    proposition: proposition
+      ? {
+          id: proposition.id,
+          author_id: proposition.author_id,
+          page_id: proposition.page_id,
+        }
+      : null,
+  })
+  if (!authz.ok) {
+    return NextResponse.json({ ok: false, error: authz.error }, { status: 403 })
+  }
+
   if (payload.type === "page_parent_request") {
     if (!payload.pageId || !payload.childPageId) {
       return NextResponse.json(
@@ -211,11 +440,11 @@ export async function POST(request: Request) {
         .select("email, username")
         .eq("id", parentPage.owner_id)
         .maybeSingle(),
-      payload.actorUserId
+      authz.actorUserId
         ? supabase
             .from("users")
             .select("email, username")
-            .eq("id", payload.actorUserId)
+            .eq("id", authz.actorUserId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
     ])
@@ -230,8 +459,8 @@ export async function POST(request: Request) {
     const childLabel = childPage?.name || t("a page", "une page")
     const parentLabel = parentPage.name || t("a page", "une page")
     const subject = t(
-      `New child page request: ${childLabel}`,
-      `Nouvelle demande de page enfant : ${childLabel}`
+      `New sub-page request: ${childLabel}`,
+      `Nouvelle demande de sous-page : ${childLabel}`
     )
     const message = t(
       `${requesterLabel} wants to link ${childLabel} to ${parentLabel}.`,
@@ -261,8 +490,8 @@ export async function POST(request: Request) {
       type: payload.type,
       notificationTitle: parentLabel,
       notificationBody: t(
-        "A child page link request was submitted.",
-        "Une demande de liaison de page enfant a été soumise."
+        "A sub-page link request was submitted.",
+        "Une demande de liaison de sous-page a été soumise."
       ),
     })
 
@@ -274,24 +503,6 @@ export async function POST(request: Request) {
       { ok: false, error: "Missing propositionId." },
       { status: 400 }
     )
-  }
-
-  const { data: proposition, error: propositionError } = await supabase
-    .from("propositions")
-    .select(
-      "id, title, author_id, page_id, notify_comments, notify_volunteers, notify_solutions"
-    )
-    .eq("id", payload.propositionId)
-    .maybeSingle()
-
-  if (propositionError) {
-    return NextResponse.json(
-      { ok: false, error: propositionError.message },
-      { status: 500 }
-    )
-  }
-  if (!proposition) {
-    return NextResponse.json({ ok: true })
   }
 
   const { data: author, error: authorError } = await supabase
