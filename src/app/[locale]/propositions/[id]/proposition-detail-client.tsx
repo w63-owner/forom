@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert } from "@/components/ui/alert"
 import { Textarea } from "@/components/ui/textarea"
+import { useAuthModal } from "@/components/auth-modal-provider"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { relativeTime } from "@/lib/utils"
@@ -19,6 +20,8 @@ type Props = {
   propositionAuthorAvatarUrl?: string | null
   propositionAuthorName?: string | null
 }
+
+type CommentsLoadState = "idle" | "loading" | "loaded" | "empty" | "error"
 
 const isAbortLikeError = (value: unknown): boolean => {
   if (value instanceof DOMException && value.name === "AbortError") return true
@@ -83,6 +86,7 @@ type CommentBlockProps = {
     currentVote: "Upvote" | "Downvote" | null
   ) => void
   onSubmitReply: (parentId: string) => void
+  onRequireAuth: () => void
   propositionAuthorAvatarUrl: string | null
   propositionAuthorName: string | null
 }
@@ -102,6 +106,7 @@ function CommentBlock({
   onToggleSolution,
   onVote,
   onSubmitReply,
+  onRequireAuth,
   propositionAuthorAvatarUrl,
   propositionAuthorName,
 }: CommentBlockProps) {
@@ -154,12 +159,13 @@ function CommentBlock({
                 ? "text-primary"
                 : "text-muted-foreground"
             }
-            onClick={() =>
-              currentUserId
-                ? onVote(comment.id, "Upvote", comment.currentUserVote ?? null)
-                : null
-            }
-            disabled={!currentUserId}
+            onClick={() => {
+              if (!currentUserId) {
+                onRequireAuth()
+                return
+              }
+              onVote(comment.id, "Upvote", comment.currentUserVote ?? null)
+            }}
           >
             <ThumbsUp className="size-3" />
           </Button>
@@ -174,12 +180,13 @@ function CommentBlock({
                 ? "text-destructive"
                 : "text-muted-foreground"
             }
-            onClick={() =>
-              currentUserId
-                ? onVote(comment.id, "Downvote", comment.currentUserVote ?? null)
-                : null
-            }
-            disabled={!currentUserId}
+            onClick={() => {
+              if (!currentUserId) {
+                onRequireAuth()
+                return
+              }
+              onVote(comment.id, "Downvote", comment.currentUserVote ?? null)
+            }}
           >
             <ThumbsDown className="size-3" />
           </Button>
@@ -201,18 +208,20 @@ function CommentBlock({
             </span>
           </span>
         ) : null}
-        {currentUserId && (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={() => {
-              const targetId = comment.parent_id ?? comment.id
-              setReplyingToId(replyingToId === targetId ? null : targetId)
-            }}
-          >
-            {t("reply")}
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={() => {
+            if (!currentUserId) {
+              onRequireAuth()
+              return
+            }
+            const targetId = comment.parent_id ?? comment.id
+            setReplyingToId(replyingToId === targetId ? null : targetId)
+          }}
+        >
+          {t("reply")}
+        </Button>
         {isAuthor && (
           <Button
             variant="ghost"
@@ -292,10 +301,12 @@ export default function PropositionDetailClient({
 }: Props) {
   const router = useRouter()
   const locale = useLocale()
+  const { openAuthModal } = useAuthModal()
   const t = useTranslations("PropositionComments")
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [comments, setComments] = useState<CommentItem[]>([])
-  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentsLoadState, setCommentsLoadState] =
+    useState<CommentsLoadState>("idle")
   const [commentsError, setCommentsError] = useState<string | null>(null)
   const [commentValue, setCommentValue] = useState("")
   const [commentSubmitting, setCommentSubmitting] = useState(false)
@@ -303,12 +314,12 @@ export default function PropositionDetailClient({
   const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const commentSubmitInProgressRef = useRef(false)
   const replySubmitInProgressRef = useRef(false)
-  const currentUserIdRef = useRef<string | null>(null)
   const commentsInitialLoadDoneRef = useRef(false)
   const fetchCommentsRef = useRef<() => void>(() => {})
   const [replyingToId, setReplyingToId] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState("")
   const [replySubmitting, setReplySubmitting] = useState(false)
+  const commentsRequestSeqRef = useRef(0)
 
   const relativeTimeLabel = (dateStr: string) =>
     relativeTime(dateStr, locale)
@@ -327,6 +338,10 @@ export default function PropositionDetailClient({
     Boolean(propositionAuthorId) &&
     currentUserId === propositionAuthorId
 
+  const openAuthForThisProposition = useCallback(() => {
+    openAuthModal("signup", `/${locale}/propositions/${propositionId}`)
+  }, [locale, openAuthModal, propositionId])
+
   useEffect(() => {
     const loadCurrentUser = async () => {
       const supabase = getSupabaseClient()
@@ -341,84 +356,54 @@ export default function PropositionDetailClient({
   }, [])
 
   const fetchComments = useCallback(async () => {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setCommentsError(t("supabaseNotConfigured"))
-      setCommentsLoading(false)
-      return
+    const requestSeq = ++commentsRequestSeqRef.current
+    const withTimeoutFetch = async (timeoutMs: number): Promise<Response> => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort("comments_timeout"), timeoutMs)
+      try {
+        return await fetch(`/api/comments/thread?propositionId=${propositionId}`, {
+          method: "GET",
+          signal: controller.signal,
+          cache: "no-store",
+          headers: { "x-comments-client": "proposition-detail" },
+        })
+      } finally {
+        clearTimeout(timeoutId)
+      }
     }
+    const fetchWithRetry = async (): Promise<Response> => {
+      let lastError: unknown = null
+      const baseTimeoutMs = 8000
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          return await withTimeoutFetch(baseTimeoutMs + attempt * 3000)
+        } catch (error) {
+          lastError = error
+          if (!isAbortLikeError(error) || attempt === 2) {
+            throw error
+          }
+          await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** attempt))
+        }
+      }
+      throw lastError instanceof Error ? lastError : new Error("comments_fetch_timeout")
+    }
+
     if (!commentsInitialLoadDoneRef.current) {
-      setCommentsLoading(true)
+      setCommentsLoadState("loading")
     }
     setCommentsError(null)
-    const userId = currentUserIdRef.current
     try {
-      const { data: rawComments, error: commentsError } = await supabase
-        .from("comments")
-        .select(
-          "id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email, avatar_url)"
-        )
-        .eq("proposition_id", propositionId)
-        .order("created_at", { ascending: false })
-      if (commentsError) {
-        if (isAbortLikeError(commentsError.message)) {
-          return
-        }
-        setCommentsError(commentsError.message)
+      const response = await fetchWithRetry()
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; comments?: CommentItem[] }
+        | null
+      if (!response.ok || !payload?.ok) {
+        setCommentsError(t("loadError"))
         setComments([])
+        setCommentsLoadState("error")
         return
       }
-      const list = (rawComments ?? []) as (CommentItem & {
-        parent_id?: string | null
-      })[]
-      const ids = list.map((c) => c.id)
-      const votesByComment = new Map<
-        string,
-        { count: number; userVote: "Upvote" | "Downvote" | null; likedByAuthor: boolean }
-      >()
-      for (const id of ids) {
-        votesByComment.set(id, { count: 0, userVote: null, likedByAuthor: false })
-      }
-      if (ids.length > 0) {
-        const { data: allVotes } = await supabase
-          .from("comment_votes")
-          .select("comment_id, type")
-          .in("comment_id", ids)
-        for (const row of allVotes ?? []) {
-          const cur = votesByComment.get(row.comment_id)
-          if (cur) cur.count += row.type === "Upvote" ? 1 : -1
-        }
-        const actorIds = [userId, propositionAuthorId].filter(
-          (id): id is string => Boolean(id)
-        )
-        if (actorIds.length > 0) {
-          const { data: actorVotes } = await supabase
-            .from("comment_votes")
-            .select("comment_id, type, user_id")
-            .in("comment_id", ids)
-            .in("user_id", actorIds)
-          for (const row of actorVotes ?? []) {
-            const cur = votesByComment.get(row.comment_id)
-            if (!cur) continue
-            if (userId && row.user_id === userId) {
-              cur.userVote = row.type as "Upvote" | "Downvote"
-            }
-            if (
-              propositionAuthorId &&
-              row.user_id === propositionAuthorId &&
-              row.type === "Upvote"
-            ) {
-              cur.likedByAuthor = true
-            }
-          }
-        }
-      }
-      const withVotes = list.map((c) => ({
-        ...c,
-        votesCount: votesByComment.get(c.id)?.count ?? 0,
-        currentUserVote: votesByComment.get(c.id)?.userVote ?? null,
-        likedByAuthor: votesByComment.get(c.id)?.likedByAuthor ?? false,
-      }))
+      const withVotes = (payload.comments ?? []) as CommentItem[]
       const buildTree = (
         items: CommentItem[],
         parentId: string | null
@@ -440,32 +425,29 @@ export default function PropositionDetailClient({
             replies: buildTree(items, c.id),
           }))
       const withReplies = buildTree(withVotes, null)
+      if (requestSeq !== commentsRequestSeqRef.current) return
       setComments(withReplies)
+      setCommentsLoadState(withReplies.length > 0 ? "loaded" : "empty")
     } catch (err) {
+      if (requestSeq !== commentsRequestSeqRef.current) return
       if (isAbortLikeError(err)) {
+        setCommentsError(t("loadError"))
+        setComments([])
+        setCommentsLoadState("error")
         return
       }
-      setCommentsError(
-        err instanceof Error ? err.message : t("loadError")
-      )
+      setCommentsError(t("loadError"))
       setComments([])
+      setCommentsLoadState("error")
     } finally {
       commentsInitialLoadDoneRef.current = true
-      setCommentsLoading(false)
     }
   }, [propositionId, t])
 
   useEffect(() => {
     commentsInitialLoadDoneRef.current = false
-    const timeout = setTimeout(() => {
-      void fetchComments()
-    }, 0)
-    return () => clearTimeout(timeout)
+    void fetchComments()
   }, [fetchComments])
-
-  useEffect(() => {
-    currentUserIdRef.current = currentUserId
-  }, [currentUserId])
 
   useEffect(() => {
     fetchCommentsRef.current = fetchComments
@@ -476,6 +458,44 @@ export default function PropositionDetailClient({
       fetchCommentsRef.current()
     }
   }, [currentUserId])
+
+  useEffect(() => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+
+    let pollId: ReturnType<typeof setInterval> | null = null
+    const startFallbackPolling = () => {
+      if (pollId) return
+      pollId = setInterval(() => {
+        fetchCommentsRef.current()
+      }, 20000)
+    }
+
+    const channel = supabase
+      .channel(`comments:${propositionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "comments",
+          filter: `proposition_id=eq.${propositionId}`,
+        },
+        () => {
+          fetchCommentsRef.current()
+        }
+      )
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          startFallbackPolling()
+        }
+      })
+
+    return () => {
+      if (pollId) clearInterval(pollId)
+      supabase.removeChannel(channel).catch(() => null)
+    }
+  }, [propositionId])
 
   const handleSubmitComment = async () => {
     if (!commentValue.trim()) return
@@ -491,7 +511,6 @@ export default function PropositionDetailClient({
       commentSubmitInProgressRef.current = false
       return
     }
-
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
@@ -505,64 +524,56 @@ export default function PropositionDetailClient({
       return
     }
     try {
-      const { data: insertedComment, error: insertError } = await supabase
-      .from("comments")
-      .insert({
-        proposition_id: propositionId,
-        user_id: user.id,
-        content: commentValue.trim(),
+      const response = await fetch("/api/comments/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propositionId,
+          content: commentValue.trim(),
+        }),
       })
-      .select("id")
-      .single()
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; commentId?: string }
+        | null
+      if (!response.ok || !payload?.ok) {
+        setCommentsError(t("loadError"))
+        return
+      }
 
-    if (insertError) {
-      setCommentsError(insertError.message)
+      setCommentValue("")
+      setCommentInputFocused(false)
+      commentTextareaRef.current?.blur()
+      await fetchComments()
+      fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "comment_created",
+          propositionId,
+          commentId: payload.commentId,
+          actorUserId: user.id,
+          locale,
+        }),
+      }).catch(() => null)
+    } finally {
       setCommentSubmitting(false)
       commentSubmitInProgressRef.current = false
-      return
     }
-
-    setCommentValue("")
-    setCommentInputFocused(false)
-    commentTextareaRef.current?.blur()
-    await fetchComments()
-    fetch("/api/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "comment_created",
-        propositionId,
-        commentId: insertedComment?.id,
-        actorUserId: user.id,
-        locale,
-      }),
-    }).catch(() => null)
-  } finally {
-    setCommentSubmitting(false)
-    commentSubmitInProgressRef.current = false
-  }
   }
 
   const handleToggleSolution = async (commentId: string, nextValue: boolean) => {
     if (!isAuthor) return
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setCommentsError(t("supabaseNotConfigured"))
-      return
-    }
     setCommentsError(null)
-    if (nextValue) {
-      await supabase
-        .from("comments")
-        .update({ is_solution: false })
-        .eq("proposition_id", propositionId)
-    }
-    const { error: updateError } = await supabase
-      .from("comments")
-      .update({ is_solution: nextValue })
-      .eq("id", commentId)
-    if (updateError) {
-      setCommentsError(updateError.message)
+    const response = await fetch("/api/comments/solution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propositionId, commentId, nextValue }),
+    })
+    const payload = (await response.json().catch(() => null)) as
+      | { ok?: boolean; error?: string }
+      | null
+    if (!response.ok || !payload?.ok) {
+      setCommentsError(t("loadError"))
       return
     }
     await fetchComments()
@@ -585,7 +596,10 @@ export default function PropositionDetailClient({
     currentVote: "Upvote" | "Downvote" | null
   ) => {
     const supabase = getSupabaseClient()
-    if (!supabase) return
+    if (!supabase) {
+      setCommentsError(t("supabaseNotConfigured"))
+      return
+    }
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
@@ -596,21 +610,14 @@ export default function PropositionDetailClient({
       )
       return
     }
-    if (currentVote === type) {
-      await supabase
-        .from("comment_votes")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("comment_id", commentId)
-    } else {
-      await supabase.from("comment_votes").upsert(
-        {
-          user_id: user.id,
-          comment_id: commentId,
-          type,
-        },
-        { onConflict: "user_id,comment_id" }
-      )
+    const response = await fetch("/api/comments/vote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ commentId, type, currentVote }),
+    })
+    if (!response.ok) {
+      setCommentsError(t("loadError"))
+      return
     }
     await fetchComments()
   }
@@ -643,16 +650,20 @@ export default function PropositionDetailClient({
       return
     }
     try {
-      const { error: insertError } = await supabase
-        .from("comments")
-        .insert({
-          proposition_id: propositionId,
-          user_id: user.id,
+      const response = await fetch("/api/comments/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propositionId,
           content,
-          parent_id: parentId,
-        })
-      if (insertError) {
-        setCommentsError(insertError.message)
+          parentId,
+        }),
+      })
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; commentId?: string }
+        | null
+      if (!response.ok || !payload?.ok) {
+        setCommentsError(t("loadError"))
         return
       }
       setReplyContent("")
@@ -709,14 +720,24 @@ export default function PropositionDetailClient({
               </div>
             )}
             {commentsError && (
-              <p className="text-sm text-destructive">{commentsError}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm text-destructive">{commentsError}</p>
+                <Button
+                  variant="outline"
+                  size="xs"
+                  className="h-7"
+                  onClick={() => void fetchComments()}
+                >
+                  {t("retry")}
+                </Button>
+              </div>
             )}
-            {commentsLoading && (
+            {commentsLoadState === "loading" && (
               <p className="text-sm text-muted-foreground">
                 {t("loadingComments")}
               </p>
             )}
-            {!commentsLoading && comments.length === 0 && (
+            {commentsLoadState === "empty" && (
               <p className="text-sm text-muted-foreground">
                 {t("noComments")}
               </p>
@@ -739,6 +760,7 @@ export default function PropositionDetailClient({
                   onToggleSolution={handleToggleSolution}
                   onVote={handleCommentVote}
                   onSubmitReply={handleSubmitReply}
+                  onRequireAuth={openAuthForThisProposition}
                   propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
                   propositionAuthorName={propositionAuthorName ?? "Author"}
                 />

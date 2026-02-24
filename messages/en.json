@@ -649,7 +649,8 @@
     "loadingComments": "Loading comments...",
     "noComments": "No comments yet.",
     "supabaseNotConfigured": "Supabase not configured.",
-    "loadError": "Failed to load comments."
+    "loadError": "Failed to load comments.",
+    "retry": "Retry"
   },
   "PropositionCreate": {
     "pageTitle": "Add a proposition",

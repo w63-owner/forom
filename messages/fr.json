@@ -649,7 +649,8 @@
     "loadingComments": "Chargement des commentaires...",
     "noComments": "Aucun commentaire pour le moment.",
     "supabaseNotConfigured": "Supabase non configuré.",
-    "loadError": "Erreur de chargement des commentaires."
+    "loadError": "Erreur de chargement des commentaires.",
+    "retry": "Réessayer"
   },
   "PropositionCreate": {
     "pageTitle": "Ajouter une proposition",
