@@ -175,9 +175,22 @@ const Step2Card = memo(function Step2Card({
         }}
       >
         {similarLoading && (
-          <p className="text-sm text-muted-foreground">
-            {t("step2Searching")}
-          </p>
+          <div className="space-y-3" role="status" aria-live="polite">
+            <div className="grid gap-3">
+              {[0, 1, 2].map((item) => (
+                <div
+                  key={`similar-skeleton-${item}`}
+                  className="overflow-hidden rounded-lg border bg-background px-4 py-3"
+                >
+                  <div className="h-4 w-2/3 animate-pulse rounded bg-muted" />
+                  <div className="mt-2 h-3 w-1/3 animate-pulse rounded bg-muted/80" />
+                </div>
+              ))}
+            </div>
+            <p className="text-center text-sm text-muted-foreground">
+              {t("step2Searching")}
+            </p>
+          </div>
         )}
         {!similarLoading && similarError && (
           <p className="text-sm text-destructive">{similarError}</p>

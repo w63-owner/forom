@@ -393,24 +393,31 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
 
     let cancelled = false
     ;(async () => {
-      const { data } = await supabase
-        .from("page_parent_requests")
-        .select("id, status")
-        .in("id", uniqueRequestIds)
+      try {
+        const { data } = await supabase
+          .from("page_parent_requests")
+          .select("id, status")
+          .in("id", uniqueRequestIds)
 
-      if (cancelled || !data) return
-      const next: Record<string, ParentRequestStatus> = {}
-      for (const row of data) {
-        if (
-          typeof row.id === "string" &&
-          (row.status === "pending" ||
-            row.status === "approved" ||
-            row.status === "rejected")
-        ) {
-          next[row.id] = row.status
+        if (cancelled || !data) return
+        const next: Record<string, ParentRequestStatus> = {}
+        for (const row of data) {
+          if (
+            typeof row.id === "string" &&
+            (row.status === "pending" ||
+              row.status === "approved" ||
+              row.status === "rejected")
+          ) {
+            next[row.id] = row.status
+          }
         }
+        setRequestStatusById(next)
+      } catch (error) {
+        if (cancelled || isIgnorableSessionError(error)) return
+        logAuth("parent request status load failed", {
+          message: error instanceof Error ? error.message : String(error),
+        })
       }
-      setRequestStatusById(next)
     })()
 
     return () => {

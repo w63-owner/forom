@@ -20,6 +20,10 @@ import { BackLink } from "@/components/back-link"
 import { DEFAULT_STATUS } from "@/lib/status-labels"
 import { relativeTime } from "@/lib/utils"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import {
+  buildCommentTree,
+  loadEnrichedCommentsFlat,
+} from "@/lib/comments/thread-loader"
 import PropositionDetailClient from "./proposition-detail-client"
 
 type Props = {
@@ -142,6 +146,7 @@ export default async function PropositionDetails({ params }: Props) {
     data: { user: currentUser },
   } = await supabase.auth.getUser()
   let initialHasVoted: boolean | undefined
+  let initialComments: Awaited<ReturnType<typeof loadEnrichedCommentsFlat>>["comments"] = []
   if (currentUser) {
     const { data: existingVote } = await supabase
       .from("votes")
@@ -151,6 +156,17 @@ export default async function PropositionDetails({ params }: Props) {
       .eq("type", "Upvote")
       .maybeSingle()
     initialHasVoted = Boolean(existingVote)
+  }
+  try {
+    const loaded = await loadEnrichedCommentsFlat({
+      supabase,
+      propositionId: data.id,
+      currentUserId: currentUser?.id ?? null,
+      propositionAuthorId: data.author_id,
+    })
+    initialComments = buildCommentTree(loaded.comments)
+  } catch {
+    initialComments = []
   }
 
   type VolunteerRow = {
@@ -325,6 +341,7 @@ export default async function PropositionDetails({ params }: Props) {
         <PropositionDetailClient
           propositionId={data.id}
           propositionAuthorId={data.author_id}
+          initialComments={initialComments}
           propositionAuthorAvatarUrl={
             (() => {
               const users = data.users as

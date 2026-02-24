@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Heart, ThumbsDown, ThumbsUp } from "lucide-react"
@@ -13,15 +13,33 @@ import { useAuthModal } from "@/components/auth-modal-provider"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { relativeTime } from "@/lib/utils"
+import {
+  buildCommentTree,
+  deriveInitialCommentsLoadState,
+  type CommentsLoadState,
+  type EnrichedThreadComment,
+} from "@/lib/comments/thread-loader"
+import type { ReactNode } from "react"
 
 type Props = {
   propositionId: string
   propositionAuthorId: string | null
   propositionAuthorAvatarUrl?: string | null
   propositionAuthorName?: string | null
+  initialComments?: EnrichedThreadComment[]
 }
 
-type CommentsLoadState = "idle" | "loading" | "loaded" | "empty" | "error"
+type OmnibarResult = {
+  propositions?: Array<{ id: string; title: string | null }>
+  pages?: Array<{ id: string; name: string | null; slug: string | null }>
+}
+
+type MentionOption = {
+  id: string
+  kind: "page" | "proposition"
+  label: string
+  href: string
+}
 
 const isAbortLikeError = (value: unknown): boolean => {
   if (value instanceof DOMException && value.name === "AbortError") return true
@@ -44,21 +62,95 @@ const isAbortLikeError = (value: unknown): boolean => {
   return false
 }
 
-type CommentItem = {
-  id: string
-  content: string
-  created_at: string
-  user_id: string
-  parent_id?: string | null
-  is_solution?: boolean | null
-  users?:
-    | { username: string | null; email: string | null; avatar_url?: string | null }
-    | { username: string | null; email: string | null; avatar_url?: string | null }[]
-    | null
-  replies?: CommentItem[]
-  votesCount?: number
-  currentUserVote?: "Upvote" | "Downvote" | null
-  likedByAuthor?: boolean
+type CommentItem = EnrichedThreadComment
+
+const linkifyPlainTextUrls = (content: string, keyPrefix: string) => {
+  const tokenPattern = /(https?:\/\/[^\s]+|\/(?:fr|en)\/[^\s]+)/g
+  const parts = content.split(tokenPattern)
+  return parts.map((part, index) => {
+    const isHttp = /^https?:\/\//.test(part)
+    const isInternal = /^\/(?:fr|en)\//.test(part)
+    if (!isHttp && !isInternal) return <span key={`${keyPrefix}-txt-${index}`}>{part}</span>
+    return (
+      <a
+        key={`${keyPrefix}-lnk-${index}`}
+        href={part}
+        className="text-primary underline underline-offset-2 hover:opacity-90"
+        target={isHttp ? "_blank" : undefined}
+        rel={isHttp ? "noopener noreferrer" : undefined}
+      >
+        {part}
+      </a>
+    )
+  })
+}
+
+const renderCommentContent = (content: string) => {
+  const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?:fr|en)\/[^\s)]+)\)/g
+  const nodes: ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null = null
+  let segmentIndex = 0
+
+  while ((match = markdownLinkPattern.exec(content)) !== null) {
+    const fullMatch = match[0]
+    const label = (match[1] ?? "").trim()
+    const href = (match[2] ?? "").trim()
+    const start = match.index
+
+    if (start > lastIndex) {
+      const plainPart = content.slice(lastIndex, start)
+      nodes.push(...linkifyPlainTextUrls(plainPart, `plain-${segmentIndex}`))
+      segmentIndex += 1
+    }
+
+    if (label && href) {
+      const isHttp = /^https?:\/\//.test(href)
+      nodes.push(
+        <a
+          key={`md-${segmentIndex}`}
+          href={href}
+          className="text-primary underline underline-offset-2 hover:opacity-90"
+          target={isHttp ? "_blank" : undefined}
+          rel={isHttp ? "noopener noreferrer" : undefined}
+        >
+          {label}
+        </a>
+      )
+      segmentIndex += 1
+    } else {
+      nodes.push(...linkifyPlainTextUrls(fullMatch, `fallback-${segmentIndex}`))
+      segmentIndex += 1
+    }
+
+    lastIndex = start + fullMatch.length
+  }
+
+  if (lastIndex < content.length) {
+    const remaining = content.slice(lastIndex)
+    nodes.push(...linkifyPlainTextUrls(remaining, `tail-${segmentIndex}`))
+  }
+
+  return nodes
+}
+
+const extractMentionLinks = (content: string): Array<{ label: string; href: string }> => {
+  const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?:fr|en)\/[^\s)]+)\)/g
+  const links: Array<{ label: string; href: string }> = []
+  const seen = new Set<string>()
+  let match: RegExpExecArray | null = null
+
+  while ((match = markdownLinkPattern.exec(content)) !== null) {
+    const label = (match[1] ?? "").trim()
+    const href = (match[2] ?? "").trim()
+    if (!label || !href) continue
+    const key = `${label}::${href}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    links.push({ label, href })
+  }
+
+  return links
 }
 
 type CommentBlockProps = {
@@ -134,7 +226,9 @@ function CommentBlock({
                 {relativeTime(comment.created_at)}
               </span>
             </p>
-            <p className="mt-1 text-sm text-foreground">{comment.content}</p>
+            <p className="mt-1 break-words text-sm text-foreground">
+              {renderCommentContent(comment.content)}
+            </p>
           </div>
         </div>
       )}
@@ -145,7 +239,9 @@ function CommentBlock({
               <span className="font-semibold text-foreground">{username}</span>
               <span className="ml-1.5">{relativeTime(comment.created_at)}</span>
             </div>
-            <div className="text-sm text-foreground">{comment.content}</div>
+            <div className="break-words text-sm text-foreground">
+              {renderCommentContent(comment.content)}
+            </div>
           </Alert>
         </div>
       ) : null}
@@ -298,28 +394,42 @@ export default function PropositionDetailClient({
   propositionAuthorId,
   propositionAuthorAvatarUrl = null,
   propositionAuthorName = "Author",
+  initialComments = [],
 }: Props) {
   const router = useRouter()
   const locale = useLocale()
   const { openAuthModal } = useAuthModal()
   const t = useTranslations("PropositionComments")
+  const hasInitialComments = initialComments.length > 0
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [comments, setComments] = useState<CommentItem[]>([])
+  const [comments, setComments] = useState<CommentItem[]>(initialComments)
   const [commentsLoadState, setCommentsLoadState] =
-    useState<CommentsLoadState>("idle")
+    useState<CommentsLoadState>(deriveInitialCommentsLoadState(initialComments))
   const [commentsError, setCommentsError] = useState<string | null>(null)
   const [commentValue, setCommentValue] = useState("")
   const [commentSubmitting, setCommentSubmitting] = useState(false)
   const [commentInputFocused, setCommentInputFocused] = useState(false)
+  const [commentMentionOpen, setCommentMentionOpen] = useState(false)
+  const [commentMentionOptions, setCommentMentionOptions] = useState<MentionOption[]>([])
+  const [commentMentionActiveIndex, setCommentMentionActiveIndex] = useState(0)
+  const [commentMentionLoading, setCommentMentionLoading] = useState(false)
   const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const commentMentionRangeRef = useRef<{ start: number; end: number } | null>(null)
+  const commentMentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const commentMentionAbortRef = useRef<AbortController | null>(null)
   const commentSubmitInProgressRef = useRef(false)
   const replySubmitInProgressRef = useRef(false)
-  const commentsInitialLoadDoneRef = useRef(false)
+  const commentsInitialLoadDoneRef = useRef(hasInitialComments)
+  const initialBackgroundRefreshScheduledRef = useRef(false)
   const fetchCommentsRef = useRef<() => void>(() => {})
   const [replyingToId, setReplyingToId] = useState<string | null>(null)
   const [replyContent, setReplyContent] = useState("")
   const [replySubmitting, setReplySubmitting] = useState(false)
   const commentsRequestSeqRef = useRef(0)
+  const commentMentionPreviewLinks = useMemo(
+    () => extractMentionLinks(commentValue),
+    [commentValue]
+  )
 
   const relativeTimeLabel = (dateStr: string) =>
     relativeTime(dateStr, locale)
@@ -341,6 +451,126 @@ export default function PropositionDetailClient({
   const openAuthForThisProposition = useCallback(() => {
     openAuthModal("signup", `/${locale}/propositions/${propositionId}`)
   }, [locale, openAuthModal, propositionId])
+
+  const closeCommentMentions = useCallback(() => {
+    setCommentMentionOpen(false)
+    setCommentMentionOptions([])
+    setCommentMentionActiveIndex(0)
+    setCommentMentionLoading(false)
+    commentMentionRangeRef.current = null
+    commentMentionAbortRef.current?.abort()
+    commentMentionAbortRef.current = null
+    if (commentMentionDebounceRef.current) {
+      clearTimeout(commentMentionDebounceRef.current)
+      commentMentionDebounceRef.current = null
+    }
+  }, [])
+
+  const fetchCommentMentionOptions = useCallback(
+    async (query: string) => {
+      commentMentionAbortRef.current?.abort()
+      const controller = new AbortController()
+      commentMentionAbortRef.current = controller
+      setCommentMentionLoading(true)
+      try {
+        const response = await fetch(`/api/omnibar/search?q=${encodeURIComponent(query)}`, {
+          method: "GET",
+          signal: controller.signal,
+          cache: "no-store",
+        })
+        if (!response.ok) {
+          setCommentMentionOptions([])
+          setCommentMentionActiveIndex(0)
+          return
+        }
+        const payload = (await response.json().catch(() => null)) as OmnibarResult | null
+        const propositionOptions = (payload?.propositions ?? [])
+          .filter((item) => Boolean(item?.id && item?.title))
+          .map((item) => ({
+            id: `proposition:${item.id}`,
+            kind: "proposition" as const,
+            label: item.title ?? "",
+            href: `/${locale}/propositions/${item.id}`,
+          }))
+        const pageOptions = (payload?.pages ?? [])
+          .filter((item) => Boolean(item?.slug && item?.name))
+          .map((item) => ({
+            id: `page:${item.id}`,
+            kind: "page" as const,
+            label: item.name ?? "",
+            href: `/${locale}/pages/${item.slug}`,
+          }))
+        const options = [...propositionOptions, ...pageOptions].slice(0, 8)
+        setCommentMentionOptions(options)
+        setCommentMentionActiveIndex(0)
+      } catch (error) {
+        if (!isAbortLikeError(error)) {
+          setCommentMentionOptions([])
+          setCommentMentionActiveIndex(0)
+        }
+      } finally {
+        setCommentMentionLoading(false)
+      }
+    },
+    [locale]
+  )
+
+  const updateCommentMentionsFromInput = useCallback(
+    (value: string, caret: number | null) => {
+      if (!commentInputFocused || caret == null || caret < 0) {
+        closeCommentMentions()
+        return
+      }
+      const beforeCaret = value.slice(0, caret)
+      const mentionMatch = beforeCaret.match(/(^|\s)@([^\s@]*)$/)
+      if (!mentionMatch) {
+        closeCommentMentions()
+        return
+      }
+      const query = mentionMatch[2] ?? ""
+      const atIndex = beforeCaret.lastIndexOf("@")
+      if (atIndex < 0) {
+        closeCommentMentions()
+        return
+      }
+      commentMentionRangeRef.current = { start: atIndex, end: caret }
+      setCommentMentionOpen(true)
+      setCommentMentionActiveIndex(0)
+      if (commentMentionDebounceRef.current) {
+        clearTimeout(commentMentionDebounceRef.current)
+      }
+      if (!query.trim()) {
+        setCommentMentionOptions([])
+        setCommentMentionLoading(false)
+        return
+      }
+      commentMentionDebounceRef.current = setTimeout(() => {
+        void fetchCommentMentionOptions(query.trim())
+      }, 180)
+    },
+    [closeCommentMentions, commentInputFocused, fetchCommentMentionOptions]
+  )
+
+  const insertCommentMention = useCallback(
+    (option: MentionOption) => {
+      const range = commentMentionRangeRef.current
+      const textarea = commentTextareaRef.current
+      if (!range || !textarea) return
+      const before = commentValue.slice(0, range.start)
+      const after = commentValue.slice(range.end)
+      const safeLabel = option.label.replace(/[\[\]]/g, "").trim()
+      const inserted = `[@${safeLabel}](${option.href}) `
+      const next = `${before}${inserted}${after}`
+      setCommentValue(next)
+      closeCommentMentions()
+      setTimeout(() => {
+        const nextCaret = before.length + inserted.length
+        textarea.focus()
+        textarea.setSelectionRange(nextCaret, nextCaret)
+      }, 0)
+    },
+    [closeCommentMentions, commentValue]
+  )
 
   useEffect(() => {
     const loadCurrentUser = async () => {
@@ -426,27 +656,7 @@ export default function PropositionDetailClient({
         return
       }
       const withVotes = (payload.comments ?? []) as CommentItem[]
-      const buildTree = (
-        items: CommentItem[],
-        parentId: string | null
-      ): CommentItem[] =>
-        items
-          .filter((c) => (c.parent_id ?? null) === parentId)
-          .sort((a, b) => {
-            const aSolution = Boolean(a.is_solution)
-            const bSolution = Boolean(b.is_solution)
-            if (aSolution !== bSolution) {
-              return aSolution ? -1 : 1
-            }
-            const timeA = new Date(a.created_at).getTime()
-            const timeB = new Date(b.created_at).getTime()
-            return timeA - timeB
-          })
-          .map((c) => ({
-            ...c,
-            replies: buildTree(items, c.id),
-          }))
-      const withReplies = buildTree(withVotes, null)
+      const withReplies = buildCommentTree(withVotes)
       if (requestSeq !== commentsRequestSeqRef.current) return
       setComments(withReplies)
       setCommentsLoadState(withReplies.length > 0 ? "loaded" : "empty")
@@ -467,9 +677,20 @@ export default function PropositionDetailClient({
   }, [propositionId, t])
 
   useEffect(() => {
+    if (hasInitialComments) {
+      initialBackgroundRefreshScheduledRef.current = true
+      const timeout = setTimeout(() => {
+        initialBackgroundRefreshScheduledRef.current = false
+        void fetchComments()
+      }, 600)
+      return () => {
+        initialBackgroundRefreshScheduledRef.current = false
+        clearTimeout(timeout)
+      }
+    }
     commentsInitialLoadDoneRef.current = false
     void fetchComments()
-  }, [fetchComments])
+  }, [fetchComments, hasInitialComments])
 
   useEffect(() => {
     fetchCommentsRef.current = fetchComments
@@ -477,9 +698,12 @@ export default function PropositionDetailClient({
 
   useEffect(() => {
     if (currentUserId !== null) {
+      if (hasInitialComments && initialBackgroundRefreshScheduledRef.current) {
+        return
+      }
       fetchCommentsRef.current()
     }
-  }, [currentUserId])
+  }, [currentUserId, hasInitialComments])
 
   useEffect(() => {
     const supabase = getSupabaseClient()
@@ -518,6 +742,15 @@ export default function PropositionDetailClient({
       supabase.removeChannel(channel).catch(() => null)
     }
   }, [propositionId])
+
+  useEffect(() => {
+    return () => {
+      commentMentionAbortRef.current?.abort()
+      if (commentMentionDebounceRef.current) {
+        clearTimeout(commentMentionDebounceRef.current)
+      }
+    }
+  }, [])
 
   const handleSubmitComment = async () => {
     if (!commentValue.trim()) return
@@ -705,20 +938,119 @@ export default function PropositionDetailClient({
             <CardTitle className="text-lg">{t("title")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Textarea
-              ref={commentTextareaRef}
-              value={commentValue}
-              onChange={(event) => setCommentValue(event.target.value)}
-              onFocus={() => setCommentInputFocused(true)}
-              onBlur={() =>
-                setTimeout(() => {
-                  if (!commentValue.trim()) setCommentInputFocused(false)
-                }, 200)
-              }
-              placeholder={t("addCommentPlaceholder")}
-              rows={2}
-              className="min-h-10 resize-none"
-            />
+            <div className="relative">
+              <div className="rounded-md border border-input bg-transparent px-3 py-2 shadow-xs transition-[color,box-shadow] hover:border-primary/40 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary/30">
+                {commentMentionPreviewLinks.length > 0 && (
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    {commentMentionPreviewLinks.map((item) => {
+                      const isHttp = /^https?:\/\//.test(item.href)
+                      return (
+                        <a
+                          key={`${item.label}-${item.href}`}
+                          href={item.href}
+                          className="inline-flex max-w-full items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary hover:bg-primary/10"
+                          target={isHttp ? "_blank" : undefined}
+                          rel={isHttp ? "noopener noreferrer" : undefined}
+                        >
+                          <span className="truncate">{item.label}</span>
+                        </a>
+                      )
+                    })}
+                  </div>
+                )}
+                <Textarea
+                  ref={commentTextareaRef}
+                  value={commentValue}
+                  onChange={(event) => {
+                    const value = event.target.value
+                    setCommentValue(value)
+                    updateCommentMentionsFromInput(value, event.target.selectionStart)
+                  }}
+                  onClick={(event) => {
+                    updateCommentMentionsFromInput(commentValue, event.currentTarget.selectionStart)
+                  }}
+                  onKeyUp={(event) => {
+                    updateCommentMentionsFromInput(commentValue, event.currentTarget.selectionStart)
+                  }}
+                  onKeyDown={(event) => {
+                    if (!commentMentionOpen) return
+                    if (event.key === "Escape") {
+                      event.preventDefault()
+                      closeCommentMentions()
+                      return
+                    }
+                    if (
+                      (event.key === "ArrowDown" || event.key === "ArrowUp") &&
+                      commentMentionOptions.length > 0
+                    ) {
+                      event.preventDefault()
+                      setCommentMentionActiveIndex((current) => {
+                        if (event.key === "ArrowDown") {
+                          return (current + 1) % commentMentionOptions.length
+                        }
+                        return (current - 1 + commentMentionOptions.length) % commentMentionOptions.length
+                      })
+                      return
+                    }
+                    if (
+                      (event.key === "Enter" || event.key === "Tab") &&
+                      commentMentionOptions.length > 0
+                    ) {
+                      event.preventDefault()
+                      const selected =
+                        commentMentionOptions[commentMentionActiveIndex] ??
+                        commentMentionOptions[0]
+                      if (selected) insertCommentMention(selected)
+                    }
+                  }}
+                  onFocus={() => setCommentInputFocused(true)}
+                  onBlur={() =>
+                    setTimeout(() => {
+                      closeCommentMentions()
+                      if (!commentValue.trim()) setCommentInputFocused(false)
+                    }, 150)
+                  }
+                  placeholder={t("addCommentPlaceholder")}
+                  rows={2}
+                  className="min-h-10 resize-none border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
+                />
+              </div>
+              {commentMentionOpen && (
+                <div className="absolute left-0 top-[calc(100%+0.35rem)] z-20 w-full overflow-hidden rounded-md border border-border bg-card shadow-lg">
+                  {commentMentionLoading ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">Recherche...</p>
+                  ) : commentMentionOptions.length === 0 ? (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">
+                      Tape un caractere apres @ pour chercher une page ou une proposition.
+                    </p>
+                  ) : (
+                    <ul className="max-h-56 overflow-auto py-1">
+                      {commentMentionOptions.map((option, index) => (
+                        <li key={option.id}>
+                          <button
+                            type="button"
+                            className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm ${
+                              index === commentMentionActiveIndex
+                                ? "bg-muted"
+                                : "hover:bg-muted/60"
+                            }`}
+                            onMouseDown={(event) => {
+                              event.preventDefault()
+                              insertCommentMention(option)
+                            }}
+                          >
+                            <span className="truncate text-foreground">@{option.label}</span>
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {option.kind === "page" ? "Page" : "Proposition"}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
             {(commentInputFocused || commentValue.trim()) && (
               <div className="flex items-center justify-end gap-2">
                 <Button

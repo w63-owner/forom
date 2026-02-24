@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { createAuthSessionTracker } from "@/lib/observability/auth-session-metrics"
 
 export const dynamic = "force-dynamic"
 
@@ -13,6 +14,9 @@ const sanitizeNextPath = (value: string | null): string => {
 }
 
 export async function GET(request: Request) {
+  const tracker = createAuthSessionTracker("auth_callback", {
+    path: "/auth/callback",
+  })
   const { searchParams } = new URL(request.url)
   const code = searchParams.get("code")
   const safeNext = sanitizeNextPath(searchParams.get("next"))
@@ -28,9 +32,12 @@ export async function GET(request: Request) {
     redirectUrl.searchParams.set("auth", "login")
     redirectUrl.searchParams.set("next", safeNext)
     redirectUrl.searchParams.set("error", errorMessage)
-    return NextResponse.redirect(
-      redirectUrl
-    )
+    tracker.complete({
+      statusCode: 307,
+      outcome: "error",
+      reason: "supabase_env_missing",
+    })
+    return NextResponse.redirect(redirectUrl)
   }
 
   if (code) {
@@ -53,6 +60,11 @@ export async function GET(request: Request) {
       redirectUrl.searchParams.set("auth", "login")
       redirectUrl.searchParams.set("next", safeNext)
       redirectUrl.searchParams.set("error", error.message)
+      tracker.complete({
+        statusCode: 307,
+        outcome: "error",
+        reason: `exchange_failed:${error.message}`,
+      })
       return NextResponse.redirect(redirectUrl)
     }
 
@@ -71,11 +83,20 @@ export async function GET(request: Request) {
         if (needsOnboarding) {
           const onboardingUrl = new URL(`/${locale}/onboarding`, base)
           onboardingUrl.searchParams.set("next", safeNext)
+          tracker.complete({
+            statusCode: 307,
+            outcome: "redirect",
+            reason: "onboarding_required",
+          })
           return NextResponse.redirect(onboardingUrl)
         }
       }
     }
   }
-
+  tracker.complete({
+    statusCode: 307,
+    outcome: "success",
+    reason: "callback_completed",
+  })
   return NextResponse.redirect(new URL(safeNext, base))
 }

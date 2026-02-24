@@ -1,17 +1,27 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { AtSign, Camera, Instagram, Linkedin, Mail, User } from "lucide-react"
+import { AtSign, Camera, Instagram, Linkedin, Mail, RefreshCw, User } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/toast"
 import { PageVerificationRequest } from "@/components/page-verification-request"
 import { ProfileNotifications } from "@/components/profile-notifications"
 import { getStatusKey, getStatusToneClass } from "@/lib/status-labels"
@@ -69,6 +79,27 @@ type ProfileShellProps = {
   propositionSubscriptions: PropositionSubscription[]
 }
 
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+function randomSeed(): string {
+  const len = Math.floor(Math.random() * 3) + 1
+  let seed = ""
+  for (let i = 0; i < len; i += 1) {
+    seed += ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
+  }
+  return seed
+}
+
+function buildRandomAvatarOptions(count = 6): string[] {
+  const seeds = new Set<string>()
+  while (seeds.size < count) {
+    seeds.add(randomSeed())
+  }
+  return Array.from(seeds).map(
+    (seed) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}`
+  )
+}
+
 export function ProfileShell({
   profile,
   userEmailFallback,
@@ -83,6 +114,7 @@ export function ProfileShell({
   const tCommon = useTranslations("Common")
   const tStatus = useTranslations("Status")
   const tVerification = useTranslations("PageVerification")
+  const { showToast } = useToast()
   const searchParams = useSearchParams()
   const urlView = (searchParams.get("view") as ViewKey | null) ?? "profil"
   const [view, setView] = useState<ViewKey>(urlView)
@@ -95,6 +127,16 @@ export function ProfileShell({
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMessage, setProfileMessage] = useState<string | null>(null)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatar_url ?? null)
+  const [avatarModalOpen, setAvatarModalOpen] = useState(false)
+  const [avatarOptions, setAvatarOptions] = useState<string[]>(() =>
+    buildRandomAvatarOptions()
+  )
+  const [avatarSaving, setAvatarSaving] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [avatarMessage, setAvatarMessage] = useState<string | null>(null)
+  const [refreshTick, setRefreshTick] = useState(0)
+  const refreshingAvatars = useMemo(() => refreshTick > 0, [refreshTick])
   const emailValue = profile?.email ?? userEmailFallback
 
   // Sync displayed tab with URL param (?view=...)
@@ -117,6 +159,10 @@ export function ProfileShell({
     profile?.instagram,
     profile?.tiktok,
   ])
+
+  useEffect(() => {
+    setAvatarUrl(profile?.avatar_url ?? null)
+  }, [profile?.avatar_url])
 
   const handleSaveProfile = async () => {
     setSavingProfile(true)
@@ -149,6 +195,44 @@ export function ProfileShell({
       setProfileError("Unable to save profile.")
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const handleRerollAvatars = () => {
+    setRefreshTick((v) => v + 1)
+    setAvatarOptions(buildRandomAvatarOptions())
+    setTimeout(() => setRefreshTick(0), 500)
+  }
+
+  const handleSaveAvatar = async () => {
+    setAvatarSaving(true)
+    setAvatarError(null)
+    setAvatarMessage(null)
+    try {
+      const response = await fetch("/api/profile/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarUrl }),
+      })
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; avatarUrl?: string | null }
+        | null
+      if (!response.ok || !payload?.ok) {
+        setAvatarError(payload?.error ?? "Unable to update avatar.")
+        return
+      }
+      setAvatarUrl(payload.avatarUrl ?? null)
+      setAvatarMessage("Avatar updated.")
+      showToast({
+        title: tProfile("avatarUpdatedTitle"),
+        description: tProfile("avatarUpdatedBody"),
+        variant: "success",
+      })
+      setAvatarModalOpen(false)
+    } catch {
+      setAvatarError("Unable to update avatar.")
+    } finally {
+      setAvatarSaving(false)
     }
   }
 
@@ -202,31 +286,103 @@ export function ProfileShell({
               <CardContent className="space-y-6">
                 <div className="flex flex-col items-center gap-3">
                   <div className="relative pb-3">
-                    <button
-                      type="button"
-                      className="group relative rounded-full"
-                      aria-label="Upload profile picture"
-                    >
-                      <Avatar
-                        src={profile?.avatar_url ?? null}
-                        name={profile?.username ?? profile?.email ?? userEmailFallback}
-                        size="lg"
-                        className="h-40 w-40 text-3xl ring-2 ring-primary/80 ring-offset-2 ring-offset-background"
-                      />
-                      <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        <Camera className="size-6 text-white" />
-                      </span>
-                    </button>
+                    <Dialog open={avatarModalOpen} onOpenChange={setAvatarModalOpen}>
+                      <DialogTrigger asChild>
+                        <button
+                          type="button"
+                          className="group relative block cursor-pointer rounded-full"
+                          aria-label="Change avatar"
+                        >
+                          <Avatar
+                            src={avatarUrl}
+                            name={profile?.username ?? profile?.email ?? userEmailFallback}
+                            size="lg"
+                            className="h-40 w-40 text-3xl ring-2 ring-primary/80 ring-offset-2 ring-offset-background"
+                          />
+                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                            <Camera className="size-6 text-white" />
+                          </span>
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-xl">
+                          <DialogHeader>
+                            <DialogTitle>{tProfile("avatarDialogTitle")}</DialogTitle>
+                            <DialogDescription>
+                              {tProfile("avatarDialogDescription")}
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="mx-auto w-fit">
+                              <Avatar
+                                src={avatarUrl}
+                                name={profile?.username ?? profile?.email ?? userEmailFallback}
+                                size="lg"
+                                className="h-28 w-28 text-2xl ring-2 ring-primary/70 ring-offset-2 ring-offset-background"
+                              />
+                            </div>
+                            <div className="grid grid-cols-3 gap-2.5">
+                              {avatarOptions.slice(0, 5).map((optionUrl) => {
+                                const selected = avatarUrl === optionUrl
+                                return (
+                                  <button
+                                    key={optionUrl}
+                                    type="button"
+                                    onClick={() => setAvatarUrl(optionUrl)}
+                                    className={`mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 transition-colors ${selected ? "border-primary" : "border-border"}`}
+                                    aria-label="Select avatar option"
+                                  >
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={optionUrl}
+                                      alt=""
+                                      className="h-full w-full object-cover"
+                                    />
+                                  </button>
+                                )
+                              })}
+                              <button
+                                type="button"
+                                onClick={handleRerollAvatars}
+                                aria-label={tProfile("avatarReroll")}
+                                className="mx-auto inline-flex h-24 w-24 items-center justify-center rounded-full border-2 border-dashed border-border bg-background text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                              >
+                                <RefreshCw
+                                  className={`size-8 ${refreshingAvatars ? "animate-spin" : ""}`}
+                                />
+                              </button>
+                            </div>
+                            {avatarError ? (
+                              <p className="text-sm text-destructive">{avatarError}</p>
+                            ) : null}
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setAvatarModalOpen(false)}
+                              disabled={avatarSaving}
+                            >
+                              {tCommon("cancel")}
+                            </Button>
+                            <Button
+                              type="button"
+                              onClick={handleSaveAvatar}
+                              disabled={avatarSaving}
+                            >
+                              {avatarSaving
+                                ? tProfile("avatarSaving")
+                                : tProfile("avatarSave")}
+                            </Button>
+                          </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
                     <Badge variant="secondary" className="absolute -bottom-1 left-1/2 -translate-x-1/2">
                       {tProfile("levelLabel", { count: doneCount ?? 0 })}
                     </Badge>
                   </div>
                   <div className="space-y-1 text-center">
                     <p className="text-sm font-medium text-foreground">
-                      Click on the image to upload a new profile picture
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Supported formats: JPEG, PNG, GIF, WebP (max 5MB)
+                      {tProfile("avatarHint")}
                     </p>
                   </div>
                 </div>
@@ -328,6 +484,9 @@ export function ProfileShell({
                 ) : null}
                 {profileMessage ? (
                   <p className="text-sm text-emerald-600">{profileMessage}</p>
+                ) : null}
+                {avatarMessage ? (
+                  <p className="text-sm text-emerald-600">{avatarMessage}</p>
                 ) : null}
               </CardContent>
             </Card>

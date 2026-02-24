@@ -1,14 +1,37 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import { createAuthSessionTracker } from "@/lib/observability/auth-session-metrics"
 
 export const dynamic = "force-dynamic"
 
 export async function GET() {
+  const tracker = createAuthSessionTracker("auth_session_route", {
+    path: "/api/auth/session",
+  })
+  const respond = (
+    body: { user: null | { id: string; email: string | null; user_metadata: unknown } },
+    status: number,
+    outcome: "success" | "no_session" | "error" | "skipped",
+    reason?: string
+  ) => {
+    tracker.complete({ statusCode: status, outcome, reason })
+    return NextResponse.json(body, {
+      status,
+      headers: { "Cache-Control": "no-store" },
+    })
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return respond({ user: null }, 500, "skipped", "supabase_env_missing")
+  }
+
   const cookieStore = await cookies()
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -25,9 +48,11 @@ export async function GET() {
 
   const { data, error } = await supabase.auth.getUser()
   if (error || !data?.user) {
-    return NextResponse.json(
+    return respond(
       { user: null },
-      { headers: { "Cache-Control": "no-store" } }
+      200,
+      "no_session",
+      error ? `refresh_failed:${error.message}` : "no_active_session"
     )
   }
 
@@ -46,7 +71,7 @@ export async function GET() {
     ...(dbAvatarUrl ? { avatar_url: dbAvatarUrl } : {}),
   }
 
-  return NextResponse.json(
+  return respond(
     {
       user: {
         id,
@@ -54,6 +79,7 @@ export async function GET() {
         user_metadata: mergedMetadata,
       },
     },
-    { headers: { "Cache-Control": "no-store" } }
+    200,
+    "success"
   )
 }

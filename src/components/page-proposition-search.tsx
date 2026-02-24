@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Code2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -50,6 +50,7 @@ export function PagePropositionSearch({
   showAvatars,
 }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const locale = useLocale()
   const tCommon = useTranslations("Common")
@@ -186,6 +187,14 @@ export function PagePropositionSearch({
     debounceRef.current = window.setTimeout(() => {
       const queryString = params.toString()
       const destination = basePath ?? `/${locale}/pages/${slug}`
+      const currentPath = pathname ?? destination
+      const currentQuery = searchParams.toString()
+
+      // Avoid replace loops when target URL is already the current one.
+      if (currentPath === destination && currentQuery === queryString) {
+        return
+      }
+
       router.replace(queryString ? `${destination}?${queryString}` : destination)
     }, 300)
 
@@ -194,7 +203,7 @@ export function PagePropositionSearch({
         window.clearTimeout(debounceRef.current)
       }
     }
-  }, [basePath, locale, params, router, slug])
+  }, [basePath, locale, params, pathname, router, searchParams, slug])
 
   const buildEmbedLink = () => {
     if (!embedBaseUrl) return

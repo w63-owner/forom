@@ -31,6 +31,15 @@ export function usePageSearch({
   const [selectedPage, setSelectedPage] = useState<PageResult | null>(null)
   const [initialLoaded, setInitialLoaded] = useState(!initialPageId.trim())
   const [touched, setTouched] = useState(false)
+  const isAbortLikeError = (err: unknown) =>
+    Boolean(
+      err &&
+        typeof err === "object" &&
+        "name" in err &&
+        (err as { name?: unknown }).name === "AbortError"
+    ) ||
+    (err instanceof Error &&
+      err.message.toLowerCase().includes("signal is aborted without reason"))
   const isAbortError = (err: unknown) =>
     Boolean(
       err &&
@@ -83,38 +92,45 @@ export function usePageSearch({
   useEffect(() => {
     if (!initialPageId.trim() || initialLoaded) return
     const loadInitialPage = async () => {
-      const supabase = getSupabaseClient()
-      if (!supabase) {
-        setQuery(initialPageName || initialPageId)
-        if (initialPageId.trim()) {
-          setSelectedPage({
-            id: initialPageId.trim(),
-            name: initialPageName || initialPageId,
-            slug: "",
-          })
+      try {
+        const supabase = getSupabaseClient()
+        if (!supabase) {
+          setQuery(initialPageName || initialPageId)
+          if (initialPageId.trim()) {
+            setSelectedPage({
+              id: initialPageId.trim(),
+              name: initialPageName || initialPageId,
+              slug: "",
+            })
+          }
+          setInitialLoaded(true)
+          return
         }
+        const { data } = await supabase
+          .from("pages")
+          .select("id, name, slug")
+          .eq("id", initialPageId.trim())
+          .maybeSingle()
+        if (data) {
+          setSelectedPage(data)
+          setQuery(data.name)
+        } else {
+          setQuery(initialPageName || initialPageId)
+          if (initialPageId.trim()) {
+            setSelectedPage({
+              id: initialPageId.trim(),
+              name: initialPageName || initialPageId,
+              slug: "",
+            })
+          }
+        }
+      } catch (error) {
+        if (!isAbortLikeError(error)) {
+          setQuery(initialPageName || initialPageId)
+        }
+      } finally {
         setInitialLoaded(true)
-        return
       }
-      const { data } = await supabase
-        .from("pages")
-        .select("id, name, slug")
-        .eq("id", initialPageId.trim())
-        .maybeSingle()
-      if (data) {
-        setSelectedPage(data)
-        setQuery(data.name)
-      } else {
-        setQuery(initialPageName || initialPageId)
-        if (initialPageId.trim()) {
-          setSelectedPage({
-            id: initialPageId.trim(),
-            name: initialPageName || initialPageId,
-            slug: "",
-          })
-        }
-      }
-      setInitialLoaded(true)
     }
     void loadInitialPage()
   }, [initialPageId, initialPageName, initialLoaded])
