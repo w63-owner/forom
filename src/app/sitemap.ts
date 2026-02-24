@@ -27,7 +27,6 @@ const staticPaths = [
   "/pages/create",
   "/propositions/create",
   "/profile",
-  "/login",
 ]
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

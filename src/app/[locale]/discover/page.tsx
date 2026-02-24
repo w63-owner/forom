@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server"
-import { Link } from "@/i18n/navigation"
 import { UniverseGrid } from "@/components/universe-grid"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { TopPageHeader } from "@/components/top-page-header"
+import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 import { UNIVERSE_SLUGS } from "@/types/schema"
 import type { Universe } from "@/types/schema"
 
@@ -39,22 +39,23 @@ async function fetchUniverseCounts(): Promise<Partial<Record<Universe, number>>>
 export default async function DiscoverPage({ params }: Props) {
   const { locale } = await params
   setRequestLocale(locale)
-  const [tDiscover, tNav, initialCounts] = await Promise.all([
+  const [tDiscover, tNav, initialCounts, serverUser] = await Promise.all([
     getTranslations("Discover"),
     getTranslations("Nav"),
     fetchUniverseCounts(),
+    getServerSessionUser(),
   ])
+  const initialSession = serverUser != null ? { user: serverUser } : null
 
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-5xl space-y-8">
+        <TopPageHeader
+          backHref="/"
+          backLabel={`← ${tNav("back")}`}
+          initialSession={initialSession}
+        />
         <header className="space-y-2">
-          <Link
-            href="/"
-            className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← {tNav("back")}
-          </Link>
           <h1 className="text-3xl font-semibold text-foreground">
             {tDiscover("headerTitle")}
           </h1>

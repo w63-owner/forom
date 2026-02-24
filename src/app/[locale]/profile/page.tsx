@@ -5,7 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProfileShell } from "@/components/profile-shell"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
-export default async function ProfilePage() {
+type Props = {
+  params: Promise<{ locale: string }>
+}
+
+export default async function ProfilePage({ params }: Props) {
+  const { locale } = await params
   const t = await getTranslations("Profile")
   const tCommon = await getTranslations("Common")
   const supabase = await getSupabaseServerClient()
@@ -28,7 +33,7 @@ export default async function ProfilePage() {
 
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) {
-    redirect("/login?next=/profile")
+    redirect(`/${locale}?auth=signup&next=/${locale}/profile`)
   }
 
   const { data: profile } = await supabase

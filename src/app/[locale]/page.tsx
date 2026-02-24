@@ -2,7 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server"
 import { Link } from "@/i18n/navigation"
 import { AuthStatus } from "@/components/auth-status"
 import { Button } from "@/components/ui/button"
-import { Omnibar } from "@/components/omnibar"
+import { OmnibarClient } from "@/components/omnibar-client"
 import { RecentPropositionsTicker } from "@/components/recent-propositions-ticker"
 import {
   getServerSessionUser,
@@ -96,7 +96,7 @@ export default async function Home({ params }: Props) {
             {t("subtitle")}
           </p>
         </div>
-        <Omnibar />
+        <OmnibarClient />
         <div className="-mt-3">
           <RecentPropositionsTicker
             items={recentPropositions.map((item) => {

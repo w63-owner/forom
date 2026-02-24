@@ -1,8 +1,9 @@
 import { getTranslations, setRequestLocale } from "next-intl/server"
 import { Link } from "@/i18n/navigation"
+import { TopPageHeader } from "@/components/top-page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExploreTopTable } from "@/components/explore-top-table"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 import ExploreFilters from "./filters"
 
 type Props = {
@@ -52,10 +53,12 @@ const getRangeStart = (range: string) => {
 export default async function ExplorePage({ params, searchParams }: Props) {
   const { locale } = await params
   setRequestLocale(locale)
-  const [tExplore, tNav] = await Promise.all([
+  const [tExplore, tNav, serverUser] = await Promise.all([
     getTranslations("Explore"),
     getTranslations("Nav"),
+    getServerSessionUser(),
   ])
+  const initialSession = serverUser != null ? { user: serverUser } : null
 
   const queryParams = (await searchParams) ?? {}
   const query = queryParams.q?.trim() ?? ""
@@ -178,20 +181,19 @@ export default async function ExplorePage({ params, searchParams }: Props) {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-5xl space-y-8">
-        <header className="space-y-2">
-          <Link
-            href="/"
-            className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← {tNav("back")}
-          </Link>
+        <TopPageHeader
+          backHref="/"
+          backLabel={`← ${tNav("back")}`}
+          initialSession={initialSession}
+        />
+        <section className="space-y-2">
           <h1 className="text-3xl font-semibold text-foreground">
             {tExplore("headerTitle")}
           </h1>
           <p className="text-muted-foreground">
             {tExplore("headerDescription")}
           </p>
-        </header>
+        </section>
 
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-foreground">

@@ -3,11 +3,11 @@ import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionEditClient from "./proposition-edit-client"
 
 type Props = {
-  params: Promise<{ id: string }>
+  params: Promise<{ locale: string; id: string }>
 }
 
 export default async function PropositionEditPage({ params }: Props) {
-  const { id } = await params
+  const { locale, id } = await params
   const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     id
   )
@@ -18,7 +18,7 @@ export default async function PropositionEditPage({ params }: Props) {
 
   const { data: userData } = await supabase.auth.getUser()
   if (!userData.user) {
-    redirect(`/login?next=/propositions/${id}/edit`)
+    redirect(`/${locale}/propositions/${id}/edit?auth=signup&next=/${locale}/propositions/${id}/edit`)
   }
 
   const { data, error } = await supabase

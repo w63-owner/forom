@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { ThumbsDown, ThumbsUp } from "lucide-react"
+import { Heart, ThumbsDown, ThumbsUp } from "lucide-react"
+import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert } from "@/components/ui/alert"
@@ -15,6 +16,8 @@ import { relativeTime } from "@/lib/utils"
 type Props = {
   propositionId: string
   propositionAuthorId: string | null
+  propositionAuthorAvatarUrl?: string | null
+  propositionAuthorName?: string | null
 }
 
 const isAbortLikeError = (value: unknown): boolean => {
@@ -46,12 +49,13 @@ type CommentItem = {
   parent_id?: string | null
   is_solution?: boolean | null
   users?:
-    | { username: string | null; email: string | null }
-    | { username: string | null; email: string | null }[]
+    | { username: string | null; email: string | null; avatar_url?: string | null }
+    | { username: string | null; email: string | null; avatar_url?: string | null }[]
     | null
   replies?: CommentItem[]
   votesCount?: number
   currentUserVote?: "Upvote" | "Downvote" | null
+  likedByAuthor?: boolean
 }
 
 type CommentBlockProps = {
@@ -59,11 +63,11 @@ type CommentBlockProps = {
   depth: number
   getUserMeta: (
     users:
-      | { username: string | null; email: string | null }
-      | { username: string | null; email: string | null }[]
+      | { username: string | null; email: string | null; avatar_url?: string | null }
+      | { username: string | null; email: string | null; avatar_url?: string | null }[]
       | null
       | undefined
-  ) => { username: string | null; email: string | null } | null
+  ) => { username: string | null; email: string | null; avatar_url?: string | null } | null
   relativeTime: (dateStr: string) => string
   isAuthor: boolean
   currentUserId: string | null
@@ -73,8 +77,14 @@ type CommentBlockProps = {
   setReplyContent: (v: string) => void
   replySubmitting: boolean
   onToggleSolution: (commentId: string, nextValue: boolean) => void
-  onVote: (commentId: string, type: "Upvote" | "Downvote") => void
+  onVote: (
+    commentId: string,
+    type: "Upvote" | "Downvote",
+    currentVote: "Upvote" | "Downvote" | null
+  ) => void
   onSubmitReply: (parentId: string) => void
+  propositionAuthorAvatarUrl: string | null
+  propositionAuthorName: string
 }
 
 function CommentBlock({
@@ -92,23 +102,35 @@ function CommentBlock({
   onToggleSolution,
   onVote,
   onSubmitReply,
+  propositionAuthorAvatarUrl,
+  propositionAuthorName,
 }: CommentBlockProps) {
   const meta = getUserMeta(comment.users)
   const t = useTranslations("PropositionComments")
   const username = meta?.username || meta?.email || t("anonymous")
   const isReplying = replyingToId === comment.id
   const indent = depth > 0 ? "pl-6 border-l-2 border-border/60" : ""
+  const contentOffset = !comment.is_solution ? "ml-11" : ""
 
   return (
     <div className={`py-3 ${indent}`}>
       {!comment.is_solution && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-foreground">
-            <span className="font-semibold">{username}</span>
-            <span className="ml-1.5 text-muted-foreground font-normal">
-              {relativeTime(comment.created_at)}
-            </span>
-          </p>
+        <div className="flex items-start gap-3">
+          <Avatar
+            size="md"
+            src={meta?.avatar_url ?? null}
+            name={username}
+            className="mt-0.5 shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="inline-flex items-baseline gap-1.5 text-sm">
+              <span className="font-semibold text-foreground">@{username}</span>
+              <span className="text-muted-foreground font-normal">
+                {relativeTime(comment.created_at)}
+              </span>
+            </p>
+            <p className="mt-1 text-sm text-foreground">{comment.content}</p>
+          </div>
         </div>
       )}
       {comment.is_solution ? (
@@ -121,10 +143,8 @@ function CommentBlock({
             <div className="text-sm text-foreground">{comment.content}</div>
           </Alert>
         </div>
-      ) : (
-        <p className="mt-1 text-sm text-foreground">{comment.content}</p>
-      )}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
+      ) : null}
+      <div className={`mt-2 flex flex-wrap items-center gap-2 ${contentOffset}`}>
         <div className="flex items-center gap-0.5">
           <Button
             variant="ghost"
@@ -134,13 +154,17 @@ function CommentBlock({
                 ? "text-primary"
                 : "text-muted-foreground"
             }
-            onClick={() => (currentUserId ? onVote(comment.id, "Upvote") : null)}
+            onClick={() =>
+              currentUserId
+                ? onVote(comment.id, "Upvote", comment.currentUserVote ?? null)
+                : null
+            }
             disabled={!currentUserId}
           >
             <ThumbsUp className="size-3" />
           </Button>
           <span className="min-w-[1.25rem] text-center text-xs text-muted-foreground">
-            {comment.votesCount ?? 0}
+            {Math.max(0, comment.votesCount ?? 0)}
           </span>
           <Button
             variant="ghost"
@@ -151,13 +175,32 @@ function CommentBlock({
                 : "text-muted-foreground"
             }
             onClick={() =>
-              currentUserId ? onVote(comment.id, "Downvote") : null
+              currentUserId
+                ? onVote(comment.id, "Downvote", comment.currentUserVote ?? null)
+                : null
             }
             disabled={!currentUserId}
           >
             <ThumbsDown className="size-3" />
           </Button>
         </div>
+        {comment.likedByAuthor ? (
+          <span
+            title="Liked by proposition author"
+            aria-label="Liked by proposition author"
+            className="relative inline-flex h-6 w-6 items-center justify-center"
+          >
+            <Avatar
+              size="sm"
+              src={propositionAuthorAvatarUrl}
+              name={propositionAuthorName}
+              className="h-6 w-6 border border-border"
+            />
+            <span className="absolute -bottom-1 -right-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 ring-2 ring-background">
+              <Heart className="size-2 fill-white text-white" />
+            </span>
+          </span>
+        ) : null}
         {currentUserId && (
           <Button
             variant="ghost"
@@ -183,7 +226,7 @@ function CommentBlock({
         )}
       </div>
       {comment.replies && comment.replies.length > 0 && (
-        <div className="mt-3 space-y-1">
+        <div className={`mt-3 space-y-1 ${contentOffset}`}>
           {comment.replies.map((reply) => (
             <CommentBlock
               key={reply.id}
@@ -201,12 +244,14 @@ function CommentBlock({
               onToggleSolution={onToggleSolution}
               onVote={onVote}
               onSubmitReply={onSubmitReply}
+              propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
+              propositionAuthorName={propositionAuthorName}
             />
           ))}
         </div>
       )}
       {isReplying && (
-        <div className="mt-3 space-y-2">
+        <div className={`mt-3 space-y-2 ${contentOffset}`}>
           <Textarea
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
@@ -242,6 +287,8 @@ function CommentBlock({
 export default function PropositionDetailClient({
   propositionId,
   propositionAuthorId,
+  propositionAuthorAvatarUrl = null,
+  propositionAuthorName = "Author",
 }: Props) {
   const router = useRouter()
   const locale = useLocale()
@@ -268,11 +315,11 @@ export default function PropositionDetailClient({
 
   const getUserMeta = (
     users:
-      | { username: string | null; email: string | null }
-      | { username: string | null; email: string | null }[]
+      | { username: string | null; email: string | null; avatar_url?: string | null }
+      | { username: string | null; email: string | null; avatar_url?: string | null }[]
       | null
       | undefined
-  ): { username: string | null; email: string | null } | null =>
+  ): { username: string | null; email: string | null; avatar_url?: string | null } | null =>
     (Array.isArray(users) ? users[0] : users) ?? null
 
   const isAuthor =
@@ -309,7 +356,7 @@ export default function PropositionDetailClient({
       const { data: rawComments, error: commentsError } = await supabase
         .from("comments")
         .select(
-          "id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email)"
+          "id, content, created_at, user_id, parent_id, is_solution, users!user_id(username, email, avatar_url)"
         )
         .eq("proposition_id", propositionId)
         .order("created_at", { ascending: false })
@@ -327,10 +374,10 @@ export default function PropositionDetailClient({
       const ids = list.map((c) => c.id)
       const votesByComment = new Map<
         string,
-        { count: number; userVote: "Upvote" | "Downvote" | null }
+        { count: number; userVote: "Upvote" | "Downvote" | null; likedByAuthor: boolean }
       >()
       for (const id of ids) {
-        votesByComment.set(id, { count: 0, userVote: null })
+        votesByComment.set(id, { count: 0, userVote: null, likedByAuthor: false })
       }
       if (ids.length > 0) {
         const { data: allVotes } = await supabase
@@ -352,11 +399,24 @@ export default function PropositionDetailClient({
             if (cur) cur.userVote = row.type as "Upvote" | "Downvote"
           }
         }
+        if (propositionAuthorId) {
+          const { data: authorVotes } = await supabase
+            .from("comment_votes")
+            .select("comment_id, type")
+            .eq("user_id", propositionAuthorId)
+            .eq("type", "Upvote")
+            .in("comment_id", ids)
+          for (const row of authorVotes ?? []) {
+            const cur = votesByComment.get(row.comment_id)
+            if (cur) cur.likedByAuthor = true
+          }
+        }
       }
       const withVotes = list.map((c) => ({
         ...c,
         votesCount: votesByComment.get(c.id)?.count ?? 0,
         currentUserVote: votesByComment.get(c.id)?.userVote ?? null,
+        likedByAuthor: votesByComment.get(c.id)?.likedByAuthor ?? false,
       }))
       const buildTree = (
         items: CommentItem[],
@@ -438,7 +498,9 @@ export default function PropositionDetailClient({
     if (!user) {
       commentSubmitInProgressRef.current = false
       setCommentSubmitting(false)
-      router.push(`/login?next=/propositions/${propositionId}`)
+      router.push(
+        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
+      )
       return
     }
     try {
@@ -518,7 +580,8 @@ export default function PropositionDetailClient({
 
   const handleCommentVote = async (
     commentId: string,
-    type: "Upvote" | "Downvote"
+    type: "Upvote" | "Downvote",
+    currentVote: "Upvote" | "Downvote" | null
   ) => {
     const supabase = getSupabaseClient()
     if (!supabase) return
@@ -527,17 +590,27 @@ export default function PropositionDetailClient({
       includeServerFallback: true,
     })
     if (!user) {
-      router.push(`/login?next=/propositions/${propositionId}`)
+      router.push(
+        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
+      )
       return
     }
-    await supabase.from("comment_votes").upsert(
-      {
-        user_id: user.id,
-        comment_id: commentId,
-        type,
-      },
-      { onConflict: "user_id,comment_id" }
-    )
+    if (currentVote === type) {
+      await supabase
+        .from("comment_votes")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("comment_id", commentId)
+    } else {
+      await supabase.from("comment_votes").upsert(
+        {
+          user_id: user.id,
+          comment_id: commentId,
+          type,
+        },
+        { onConflict: "user_id,comment_id" }
+      )
+    }
     await fetchComments()
   }
 
@@ -563,7 +636,9 @@ export default function PropositionDetailClient({
     if (!user) {
       replySubmitInProgressRef.current = false
       setReplySubmitting(false)
-      router.push(`/login?next=/propositions/${propositionId}`)
+      router.push(
+        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
+      )
       return
     }
     try {
@@ -663,6 +738,8 @@ export default function PropositionDetailClient({
                   onToggleSolution={handleToggleSolution}
                   onVote={handleCommentVote}
                   onSubmitReply={handleSubmitReply}
+                  propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
+                  propositionAuthorName={propositionAuthorName}
                 />
               ))}
             </div>

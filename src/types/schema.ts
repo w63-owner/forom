@@ -2,6 +2,11 @@ export interface User {
   id: string
   email: string
   level: number
+  username?: string | null
+  avatar_url?: string | null
+  onboarding_profile_completed_at?: string | null
+  onboarding_completed_at?: string | null
+  onboarding_version?: number
 }
 
 export interface Page {

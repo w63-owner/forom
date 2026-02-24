@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { MoreHorizontal } from "lucide-react"
 import { Link } from "@/i18n/navigation"
 import { Button } from "@/components/ui/button"
@@ -28,6 +28,7 @@ type Props = {
 
 export function PropositionActionsMenu({ propositionId, authorId }: Props) {
   const router = useRouter()
+  const locale = useLocale()
   const t = useTranslations("PropositionActions")
   const tEdit = useTranslations("PropositionEdit")
   const tNotify = useTranslations("PropositionNotify")
@@ -80,7 +81,9 @@ export function PropositionActionsMenu({ propositionId, authorId }: Props) {
       includeServerFallback: true,
     })
     if (!user) {
-      router.push(`/login?next=/propositions/${propositionId}`)
+      router.push(
+        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
+      )
       return
     }
     setLoadingNotify(true)

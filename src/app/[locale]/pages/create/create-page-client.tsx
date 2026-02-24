@@ -196,7 +196,7 @@ export function CreatePageClient() {
       includeServerFallback: true,
     })
     if (!user) {
-      router.push("/login?next=/pages/create")
+      router.push(`/${locale}/pages/create?auth=signup&next=${encodeURIComponent(`/${locale}/pages/create`)}`)
       return
     }
 

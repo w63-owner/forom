@@ -102,54 +102,61 @@ export async function resolveAuthUser(
   if (snapshot.user) return snapshot.user
   if (snapshot.inFlight) return snapshot.inFlight
   snapshot.inFlight = (async () => {
-    const clientPromise = withRetry(
-      () => withTimeoutPromise(supabase.auth.getSession(), timeoutMs),
-      {
-        attempts: 2,
-        delayMs: 250,
-        shouldRetry: (error) => isTimeoutLike(error),
+    try {
+      const clientPromise = withRetry(
+        () => withTimeoutPromise(supabase.auth.getSession(), timeoutMs),
+        {
+          attempts: 2,
+          delayMs: 250,
+          shouldRetry: (error) => isTimeoutLike(error),
+        }
+      ).then(({ data }) => data.session?.user ?? null)
+
+      const serverPromise = includeServerFallback
+        ? fetchWithTimeout("/api/auth/session", { cache: "no-store" }, 7000)
+            .then(async (response) => {
+              if (!response.ok) return null
+              const payload = (await response.json()) as {
+                user: { id?: string; email?: string | null; user_metadata?: User["user_metadata"] } | null
+              }
+              if (!payload.user?.id) return null
+              try {
+                const { data } = await withRetry(
+                  () => withTimeoutPromise(supabase.auth.getUser(), timeoutMs),
+                  { attempts: 2, delayMs: 250, shouldRetry: (e) => isTimeoutLike(e) }
+                )
+                if (data.user) return data.user
+              } catch {
+                // Use payload as fallback below.
+              }
+              return {
+                id: payload.user.id,
+                email: payload.user.email ?? undefined,
+                user_metadata: payload.user.user_metadata ?? null,
+              } as User
+            })
+            .catch(() => null)
+        : Promise.resolve(null)
+
+      const [clientUser, serverUser] = await Promise.all([
+        clientPromise,
+        serverPromise,
+      ])
+      const user = clientUser ?? serverUser
+      if (user) {
+        snapshot.initialized = true
+        snapshot.user = user
+        return user
       }
-    ).then(({ data }) => data.session?.user ?? null)
-
-    const serverPromise = includeServerFallback
-      ? fetchWithTimeout("/api/auth/session", { cache: "no-store" }, 7000)
-          .then(async (response) => {
-            if (!response.ok) return null
-            const payload = (await response.json()) as {
-              user: { id?: string; email?: string | null; user_metadata?: User["user_metadata"] } | null
-            }
-            if (!payload.user?.id) return null
-            try {
-              const { data } = await withRetry(
-                () => withTimeoutPromise(supabase.auth.getUser(), timeoutMs),
-                { attempts: 2, delayMs: 250, shouldRetry: (e) => isTimeoutLike(e) }
-              )
-              if (data.user) return data.user
-            } catch {
-              // Use payload as fallback below.
-            }
-            return {
-              id: payload.user.id,
-              email: payload.user.email ?? undefined,
-              user_metadata: payload.user.user_metadata ?? null,
-            } as User
-          })
-          .catch(() => null)
-      : Promise.resolve(null)
-
-    const [clientUser, serverUser] = await Promise.all([
-      clientPromise,
-      serverPromise,
-    ])
-    const user = clientUser ?? serverUser
-    if (user) {
       snapshot.initialized = true
-      snapshot.user = user
-      return user
+      snapshot.user = readSessionUserFromStorage()
+      return snapshot.user
+    } catch {
+      // Never throw to UI on transient auth fetch/timeouts.
+      snapshot.initialized = true
+      snapshot.user = readSessionUserFromStorage()
+      return snapshot.user
     }
-    snapshot.initialized = true
-    snapshot.user = readSessionUserFromStorage()
-    return snapshot.user
   })().finally(() => {
     snapshot.inFlight = null
   })

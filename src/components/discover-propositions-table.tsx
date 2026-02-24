@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Link } from "@/i18n/navigation"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
@@ -11,6 +12,7 @@ import {
   withRetry,
 } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { getStatusKey } from "@/lib/status-labels"
 import { getCategoryI18nKey, getSubCategoryI18nKey } from "@/lib/discover-categories"
 import type { Universe } from "@/types/schema"
@@ -81,6 +83,9 @@ export function DiscoverPropositionsTable({
   order,
   universe,
 }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const tDiscover = useTranslations("Discover")
   const tCommon = useTranslations("Common")
   const tNav = useTranslations("Nav")
@@ -273,6 +278,22 @@ export function DiscoverPropositionsTable({
     setLoadingMore(false)
   }
 
+  const guardCreate = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (user) return
+    event.preventDefault()
+    const currentPath = `${pathname || "/"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set("auth", "signup")
+    nextParams.set("next", currentPath)
+    router.replace(`${pathname || "/"}?${nextParams.toString()}`)
+  }
+
   if (items.length === 0 && !hasMore) {
     const createHref = query
       ? `/propositions/create?title=${encodeURIComponent(query)}`
@@ -310,6 +331,9 @@ export function DiscoverPropositionsTable({
                     <span>{tDiscover("noResults")}</span>
                     <Link
                       href={createHref}
+                      onClick={(event) => {
+                        void guardCreate(event)
+                      }}
                       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
                       + {tNav("addProposition")}

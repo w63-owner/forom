@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 import { ChevronDown } from "lucide-react"
-import { Link } from "@/i18n/navigation"
+import { TopPageHeader } from "@/components/top-page-header"
+import { getServerSessionUser } from "@/utils/supabase/server"
 
 type Props = { params: Promise<{ locale: string }> }
 
@@ -36,6 +37,8 @@ export default async function FaqPage({ params }: Props) {
     getTranslations("HowItWorks"),
     getTranslations("Nav"),
   ])
+  const serverUser = await getServerSessionUser()
+  const initialSession = serverUser != null ? { user: serverUser } : null
 
   const categories = [
     {
@@ -114,13 +117,12 @@ export default async function FaqPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-4xl space-y-8">
+        <TopPageHeader
+          backHref="/"
+          backLabel={`← ${tNav("back")}`}
+          initialSession={initialSession}
+        />
         <header className="space-y-2">
-          <Link
-            href="/"
-            className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← {tNav("back")}
-          </Link>
           <h1 className="text-3xl font-semibold text-foreground">
             {t("faqTitle")}
           </h1>

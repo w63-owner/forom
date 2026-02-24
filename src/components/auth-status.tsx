@@ -1,8 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Bell, Check, X } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
@@ -15,6 +15,7 @@ import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { shouldSetUnauthenticatedFromServerResult } from "@/utils/supabase/auth-rules"
 import { useNotifications } from "@/hooks/use-notifications"
+import { useAuthModal } from "@/components/auth-modal-provider"
 import {
   AsyncTimeoutError,
   fetchWithTimeout,
@@ -25,12 +26,13 @@ import {
 type CurrentUser = {
   email: string
   displayName: string
+  avatarUrl?: string | null
 }
 
 type SessionUser = {
   id: string
   email?: string | null
-  user_metadata?: { username?: string | null } | null
+  user_metadata?: { username?: string | null; avatar_url?: string | null } | null
 }
 
 type ParentRequestStatus = "pending" | "approved" | "rejected"
@@ -43,6 +45,7 @@ type AuthSyncPayload = {
 type AuthStatusProps = {
   /** Session from server (SSR). When set, used for initial state to avoid flash and false negatives. */
   initialSession?: { user: SessionUser } | null
+  className?: string
 }
 
 const AUTH_SYNC_CHANNEL = "forom:auth-state"
@@ -53,11 +56,12 @@ const AUTH_SYNC_STORAGE_KEY = "forom:auth-state-event"
 function toCurrentUser(user: SessionUser | null): CurrentUser | null {
   if (!user?.email) return null
   const metaUsername = user.user_metadata?.username
+  const metaAvatarUrl = user.user_metadata?.avatar_url
   const displayName =
     metaUsername && metaUsername.trim().length > 0
       ? metaUsername.trim()
       : user.email
-  return { email: user.email, displayName }
+  return { email: user.email, displayName, avatarUrl: metaAvatarUrl ?? null }
 }
 
 function getSessionUserFromStorage(): SessionUser | null {
@@ -148,16 +152,23 @@ function isIgnorableSessionError(error: unknown): boolean {
   )
 }
 
-export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
+export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) {
   const router = useRouter()
+  const pathname = usePathname()
   const locale = useLocale()
   const t = useTranslations("Auth")
   const tCommon = useTranslations("Common")
   const tRequests = useTranslations("PageParentRequests")
+  const { openAuthModal } = useAuthModal()
   const initialUser =
     typeof window === "undefined"
       ? initialSession?.user ?? null
       : initialSession?.user ?? getSessionUserFromStorage()
+  // SSR-first contract (Variant B):
+  // - initialSession drives first paint of auth UI.
+  // - Client reconciliation (storage, /api/auth/session, Supabase listeners) only refines after hydration.
+  // - Never show text-based transient auth states in header ("loading", fallback labels).
+  const hasInitialSession = Boolean(initialSession?.user)
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
     Boolean(initialUser)
   )
@@ -166,6 +177,9 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
   )
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(
     toCurrentUser(initialUser)
+  )
+  const [avatarResolved, setAvatarResolved] = useState<boolean>(
+    initialUser ? Boolean(toCurrentUser(initialUser)?.avatarUrl) : true
   )
   const [isSigningOut, setIsSigningOut] = useState(false)
   const [reviewingRequestId, setReviewingRequestId] = useState<string | null>(
@@ -196,6 +210,13 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
     currentUser?.email?.trim() ? currentUser.email : null
   )
 
+  const menuUser = useMemo(() => {
+    if (currentUser) return currentUser
+    const fromStorage = toCurrentUser(getSessionUserFromStorage())
+    if (fromStorage) return fromStorage
+    return null
+  }, [currentUser])
+
   useEffect(() => {
     if (error && error !== lastNotificationsErrorRef.current) {
       lastNotificationsErrorRef.current = error
@@ -225,6 +246,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
       setAuthResolvedState(true)
       setIsAuthenticated(payload.isAuthenticated)
       setCurrentUser(payload.currentUser)
+      setAvatarResolved(payload.isAuthenticated ? Boolean(payload.currentUser?.avatarUrl) : true)
       hadUserRef.current = payload.isAuthenticated
     }
 
@@ -413,6 +435,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
         if (isActive) {
           setIsAuthenticated(false)
           setCurrentUser(null)
+          setAvatarResolved(true)
           setAuthResolvedState(true)
         }
       })
@@ -423,14 +446,20 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
 
     const loadForSession = async (user: SessionUser | null | undefined) => {
       if (!user) {
-        if (isActive) setCurrentUser(null)
+        if (isActive) {
+          setCurrentUser(null)
+          setAvatarResolved(true)
+        }
         return
       }
       const userId = user.id ?? ""
       const email = user.email ?? ""
 
       if (!email) {
-        if (isActive) setCurrentUser(null)
+        if (isActive) {
+          setCurrentUser(null)
+          setAvatarResolved(true)
+        }
         return
       }
 
@@ -438,36 +467,101 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
       // 2) otherwise email
       // 3) otherwise fallback label
       const metaUsername = user.user_metadata?.username
+      const metaAvatarUrl = user.user_metadata?.avatar_url ?? null
       const baseDisplayName =
         metaUsername && metaUsername.trim().length > 0
           ? metaUsername.trim()
           : email || t("fallbackUser")
+      let resolvedDisplayName = baseDisplayName
+      let resolvedAvatarUrl: string | null = metaAvatarUrl
 
       // Set UI immediately from session to avoid loading fallback sticking.
-      if (isActive) setCurrentUser({ email, displayName: baseDisplayName })
+      if (isActive) {
+        setAvatarResolved(Boolean(resolvedAvatarUrl))
+        setCurrentUser({
+          email,
+          displayName: resolvedDisplayName,
+          avatarUrl: resolvedAvatarUrl,
+        })
+      }
 
-      // Try to refine with profile username in DB.
+      // If session metadata is partial (common on client-side session caches),
+      // enrich from server session endpoint which now merges DB profile fields.
+      if ((!metaUsername || !metaAvatarUrl) && userId) {
+        try {
+          const response = await fetchWithTimeout(
+            "/api/auth/session",
+            { cache: "no-store" },
+            6000
+          )
+          if (response.ok) {
+            const payload = (await response.json().catch(() => null)) as
+              | {
+                  user?: {
+                    id?: string | null
+                    user_metadata?: { username?: string | null; avatar_url?: string | null } | null
+                  } | null
+                }
+              | null
+            if (payload?.user?.id === userId) {
+              const enrichedUsername = payload.user.user_metadata?.username
+              const enrichedAvatarUrl = payload.user.user_metadata?.avatar_url
+              if (enrichedUsername && enrichedUsername.trim().length > 0) {
+                resolvedDisplayName = enrichedUsername.trim()
+              }
+              if (enrichedAvatarUrl && enrichedAvatarUrl.trim().length > 0) {
+                resolvedAvatarUrl = enrichedAvatarUrl.trim()
+              }
+              if (isActive) {
+                setCurrentUser({
+                  email,
+                  displayName: resolvedDisplayName,
+                  avatarUrl: resolvedAvatarUrl,
+                })
+                setAvatarResolved(Boolean(resolvedAvatarUrl))
+              }
+            }
+          }
+        } catch {
+          // Keep current user fallback; DB/profile sync below may still refine.
+        }
+      }
+
+      // Try to refine with profile username/avatar in DB.
       if (userId) {
         try {
           const { data: profile } = await supabase
             .from("users")
-            .select("username")
+            .select("username, avatar_url")
             .eq("id", userId)
             .maybeSingle()
-          if (profile?.username && profile.username.trim().length > 0) {
-            if (isActive) {
-              setCurrentUser({ email, displayName: profile.username.trim() })
-            }
+          if (isActive) {
+            setCurrentUser({
+              email,
+              displayName:
+                profile?.username && profile.username.trim().length > 0
+                  ? profile.username.trim()
+                  : resolvedDisplayName,
+              avatarUrl: profile?.avatar_url ?? resolvedAvatarUrl,
+            })
+            setAvatarResolved(Boolean(profile?.avatar_url ?? resolvedAvatarUrl))
           }
         } catch (error) {
           logAuth("profile fetch failed", {
             message: error instanceof Error ? error.message : String(error),
           })
+          if (isActive) {
+            setAvatarResolved(Boolean(resolvedAvatarUrl))
+          }
         }
       }
     }
 
-    /** Returns { ok: true, user } when we got 200 from API; only then is user: null an explicit "logged out". On error, returns { ok: false } — do not set unauthenticated. */
+    /**
+     * Client resilience fallback only (post-hydration):
+     * Returns { ok: true, user } when we got 200 from API; only then is user: null an explicit "logged out".
+     * On error, returns { ok: false } and callers must avoid forcing unauthenticated UI.
+     */
     const loadFromServerSession = async (): Promise<
       { ok: true; user: SessionUser | null } | { ok: false }
     > => {
@@ -520,6 +614,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
           if (shouldSetUnauthenticatedFromServerResult(result, hadUserRef.current)) {
             setIsAuthenticated(false)
             setCurrentUser(null)
+            setAvatarResolved(true)
           }
         }
       } catch (error) {
@@ -552,6 +647,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
         if (shouldSetUnauthenticatedFromServerResult(result, hadUserRef.current)) {
           setIsAuthenticated(false)
           setCurrentUser(null)
+          setAvatarResolved(true)
         }
       })
       .catch((error) => {
@@ -561,6 +657,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
             if (isActive && shouldSetUnauthenticatedFromServerResult(result, hadUserRef.current)) {
               setIsAuthenticated(false)
               setCurrentUser(null)
+              setAvatarResolved(true)
             }
             // On network/error: do not set unauthenticated
           } catch {
@@ -592,7 +689,10 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
             logAuth("loadForSession failed", {
               message: error instanceof Error ? error.message : String(error),
             })
-            if (isActive) setCurrentUser(null)
+            if (isActive) {
+              setCurrentUser(null)
+              setAvatarResolved(true)
+            }
           }
         } else {
           // Avoid false SIGNED_OUT blips by confirming with server session first.
@@ -611,6 +711,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
               hadUserRef.current = false
             }
             setCurrentUser(null)
+            setAvatarResolved(true)
           }
         }
       }
@@ -633,6 +734,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
             if (shouldSetUnauthenticatedFromServerResult(result, hadUserRef.current)) {
               setIsAuthenticated(false)
               setCurrentUser(null)
+              setAvatarResolved(true)
             }
           }
         })
@@ -684,6 +786,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
       setAuthResolvedState(true)
       setIsAuthenticated(false)
       setCurrentUser(null)
+      setAvatarResolved(true)
       await withRetry(
         () => fetchWithTimeout("/api/auth/signout", { method: "POST" }, 12000),
         {
@@ -716,10 +819,42 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
     }
   }, [logAuth, showToast])
 
-  if (!authResolvedState || !isAuthenticated) {
+  if (!isAuthenticated) {
+    if (!authResolvedState && hasInitialSession) {
+      return (
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="relative"
+            aria-label={t("notificationsTitle")}
+            disabled
+          >
+            <Bell className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full px-1"
+            aria-label={t("openProfileMenu")}
+            disabled
+          >
+            <span
+              aria-hidden="true"
+              className="inline-flex h-8 w-8 animate-pulse rounded-full border-2 border-card bg-muted"
+            />
+          </Button>
+        </div>
+      )
+    }
     return (
-      <Button asChild size="sm" variant="outline" className="link-nav">
-        <Link href="/login">{t("login")}</Link>
+      <Button
+        size="sm"
+        variant="outline"
+        className="link-nav"
+        onClick={() => openAuthModal("signup", pathname || `/${locale}`)}
+      >
+        {t("login")}
       </Button>
     )
   }
@@ -727,7 +862,7 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
   const unread = unreadCount ?? 0
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${className ?? ""}`.trim()}>
       {/* Cloche notifications */}
       {/* Notifications bell */}
       <Popover>
@@ -920,27 +1055,48 @@ export function AuthStatus({ initialSession }: AuthStatusProps = {}) {
             className="rounded-full px-1"
             aria-label={t("openProfileMenu")}
           >
-            <Avatar
-              size="md"
-              name={currentUser?.displayName ?? currentUser?.email ?? t("fallbackUser")}
-            />
+            {currentUser ? (
+              currentUser.avatarUrl ? (
+                <Avatar
+                  size="md"
+                  name={currentUser.displayName ?? currentUser.email}
+                  src={currentUser.avatarUrl}
+                />
+              ) : (
+                <span
+                  aria-hidden="true"
+                  className={`inline-flex h-8 w-8 rounded-full border-2 border-card bg-muted ${
+                    avatarResolved ? "" : "animate-pulse"
+                  }`}
+                />
+              )
+            ) : (
+              <span
+                aria-hidden="true"
+                className="inline-flex h-8 w-8 animate-pulse rounded-full border-2 border-card bg-muted"
+              />
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-64 p-2">
           <div className="mb-2 border-b pb-2 text-sm">
-            {currentUser ? (
+            {menuUser ? (
               <>
                 <p className="font-medium text-[#333D42]">
-                  {currentUser.displayName || currentUser.email}
+                  {menuUser.displayName || menuUser.email}
                 </p>
-                {currentUser.email && (
-                  <p className="text-xs text-muted-foreground">
-                    {currentUser.email}
-                  </p>
-                )}
+                {menuUser.email &&
+                  menuUser.email !== menuUser.displayName && (
+                    <p className="text-xs text-muted-foreground">
+                      {menuUser.email}
+                    </p>
+                  )}
               </>
             ) : (
-              <p className="text-xs text-muted-foreground">{tCommon("loading")}</p>
+              <div className="space-y-2 py-0.5" aria-hidden="true">
+                <div className="h-3 w-24 animate-pulse rounded-full bg-muted" />
+                <div className="h-3 w-32 animate-pulse rounded-full bg-muted" />
+              </div>
             )}
           </div>
           <nav className="flex flex-col gap-1 text-sm">

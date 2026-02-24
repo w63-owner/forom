@@ -10,7 +10,7 @@ import {
   type ChangeEvent,
 } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { ImageIcon, X } from "lucide-react"
 import { Alert } from "@/components/ui/alert"
@@ -649,6 +649,8 @@ export default function CreatePropositionClient({
   const tCommon = useTranslations("Common")
   const locale = useLocale()
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   const [step, setStep] = useState(initialTitle.trim() ? 3 : 1)
   const [title, setTitle] = useState(initialTitle)
@@ -882,7 +884,11 @@ export default function CreatePropositionClient({
       includeServerFallback: true,
     })
     if (!user) {
-      setSubmitError(t("loginRequired"))
+      const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+      const nextParams = new URLSearchParams(searchParams.toString())
+      nextParams.set("auth", "signup")
+      nextParams.set("next", currentPath)
+      router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
       setSubmitLoading(false)
       return
     }

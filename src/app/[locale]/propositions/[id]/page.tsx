@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { getLocale, getTranslations } from "next-intl/server"
 import { Badge } from "@/components/ui/badge"
+import { Avatar } from "@/components/ui/avatar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PropositionStatusBadge } from "@/components/proposition-status-badge"
 import { PropositionVoteBar } from "@/components/proposition-vote-bar"
@@ -82,7 +83,7 @@ export default async function PropositionDetails({ params }: Props) {
 
   const { data, error } = await supabase
     .from("propositions")
-    .select("id, title, description, status, votes_count, page_id, author_id, created_at, image_urls, users!author_id(username, email)")
+    .select("id, title, description, status, votes_count, page_id, author_id, created_at, image_urls, users!author_id(username, email, avatar_url)")
     .eq("id", id)
     .maybeSingle()
 
@@ -235,20 +236,41 @@ export default async function PropositionDetails({ params }: Props) {
                 </div>
               </div>
               {(() => {
-                const users = data.users as { username: string | null; email: string | null } | { username: string | null; email: string | null }[] | null
+                const users = data.users as
+                  | {
+                      username: string | null
+                      email: string | null
+                      avatar_url?: string | null
+                    }
+                  | {
+                      username: string | null
+                      email: string | null
+                      avatar_url?: string | null
+                    }[]
+                  | null
                 const author = Array.isArray(users) ? users[0] ?? null : users
                 const authorName =
                   author?.username || author?.email || t("anonymous")
                 return (
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-semibold text-foreground">{authorName}</span>
-                    <span className="ml-1.5">
-                      {relativeTime(
-                        data.created_at ?? new Date().toISOString(),
-                        locale
-                      )}
-                    </span>
-                  </p>
+                  <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                    <Avatar
+                      size="lg"
+                      src={author?.avatar_url ?? null}
+                      name={authorName}
+                      className="shrink-0"
+                    />
+                    <p className="flex min-w-0 flex-col gap-1 leading-none md:flex-row md:items-baseline md:gap-0">
+                      <span className="font-semibold text-foreground md:leading-none">
+                        {authorName}
+                      </span>
+                      <span className="md:ml-1.5 md:leading-none">
+                        {relativeTime(
+                          data.created_at ?? new Date().toISOString(),
+                          locale
+                        )}
+                      </span>
+                    </p>
+                  </div>
                 )
               })()}
             </CardHeader>
@@ -302,6 +324,42 @@ export default async function PropositionDetails({ params }: Props) {
         <PropositionDetailClient
           propositionId={data.id}
           propositionAuthorId={data.author_id}
+          propositionAuthorAvatarUrl={
+            (() => {
+              const users = data.users as
+                | {
+                    username: string | null
+                    email: string | null
+                    avatar_url?: string | null
+                  }
+                | {
+                    username: string | null
+                    email: string | null
+                    avatar_url?: string | null
+                  }[]
+                | null
+              const author = Array.isArray(users) ? users[0] ?? null : users
+              return author?.avatar_url ?? null
+            })()
+          }
+          propositionAuthorName={
+            (() => {
+              const users = data.users as
+                | {
+                    username: string | null
+                    email: string | null
+                    avatar_url?: string | null
+                  }
+                | {
+                    username: string | null
+                    email: string | null
+                    avatar_url?: string | null
+                  }[]
+                | null
+              const author = Array.isArray(users) ? users[0] ?? null : users
+              return author?.username || author?.email || t("anonymous")
+            })()
+          }
         />
       </div>
     </div>

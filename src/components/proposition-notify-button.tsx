@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
@@ -53,6 +53,7 @@ type Props = {
 }
 
 export function PropositionNotifyButton({ propositionId, className }: Props) {
+  const locale = useLocale()
   const t = useTranslations("PropositionNotify")
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -86,7 +87,12 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
       includeServerFallback: true,
     })
     if (!user) {
-      window.location.href = `/login?next=/propositions/${propositionId}`
+      const currentPath =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : `/${locale}/propositions/${propositionId}`
+      const separator = currentPath.includes("?") ? "&" : "?"
+      window.location.href = `${currentPath}${separator}auth=signup&next=${encodeURIComponent(currentPath)}`
       return
     }
     setLoading(true)

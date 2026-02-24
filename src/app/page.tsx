@@ -1,8 +1,8 @@
 import Link from "next/link"
 import { AuthStatus } from "@/components/auth-status"
 import { Button } from "@/components/ui/button"
-import { Omnibar } from "@/components/omnibar"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { OmnibarClient } from "@/components/omnibar-client"
+import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 import packageJson from "../../package.json"
 
 const featuredCompanies = [
@@ -37,7 +37,11 @@ const territoryCategories = [
 ]
 
 export default async function Home() {
-  const supabase = await getSupabaseServerClient()
+  const [supabase, serverUser] = await Promise.all([
+    getSupabaseServerClient(),
+    getServerSessionUser(),
+  ])
+  const initialSession = serverUser != null ? { user: serverUser } : null
   const territoryPages =
     supabase
       ? (
@@ -57,7 +61,7 @@ export default async function Home() {
         </Button>
       </div>
       <div className="absolute right-6 top-6">
-        <AuthStatus />
+        <AuthStatus initialSession={initialSession} />
       </div>
       <main className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
         <div className="space-y-3">
@@ -75,7 +79,7 @@ export default async function Home() {
             informé quand elle sera réalisée.
           </p>
         </div>
-        <Omnibar />
+        <OmnibarClient />
         <div className="w-full max-w-2xl space-y-4 pt-2 text-center">
           <p className="text-sm text-muted-foreground">
             Ces entreprises sont à votre écoute pour améliorer leurs

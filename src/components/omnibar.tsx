@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import debounce from "lodash/debounce"
 import { Badge } from "@/components/ui/badge"
@@ -43,9 +43,10 @@ type PageResult = {
 
 export function Omnibar() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const locale = useLocale()
   const t = useTranslations("Omnibar")
-  const tCommon = useTranslations("Common")
   const { showToast } = useToast()
   const requestId = useRef(0)
   const [query, setQuery] = useState("")
@@ -102,11 +103,11 @@ export function Omnibar() {
     if (user) {
       return true
     }
-    showToast({
-      variant: "info",
-      title: tCommon("loginRequiredTitle"),
-      description: tCommon("loginRequiredBody"),
-    })
+    const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set("auth", "signup")
+    nextParams.set("next", currentPath)
+    router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
     return false
   }
 

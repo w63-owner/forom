@@ -1,8 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server"
-import { Link } from "@/i18n/navigation"
+import { TopPageHeader } from "@/components/top-page-header"
 import { Card, CardContent } from "@/components/ui/card"
 import { DiscoverPropositionsTable } from "@/components/discover-propositions-table"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 import { SLUG_TO_UNIVERSE } from "@/types/schema"
 import DiscoverFilters from "./filters"
 import { notFound } from "next/navigation"
@@ -52,10 +52,12 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
     notFound()
   }
 
-  const [tDiscover, tNav] = await Promise.all([
+  const [tDiscover, tNav, serverUser] = await Promise.all([
     getTranslations("Discover"),
     getTranslations("Nav"),
+    getServerSessionUser(),
   ])
+  const initialSession = serverUser != null ? { user: serverUser } : null
 
   const queryParams = (await searchParams) ?? {}
   const query = queryParams.q?.trim() ?? ""
@@ -168,13 +170,12 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-5xl space-y-8">
-        <header className="space-y-2">
-          <Link
-            href="/discover"
-            className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← {tDiscover("backToDiscover")}
-          </Link>
+        <TopPageHeader
+          backHref="/discover"
+          backLabel={`← ${tDiscover("backToDiscover")}`}
+          initialSession={initialSession}
+        />
+        <section className="space-y-2">
           <h1 className="text-3xl font-semibold text-foreground">
             {tDiscover("universePropositions", {
               universe: tDiscover(`universe_${universe}`),
@@ -183,7 +184,7 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
           <p className="text-muted-foreground">
             {tDiscover("universeDescription")}
           </p>
-        </header>
+        </section>
 
         <Card>
           <CardContent className="space-y-4 pt-6">

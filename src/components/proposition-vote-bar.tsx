@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AsyncTimeoutError } from "@/lib/async-resilience"
 import { PropositionVoteButton } from "@/components/proposition-vote-button"
@@ -23,6 +23,8 @@ export function PropositionVoteBar({
   propositionPageId,
 }: Props) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const t = useTranslations("PropositionVotes")
   const tCommon = useTranslations("Common")
   const locale = useLocale()
@@ -69,19 +71,23 @@ export function PropositionVoteBar({
     try {
       const result = await runToggleVote()
       if (!result.ok) {
+        if (result.status === 401) {
+          const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+          const nextParams = new URLSearchParams(searchParams.toString())
+          nextParams.set("auth", "signup")
+          nextParams.set("next", currentPath)
+          router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
+          return
+        }
+
         const description =
-          result.status === 401
-            ? t("loginRequired")
-            : result.error ?? t("voteFailedTitle")
+          result.error ?? t("voteFailedTitle")
         setError(description)
         showToast({
           variant: "error",
           title: t("voteFailedTitle"),
           description,
         })
-        if (result.status === 401) {
-          router.push(`/${locale}/login?next=/${locale}/propositions/${propositionId}`)
-        }
       } else {
         const nextHasVoted = result.hasVoted
         const nextVotes = result.votes

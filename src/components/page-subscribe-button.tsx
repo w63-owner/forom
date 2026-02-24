@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { getSupabaseClient } from "@/utils/supabase/client"
@@ -53,6 +54,9 @@ type Props = {
 }
 
 export function PageSubscribeButton({ pageId, className }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const locale = useLocale()
   const t = useTranslations("PageSubscribe")
   const [subscribed, setSubscribed] = useState(false)
@@ -87,11 +91,11 @@ export function PageSubscribeButton({ pageId, className }: Props) {
       includeServerFallback: true,
     })
     if (!user) {
-      const currentPath =
-        typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : `/${locale}/pages`
-      window.location.href = `/${locale}/login?next=${encodeURIComponent(currentPath)}`
+      const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+      const nextParams = new URLSearchParams(searchParams.toString())
+      nextParams.set("auth", "signup")
+      nextParams.set("next", currentPath)
+      router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
       return
     }
     setLoading(true)

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
@@ -11,6 +12,7 @@ import {
   withRetry,
 } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { getStatusKey } from "@/lib/status-labels"
 
  type PageMeta = { name?: string | null; slug?: string | null }
@@ -77,6 +79,9 @@ import { getStatusKey } from "@/lib/status-labels"
    pageOrder,
    statusOrder,
  }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const tExplore = useTranslations("Explore")
   const tCommon = useTranslations("Common")
   const tNav = useTranslations("Nav")
@@ -297,6 +302,22 @@ import { getStatusKey } from "@/lib/status-labels"
      setLoadingMore(false)
    }
 
+  const guardCreate = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    const user = await resolveAuthUser(supabase, {
+      timeoutMs: 3500,
+      includeServerFallback: true,
+    })
+    if (user) return
+    event.preventDefault()
+    const currentPath = `${pathname || "/"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+    const nextParams = new URLSearchParams(searchParams.toString())
+    nextParams.set("auth", "signup")
+    nextParams.set("next", currentPath)
+    router.replace(`${pathname || "/"}?${nextParams.toString()}`)
+  }
+
   if (items.length === 0 && !hasMore) {
     const createHref = query
       ? `/propositions/create?title=${encodeURIComponent(query)}`
@@ -331,6 +352,9 @@ import { getStatusKey } from "@/lib/status-labels"
                     <span>{tExplore("noResultsTop")}</span>
                     <Link
                       href={createHref}
+                      onClick={(event) => {
+                        void guardCreate(event)
+                      }}
                       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
                       + {tNav("addProposition")}

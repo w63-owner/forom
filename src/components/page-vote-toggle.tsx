@@ -1,5 +1,6 @@
 "use client"
 
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useToast } from "@/components/ui/toast"
 import { AsyncTimeoutError } from "@/lib/async-resilience"
@@ -23,6 +24,9 @@ export function PageVoteToggle({
   initialHasVoted,
   onVoteChange,
 }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const tCommon = useTranslations("Common")
   const tVote = useTranslations("Vote")
   const { showToast } = useToast()
@@ -38,18 +42,15 @@ export function PageVoteToggle({
     try {
       const result = await runToggleVote()
       if (!result.ok) {
-        const description =
-          result.status === 401
-            ? tVote("loginRequiredBody")
-            : result.error ?? tVote("voteFailedTitle")
         if (result.status === 401) {
-          showToast({
-            variant: "info",
-            title: tVote("loginRequiredTitle"),
-            description,
-          })
+          const currentPath = `${pathname || "/"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+          const nextParams = new URLSearchParams(searchParams.toString())
+          nextParams.set("auth", "signup")
+          nextParams.set("next", currentPath)
+          router.replace(`${pathname || "/"}?${nextParams.toString()}`)
           return
         }
+        const description = result.error ?? tVote("voteFailedTitle")
         showToast({
           variant: "error",
           title: tVote("voteFailedTitle"),

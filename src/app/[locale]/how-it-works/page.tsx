@@ -7,9 +7,11 @@ import {
   Users,
 } from "lucide-react"
 import { Link } from "@/i18n/navigation"
+import { TopPageHeader } from "@/components/top-page-header"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { HowItWorksStepper } from "@/components/how-it-works-stepper"
+import { getServerSessionUser } from "@/utils/supabase/server"
 
 type Props = { params: Promise<{ locale: string }> }
 
@@ -20,17 +22,18 @@ export default async function HowItWorksPage({ params }: Props) {
     getTranslations("HowItWorks"),
     getTranslations("Nav"),
   ])
+  const serverUser = await getServerSessionUser()
+  const initialSession = serverUser != null ? { user: serverUser } : null
 
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-5xl space-y-10">
+        <TopPageHeader
+          backHref="/"
+          backLabel={`← ${tNav("back")}`}
+          initialSession={initialSession}
+        />
         <header className="rounded-2xl border border-border bg-background p-8 sm:p-10">
-          <Link
-            href="/"
-            className="link-nav inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-          >
-            ← {tNav("back")}
-          </Link>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
             {t("title")}
           </h1>

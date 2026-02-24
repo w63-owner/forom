@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { useTranslations } from "next-intl"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useLocale, useTranslations } from "next-intl"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PropositionStatusBadge } from "@/components/proposition-status-badge"
 import {
@@ -12,7 +13,6 @@ import {
 } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
-import { useToast } from "@/components/ui/toast"
 
 type PropositionItem = {
   id: string
@@ -62,8 +62,11 @@ export function PagePropositionsTable({
   pageOwnerId = null,
   currentUserId = null,
 }: Props) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const locale = useLocale()
   const tCommon = useTranslations("Common")
-  const { showToast } = useToast()
   const [items, setItems] = useState<PropositionItem[]>(initialItems)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= pageSize)
@@ -239,11 +242,11 @@ export function PagePropositionsTable({
     })
     if (!user) {
       event.preventDefault()
-      showToast({
-        variant: "info",
-        title: tCommon("loginRequiredTitle"),
-        description: tCommon("loginRequiredBody"),
-      })
+      const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+      const nextParams = new URLSearchParams(searchParams.toString())
+      nextParams.set("auth", "signup")
+      nextParams.set("next", currentPath)
+      router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
     }
   }
 

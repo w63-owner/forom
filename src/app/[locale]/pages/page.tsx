@@ -1,11 +1,21 @@
 import Link from "next/link"
-import { getTranslations } from "next-intl/server"
+import { getTranslations, setRequestLocale } from "next-intl/server"
+import { TopPageHeader } from "@/components/top-page-header"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 
-export default async function PagesIndex() {
-  const t = await getTranslations("PagesIndex")
+type Props = { params: Promise<{ locale: string }> }
+
+export default async function PagesIndex({ params }: Props) {
+  const { locale } = await params
+  setRequestLocale(locale)
+  const [t, tNav, serverUser] = await Promise.all([
+    getTranslations("PagesIndex"),
+    getTranslations("Nav"),
+    getServerSessionUser(),
+  ])
+  const initialSession = serverUser != null ? { user: serverUser } : null
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
     return (
@@ -32,6 +42,11 @@ export default async function PagesIndex() {
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
       <div className="mx-auto w-full max-w-4xl space-y-6">
+        <TopPageHeader
+          backHref="/"
+          backLabel={`← ${tNav("back")}`}
+          initialSession={initialSession}
+        />
         <header className="space-y-2">
           <h1 className="text-3xl font-semibold text-foreground">{t("title")}</h1>
           <p className="text-muted-foreground">

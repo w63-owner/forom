@@ -29,12 +29,26 @@ export async function GET() {
   }
 
   const { id, email, user_metadata } = data.user
+  const dbProfile = await supabase
+    .from("users")
+    .select("avatar_url, username")
+    .eq("id", id)
+    .maybeSingle()
+
+  const dbAvatarUrl = dbProfile.data?.avatar_url ?? null
+  const dbUsername = dbProfile.data?.username ?? null
+  const mergedMetadata = {
+    ...(user_metadata ?? {}),
+    ...(dbUsername ? { username: dbUsername } : {}),
+    ...(dbAvatarUrl ? { avatar_url: dbAvatarUrl } : {}),
+  }
+
   return NextResponse.json(
     {
       user: {
         id,
         email: email ?? null,
-        user_metadata: user_metadata ?? null,
+        user_metadata: mergedMetadata,
       },
     },
     { headers: { "Cache-Control": "no-store" } }
