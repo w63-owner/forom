@@ -32,7 +32,8 @@ const normalizeLimit = (value: string | undefined): number => {
 const normalizeHexColor = (value: string | undefined, fallback: string): string => {
   const candidate = value?.trim()
   if (!candidate) return fallback
-  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate) ? candidate : fallback
+  const withHash = candidate.startsWith("#") ? candidate : `#${candidate}`
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(withHash) ? withHash : fallback
 }
 
 export default async function EmbedPagePropositions({ params, searchParams }: Props) {
@@ -160,6 +161,9 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
               basePath={embedBasePath}
               theme={theme}
               limit={limit}
+              backgroundColor={backgroundColor}
+              headerColor={headerColor}
+              showAvatars={showAvatars}
             />
             <PagePropositionsTable
               pageId={page.id}

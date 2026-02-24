@@ -65,10 +65,16 @@ export function ToastProvider({ children }: ProviderProps) {
                typeof (reason as { message?: unknown }).message === "string" &&
                ((reason as { message?: string }).message ?? "")
                  .toLowerCase()
-                 .includes("signal is aborted")))
+                  .includes("signal is aborted")) ||
+            ("message" in reason &&
+              typeof (reason as { message?: unknown }).message === "string" &&
+              ((reason as { message?: string }).message ?? "")
+                .toLowerCase()
+                .includes("aborted without reason")))
        ) ||
        (typeof reason === "string" &&
-         reason.toLowerCase().includes("signal is aborted"))
+        (reason.toLowerCase().includes("signal is aborted") ||
+          reason.toLowerCase().includes("aborted without reason")))
 
      if (reason instanceof AsyncTimeoutError || isAbortError) {
        // Prevent runtime overlay for handled-by-design async timeouts.

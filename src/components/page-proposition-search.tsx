@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Code2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -50,17 +50,20 @@ export function PagePropositionSearch({
   showAvatars,
 }: Props) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const locale = useLocale()
   const tCommon = useTranslations("Common")
   const tStatus = useTranslations("Status")
   const tPage = useTranslations("Page")
   const tPageDashboard = useTranslations("PageDashboard")
   const { showToast } = useToast()
+  const defaultBgColor = backgroundColor ?? "#f8fafc"
+  const defaultHeaderColor = headerColor ?? "#f1f5f9"
   const [value, setValue] = useState(initialQuery)
   const [statusValue, setStatusValue] = useState(status ?? "all")
   const [embedOpen, setEmbedOpen] = useState(false)
-  const [bgColor, setBgColor] = useState(backgroundColor ?? "#f8fafc")
-  const [tableHeaderColor, setTableHeaderColor] = useState(headerColor ?? "#f1f5f9")
+  const [bgColor, setBgColor] = useState(defaultBgColor)
+  const [tableHeaderColor, setTableHeaderColor] = useState(defaultHeaderColor)
   const [avatarsEnabled, setAvatarsEnabled] = useState(showAvatars ?? true)
   const debounceRef = useRef<number | null>(null)
 
@@ -71,6 +74,14 @@ export function PagePropositionSearch({
     setStatusValue(status ?? "all")
   }, [status])
 
+
+  const resolveHexColor = (value: string, fallback: string): string => {
+    const trimmed = value.trim()
+    if (!trimmed) return fallback
+
+    const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`
+    return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(withHash) ? withHash : fallback
+  }
 
   const params = useMemo(() => {
     const next = new URLSearchParams()
@@ -84,13 +95,31 @@ export function PagePropositionSearch({
     if (typeof limit === "number" && Number.isFinite(limit) && limit > 0) {
       next.set("limit", String(Math.floor(limit)))
     }
+
+    // Keep visual embed params stable in embed routes, otherwise the URL rewrite
+    // drops them after mount and the table reverts to default colors/avatars.
+    if (basePath?.includes("/embed/")) {
+      next.set("bg", resolveHexColor(bgColor, defaultBgColor))
+      next.set("header", resolveHexColor(tableHeaderColor, defaultHeaderColor))
+      next.set("avatars", avatarsEnabled ? "1" : "0")
+      const currentV = searchParams.get("v")
+      if (currentV) next.set("v", currentV)
+    }
+
     return next
   }, [
+    avatarsEnabled,
+    basePath,
+    bgColor,
+    defaultBgColor,
+    defaultHeaderColor,
     limit,
+    searchParams,
     sort,
     statusOrder,
     statusSort,
     tab,
+    tableHeaderColor,
     theme,
     value,
     statusValue,
@@ -116,17 +145,12 @@ export function PagePropositionSearch({
   const buildEmbedLink = () => {
     if (!embedBaseUrl) return
     const next = new URL(embedBaseUrl)
-    const sanitizeHex = (value: string): string | null => {
-      const trimmed = value.trim()
-      return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(trimmed) ? trimmed : null
-    }
-    const safeBg = sanitizeHex(bgColor)
-    const safeHeader = sanitizeHex(tableHeaderColor)
-    if (safeBg) next.searchParams.set("bg", safeBg)
-    else next.searchParams.delete("bg")
-    if (safeHeader) next.searchParams.set("header", safeHeader)
-    else next.searchParams.delete("header")
+    const safeBg = resolveHexColor(bgColor, defaultBgColor)
+    const safeHeader = resolveHexColor(tableHeaderColor, defaultHeaderColor)
+    next.searchParams.set("bg", safeBg)
+    next.searchParams.set("header", safeHeader)
     next.searchParams.set("avatars", avatarsEnabled ? "1" : "0")
+    next.searchParams.set("v", String(Date.now()))
     return next.toString()
   }
 
