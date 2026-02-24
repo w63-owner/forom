@@ -3,6 +3,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
+export const dynamic = "force-dynamic"
+
 const getSupabaseAdminClient = (): SupabaseClient | null => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY

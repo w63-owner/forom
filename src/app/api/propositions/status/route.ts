@@ -3,6 +3,8 @@ import { validateMutationOrigin } from "@/lib/security/origin-guard"
 import { STATUS_VALUES } from "@/lib/status-labels"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
+export const dynamic = "force-dynamic"
+
 type UpdateStatusBody = {
   propositionId?: string
   status?: string

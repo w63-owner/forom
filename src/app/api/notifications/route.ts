@@ -8,6 +8,8 @@ import {
 } from "@/lib/security/internal-signature"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
+export const dynamic = "force-dynamic"
+
 type NotificationPayload = {
   type:
     | "comment_created"
@@ -208,6 +210,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("notifications")
     .select("id, type, title, body, link, created_at, read_at")
+    .eq("email", email)
     .order("created_at", { ascending: false })
     .limit(50)
 

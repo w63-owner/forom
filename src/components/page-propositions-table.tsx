@@ -46,6 +46,9 @@ type Props = {
   itemLinkOpenNewTab?: boolean
   pageOwnerId?: string | null
   currentUserId?: string | null
+  showAvatars?: boolean
+  backgroundColor?: string | null
+  headerColor?: string | null
 }
 
 export function PagePropositionsTable({
@@ -67,6 +70,9 @@ export function PagePropositionsTable({
   itemLinkOpenNewTab = false,
   pageOwnerId = null,
   currentUserId = null,
+  showAvatars = true,
+  backgroundColor = null,
+  headerColor = null,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -264,11 +270,16 @@ export function PagePropositionsTable({
       <div className="space-y-3">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
+            <thead
+              className="hidden text-muted-foreground md:table-header-group"
+              style={headerColor ? { backgroundColor: headerColor } : undefined}
+            >
               <tr>
-                <th className="w-20 px-0 py-3 text-left font-medium">
-                  <span className="sr-only">Author</span>
-                </th>
+                {showAvatars && (
+                  <th className="w-20 px-0 py-3 text-left font-medium">
+                    <span className="sr-only">Author</span>
+                  </th>
+                )}
                 <th className="px-4 py-3 text-left font-medium">{tCommon("proposition")}</th>
                 <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("status")}</th>
                 <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("votes")}</th>
@@ -276,7 +287,7 @@ export function PagePropositionsTable({
             </thead>
             <tbody>
               <tr>
-                <td colSpan={4} className="px-4 py-6 text-center">
+                <td colSpan={showAvatars ? 4 : 3} className="px-4 py-6 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <p className="text-sm text-muted-foreground">
                       {emptyStateText ?? tCommon("searchOrAddProposition")}
@@ -316,12 +327,21 @@ export function PagePropositionsTable({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm" aria-label={tCommon("propositionPlural")}>
-          <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
+        <table
+          className="w-full text-sm"
+          aria-label={tCommon("propositionPlural")}
+          style={backgroundColor ? { backgroundColor } : undefined}
+        >
+          <thead
+            className="hidden text-muted-foreground md:table-header-group"
+            style={headerColor ? { backgroundColor: headerColor } : undefined}
+          >
             <tr>
-              <th scope="col" className="w-20 px-0 py-3 text-left font-medium">
-                <span className="sr-only">Author</span>
-              </th>
+              {showAvatars && (
+                <th scope="col" className="w-20 px-0 py-3 text-left font-medium">
+                  <span className="sr-only">Author</span>
+                </th>
+              )}
               <th scope="col" className="px-4 py-3 text-left font-medium">
                 {tCommon("proposition")}
               </th>
@@ -345,19 +365,21 @@ export function PagePropositionsTable({
                 key={item.id}
                 className="border-t border-border transition-colors duration-150 hover:bg-muted/30 focus-within:bg-muted/30"
               >
-                <td className="w-20 py-[var(--table-row-y)] pl-0 pr-0 align-middle">
-                  {(() => {
-                    const { authorName, authorAvatar } = getAuthorMeta(item)
-                    return (
-                      <Avatar
-                        size="md"
-                        src={authorAvatar}
-                        name={authorName}
-                        className="h-20 w-20 text-lg"
-                      />
-                    )
-                  })()}
-                </td>
+                {showAvatars && (
+                  <td className="w-20 py-[var(--table-row-y)] pl-0 pr-0 align-middle">
+                    {(() => {
+                      const { authorName, authorAvatar } = getAuthorMeta(item)
+                      return (
+                        <Avatar
+                          size="md"
+                          src={authorAvatar}
+                          name={authorName}
+                          className="h-20 w-20 text-lg"
+                        />
+                      )
+                    })()}
+                  </td>
+                )}
                 <td className="table-row-cell">
                   <div className="hidden space-y-2 md:block">
                     <Link

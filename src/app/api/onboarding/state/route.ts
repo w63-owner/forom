@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { mapSupabaseErrorToHttp } from "@/lib/security/api-error"
 
+export const dynamic = "force-dynamic"
+
 function isMissingColumnError(error: { code?: string; message?: string } | null): boolean {
   if (!error) return false
   if (error.code === "42703" || error.code === "PGRST204") return true

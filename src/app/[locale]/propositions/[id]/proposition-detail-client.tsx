@@ -388,27 +388,28 @@ export default function PropositionDetailClient({
           const cur = votesByComment.get(row.comment_id)
           if (cur) cur.count += row.type === "Upvote" ? 1 : -1
         }
-        if (userId) {
-          const { data: userVotes } = await supabase
+        const actorIds = [userId, propositionAuthorId].filter(
+          (id): id is string => Boolean(id)
+        )
+        if (actorIds.length > 0) {
+          const { data: actorVotes } = await supabase
             .from("comment_votes")
-            .select("comment_id, type")
-            .eq("user_id", userId)
+            .select("comment_id, type, user_id")
             .in("comment_id", ids)
-          for (const row of userVotes ?? []) {
+            .in("user_id", actorIds)
+          for (const row of actorVotes ?? []) {
             const cur = votesByComment.get(row.comment_id)
-            if (cur) cur.userVote = row.type as "Upvote" | "Downvote"
-          }
-        }
-        if (propositionAuthorId) {
-          const { data: authorVotes } = await supabase
-            .from("comment_votes")
-            .select("comment_id, type")
-            .eq("user_id", propositionAuthorId)
-            .eq("type", "Upvote")
-            .in("comment_id", ids)
-          for (const row of authorVotes ?? []) {
-            const cur = votesByComment.get(row.comment_id)
-            if (cur) cur.likedByAuthor = true
+            if (!cur) continue
+            if (userId && row.user_id === userId) {
+              cur.userVote = row.type as "Upvote" | "Downvote"
+            }
+            if (
+              propositionAuthorId &&
+              row.user_id === propositionAuthorId &&
+              row.type === "Upvote"
+            ) {
+              cur.likedByAuthor = true
+            }
           }
         }
       }

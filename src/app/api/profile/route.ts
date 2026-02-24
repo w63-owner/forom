@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
+export const dynamic = "force-dynamic"
+
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/i
 
 const normalizeText = (value: unknown, maxLength = 120): string | null => {

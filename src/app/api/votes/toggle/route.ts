@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
+export const dynamic = "force-dynamic"
+
 type ToggleVoteBody = { propositionId?: string }
 
 const UUID_PATTERN =

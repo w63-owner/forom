@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
+export const dynamic = "force-dynamic"
+
 const BUCKET_ID = "proposition-images"
 
 export async function POST(request: Request) {

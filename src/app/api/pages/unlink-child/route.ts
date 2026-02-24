@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(request: Request) {
   const originValidation = validateMutationOrigin(request)
   if (!originValidation.ok) {

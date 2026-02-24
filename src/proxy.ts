@@ -1,8 +1,8 @@
-import { createServerClient } from "@supabase/ssr"
 import createIntlMiddleware from "next-intl/middleware"
 import { NextResponse, type NextRequest } from "next/server"
 import { isProtectedAppPath, stripLocalePrefix } from "@/lib/security/protected-routes"
 import { routing } from "@/i18n/routing"
+import { createMiddlewareSupabaseClient } from "@/utils/supabase/middleware"
 
 const intlMiddleware = createIntlMiddleware(routing)
 
@@ -14,23 +14,8 @@ export async function proxy(request: NextRequest) {
       ? NextResponse.next({ request })
       : await intlMiddleware(request)
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value)
-            response.cookies.set(name, value, options)
-          })
-        },
-      },
-    }
-  )
+  const supabase = createMiddlewareSupabaseClient(request, response)
+  if (!supabase) return response
 
   const { data } = await supabase.auth.getUser()
 

@@ -3,6 +3,8 @@ import { validateMutationOrigin } from "@/lib/security/origin-guard"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { mapSupabaseErrorToHttp } from "@/lib/security/api-error"
 
+export const dynamic = "force-dynamic"
+
 type ProfileBody = {
   fullName?: string
   username?: string

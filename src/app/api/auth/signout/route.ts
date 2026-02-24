@@ -3,6 +3,8 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 
+export const dynamic = "force-dynamic"
+
 export async function POST(request: Request) {
   const originValidation = validateMutationOrigin(request)
   if (!originValidation.ok) {
@@ -18,12 +20,13 @@ export async function POST(request: Request) {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
     {
       cookies: {
-        get: (name) => cookieStore.get(name)?.value,
-        set: (name, value, options) => {
-          cookieStore.set({ name, value, ...options })
+        getAll() {
+          return cookieStore.getAll()
         },
-        remove: (name, options) => {
-          cookieStore.set({ name, value: "", ...options })
+        setAll(cookiesToSet) {
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options)
+          }
         },
       },
     }

@@ -3,6 +3,8 @@ import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 import { canUseSeedPagesEndpoint } from "@/lib/security/seed-pages-access"
 
+export const dynamic = "force-dynamic"
+
 const featuredPages = [
   { name: "France", slug: "france", category: "country" },
   { name: "Spotify", slug: "spotify", category: "brand" },

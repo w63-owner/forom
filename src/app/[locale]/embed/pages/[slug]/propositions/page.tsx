@@ -17,6 +17,9 @@ type Props = {
     statusOrder?: string
     theme?: string
     limit?: string
+    bg?: string
+    header?: string
+    avatars?: string
   }>
 }
 
@@ -24,6 +27,12 @@ const normalizeLimit = (value: string | undefined): number => {
   const parsed = Number.parseInt(value ?? "", 10)
   if (!Number.isFinite(parsed)) return 10
   return Math.min(50, Math.max(5, parsed))
+}
+
+const normalizeHexColor = (value: string | undefined, fallback: string): string => {
+  const candidate = value?.trim()
+  if (!candidate) return fallback
+  return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(candidate) ? candidate : fallback
 }
 
 export default async function EmbedPagePropositions({ params, searchParams }: Props) {
@@ -38,6 +47,9 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
   const statusOrder = queryParams.statusOrder === "desc" ? "desc" : "asc"
   const theme = queryParams.theme === "dark" ? "dark" : "light"
   const limit = normalizeLimit(queryParams.limit)
+  const backgroundColor = normalizeHexColor(queryParams.bg, "#f8fafc")
+  const headerColor = normalizeHexColor(queryParams.header, "#f1f5f9")
+  const showAvatars = queryParams.avatars !== "0"
 
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
@@ -179,6 +191,9 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
               emptyActionOpenNewTab
               itemLinkPrefix={`/${locale}/propositions`}
               itemLinkOpenNewTab
+              backgroundColor={backgroundColor}
+              headerColor={headerColor}
+              showAvatars={showAvatars}
             />
             <div className="pt-1 text-center text-xs text-muted-foreground">
               {tEmbed("poweredBy")}{" "}

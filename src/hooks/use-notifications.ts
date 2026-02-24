@@ -186,6 +186,7 @@ export function useNotifications(email: string | null): UseNotificationsResult {
     if (!supabase) return
 
     const normalizedEmail = email.trim().toLowerCase()
+    const realtimeEmailFilter = `email=eq.${normalizedEmail}`
     const channelName = `notifications:${encodeURIComponent(normalizedEmail)}`
     const channel = supabase
       .channel(channelName)
@@ -195,16 +196,11 @@ export function useNotifications(email: string | null): UseNotificationsResult {
           event: "INSERT",
           schema: "public",
           table: "notifications",
+          filter: realtimeEmailFilter,
         },
         (payload) => {
           const row = payload.new as NotificationItem & { email?: string }
           if (!row?.id) return
-          if (
-            typeof row.email === "string" &&
-            row.email.toLowerCase() !== normalizedEmail
-          ) {
-            return
-          }
 
           safeSet(() => {
             setNotifications((prev) => {
@@ -227,16 +223,11 @@ export function useNotifications(email: string | null): UseNotificationsResult {
           event: "UPDATE",
           schema: "public",
           table: "notifications",
+          filter: realtimeEmailFilter,
         },
         (payload) => {
           const row = payload.new as NotificationItem & { email?: string }
           if (!row?.id) return
-          if (
-            typeof row.email === "string" &&
-            row.email.toLowerCase() !== normalizedEmail
-          ) {
-            return
-          }
           safeSet(() => {
             setNotifications((prev) =>
               (prev ?? []).map((item) => (item.id === row.id ? row : item))

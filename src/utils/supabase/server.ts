@@ -14,17 +14,14 @@ export const getSupabaseServerClient = async (): Promise<SupabaseClient | null> 
 
   return createServerClient(url, anonKey, {
     cookies: {
-      get: (name) => cookieStore.get(name)?.value,
-      set: (name, value, options) => {
-        try {
-          cookieStore.set({ name, value, ...options })
-        } catch {
-          // Ignore in read-only contexts like Server Components.
-        }
+      getAll() {
+        return cookieStore.getAll()
       },
-      remove: (name, options) => {
+      setAll(cookiesToSet) {
         try {
-          cookieStore.set({ name, value: "", ...options })
+          for (const { name, value, options } of cookiesToSet) {
+            cookieStore.set(name, value, options)
+          }
         } catch {
           // Ignore in read-only contexts like Server Components.
         }
