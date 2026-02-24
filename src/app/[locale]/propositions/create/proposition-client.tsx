@@ -15,7 +15,6 @@ import { useLocale, useTranslations } from "next-intl"
 import { ImageIcon, X } from "lucide-react"
 import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { RichTextEditor } from "@/components/ui/rich-text-editor"
 import { ChevronDown, ChevronRight } from "lucide-react"
@@ -121,33 +120,36 @@ const Step1Card = memo(function Step1Card({
   const t = useTranslations("PropositionCreate")
   const tCommon = useTranslations("Common")
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("step1Title")}</CardTitle>
-        <CardDescription>{t("step1Description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Input
-          id="proposition-step1-title"
-          name="title"
-          value={title}
-          onChange={onTitleChange}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && trimmedTitle) {
-              event.preventDefault()
-              event.stopPropagation()
-              onContinue()
-            }
-          }}
-          placeholder={t("step1Placeholder")}
-        />
-        <div className="flex justify-end">
+    <div className="space-y-4 px-6 py-2">
+        <div className="space-y-2">
+          <label
+            htmlFor="proposition-step1-title"
+            className="text-sm font-medium text-foreground"
+          >
+            {t("step1FieldLabel")}
+          </label>
+          <Input
+            id="proposition-step1-title"
+            name="title"
+            value={title}
+            onChange={onTitleChange}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && trimmedTitle) {
+                event.preventDefault()
+                event.stopPropagation()
+                onContinue()
+              }
+            }}
+            placeholder={t("step1Placeholder")}
+            className="h-11"
+          />
+        </div>
+        <div className="hidden justify-end sm:flex">
           <Button size="lg" disabled={!trimmedTitle} onClick={onContinue}>
             {tCommon("continue")}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 })
 
@@ -162,13 +164,8 @@ const Step2Card = memo(function Step2Card({
   const t = useTranslations("PropositionCreate")
   const tCommon = useTranslations("Common")
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("step2Title")}</CardTitle>
-        <CardDescription>{t("step2Description")}</CardDescription>
-      </CardHeader>
-      <CardContent
-        className="space-y-4"
+    <div
+        className="space-y-4 px-6 py-2"
         onKeyDown={(event) => {
           if (event.key === "Enter") {
             event.preventDefault()
@@ -203,7 +200,7 @@ const Step2Card = memo(function Step2Card({
             </div>
           ))}
         </div>
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-between">
+        <div className="hidden flex-col items-stretch gap-3 sm:flex sm:flex-row sm:justify-between">
           <Button variant="ghost" onClick={onBack} className="order-2 sm:order-1">
             {tCommon("back")}
           </Button>
@@ -211,8 +208,7 @@ const Step2Card = memo(function Step2Card({
             {tCommon("continue")}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 })
 
@@ -331,20 +327,36 @@ const Step3Card = memo(function Step3Card({
 
   const selectedLabel =
     subCategory || category || (universe ? tDiscover(`universe_${universe}`) : "")
+  const uploadedImages = imageFiles
+    .map((file, index) => ({
+      file,
+      index,
+      preview: previewUrls[index],
+    }))
+    .filter((item) => Boolean(item.file && item.preview))
+  const uploadedCount = uploadedImages.length
+  const nextEmptyIndex = imageFiles.findIndex((file) => file == null)
+  const canAddImage = nextEmptyIndex !== -1
   return (
-    <Card>
-      <CardContent className="space-y-6">
-        <div className="space-y-4 rounded-lg bg-muted/10 px-4 py-4">
+    <div className="space-y-6 px-6 py-2">
+        <div className="space-y-4 rounded-lg border bg-card px-4 py-4 shadow-sm">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3IdeaTitle")}
           </h2>
           <div className="space-y-2">
+            <label
+              htmlFor="proposition-step3-title"
+              className="text-sm font-medium text-foreground"
+            >
+              {t("step3TitleLabel")}
+            </label>
             <Input
               id="proposition-step3-title"
               name="title"
               value={title}
               onChange={onTitleChange}
               placeholder={t("step3TitlePlaceholder")}
+              className="h-11"
             />
           </div>
           <RichTextEditor
@@ -352,49 +364,61 @@ const Step3Card = memo(function Step3Card({
             onChange={onDescriptionChange}
             placeholder={t("step3DescriptionPlaceholder")}
           />
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <div
-                key={`image-slot-${index}`}
-                className="relative flex min-w-[80px] flex-1"
-              >
-                {imageFiles[index] && previewUrls[index] ? (
-                  <div className="relative flex min-h-[64px] min-w-[80px] flex-1 overflow-hidden rounded-md border border-input bg-muted/30">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={previewUrls[index]!}
-                      alt=""
-                      className="h-full min-h-[64px] w-full object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onImageRemove(index)}
-                      className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-                      aria-label={t("removeImageAria")}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              {canAddImage ? (
+                <label className="focus-ring inline-flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-input bg-muted/30 p-1 text-[10px] leading-tight text-muted-foreground transition-colors hover:bg-muted/50">
+                  <input
+                    id={`proposition-image-${nextEmptyIndex + 1}`}
+                    name={`image-${nextEmptyIndex + 1}`}
+                    type="file"
+                    accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                    className="sr-only"
+                    onChange={(event) => onImageChange(nextEmptyIndex, event)}
+                  />
+                  <ImageIcon className="size-4 shrink-0" />
+                  <span className="text-center">
+                    {t("addImageButton")}
+                  </span>
+                </label>
+              ) : (
+                <div className="inline-flex min-h-[44px] items-center rounded-md border border-input bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                  5/5
+                </div>
+              )}
+              {uploadedCount > 0 && (
+                <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+                  {uploadedImages.map((item) => (
+                    <div
+                      key={`uploaded-image-${item.index}`}
+                      className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-input bg-muted/30"
                     >
-                      <X className="size-3" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex min-h-[64px] min-w-[80px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-input bg-muted/30 px-2 py-3 text-center text-xs text-muted-foreground hover:bg-muted/50">
-                    <input
-                      id={`proposition-image-${index + 1}`}
-                      name={`image-${index + 1}`}
-                      type="file"
-                      accept=".png,.jpg,.jpeg,image/png,image/jpeg"
-                      className="sr-only"
-                      onChange={(event) => onImageChange(index, event)}
-                    />
-                    <ImageIcon className="size-5 shrink-0" />
-                    <span>{t("imageSlot", { index: index + 1 })}</span>
-                  </label>
-                )}
-              </div>
-            ))}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.preview!}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onImageRemove(item.index)}
+                        className="focus-ring absolute right-0.5 top-0.5 rounded-full bg-background/85 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
+                        aria-label={t("removeImageAria")}
+                      >
+                        <X className="size-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <p>{t("step3ImagesHint")}</p>
+            </div>
           </div>
         </div>
 
-        <div className="space-y-4 rounded-lg bg-muted/10 px-4 py-4">
+        <div className="space-y-4 rounded-lg border bg-muted/20 px-4 py-4">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3PageTitle")}
           </h2>
@@ -412,12 +436,19 @@ const Step3Card = memo(function Step3Card({
           </Select>
           {linkChoice === "existing" && (
             <div className="space-y-2">
+              <label
+                htmlFor="proposition-page-search"
+                className="text-sm font-medium text-foreground"
+              >
+                {t("step3PageSearchLabel")}
+              </label>
               <Input
                 id="proposition-page-search"
                 name="pageSearch"
                 value={pageQuery}
                 onChange={(event) => onPageQueryChange(event.target.value)}
                 placeholder={t("step3PageSearchPlaceholder")}
+                className="h-11"
               />
               {pageLoading && (
                 <p className="text-sm text-muted-foreground">
@@ -476,25 +507,34 @@ const Step3Card = memo(function Step3Card({
           )}
         </div>
 
-        <div className="space-y-4 rounded-lg bg-muted/10 px-4 py-4">
+        <div className="space-y-4 rounded-lg border bg-muted/20 px-4 py-4">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3CategoryTitle")}
           </h2>
           <Popover open={categoryOpen} onOpenChange={onCategoryOpenChange}>
             <PopoverAnchor asChild>
-              <Input
-                id="proposition-category"
-                name="category"
-                value={categoryOpen ? categoryQuery : selectedLabel}
-                onChange={(e) => {
-                  const value = e.target.value
-                  onCategoryQueryChange(value)
-                  if (!value.trim()) onCategorySelect(null, "", "")
-                  if (!categoryOpen) onCategoryOpenChange(true)
-                }}
-                onFocus={() => onCategoryOpenChange(true)}
-                placeholder={t("step3CategoryPlaceholder")}
-              />
+              <div className="space-y-2">
+                <label
+                  htmlFor="proposition-category"
+                  className="text-sm font-medium text-foreground"
+                >
+                  {t("step3CategoryLabel")}
+                </label>
+                <Input
+                  id="proposition-category"
+                  name="category"
+                  value={categoryOpen ? categoryQuery : selectedLabel}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    onCategoryQueryChange(value)
+                    if (!value.trim()) onCategorySelect(null, "", "")
+                    if (!categoryOpen) onCategoryOpenChange(true)
+                  }}
+                  onFocus={() => onCategoryOpenChange(true)}
+                  placeholder={t("step3CategoryPlaceholder")}
+                  className="h-11"
+                />
+              </div>
             </PopoverAnchor>
             <PopoverContent className="max-h-80 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1">
               <div className="space-y-0.5">
@@ -571,7 +611,7 @@ const Step3Card = memo(function Step3Card({
           </Popover>
         </div>
 
-        <div className="space-y-4 rounded-lg bg-muted/10 px-4 py-4">
+        <div className="space-y-4 rounded-lg border bg-muted/20 px-4 py-4">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3NotificationsTitle")}
           </h2>
@@ -618,7 +658,7 @@ const Step3Card = memo(function Step3Card({
         </div>
 
         {submitError && <p className="text-sm text-destructive">{submitError}</p>}
-        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-between">
+        <div className="hidden flex-col items-stretch gap-3 sm:flex sm:flex-row sm:justify-between">
           <Button
             variant="ghost"
             onClick={onReturnHome}
@@ -635,8 +675,7 @@ const Step3Card = memo(function Step3Card({
             {submitLoading ? tCommon("submitting") : t("submitButton")}
           </Button>
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 })
 
@@ -712,6 +751,24 @@ export default function CreatePropositionClient({
   }, [previewUrls])
 
   const trimmedTitle = useMemo(() => title.trim(), [title])
+  const stepMeta = useMemo(() => {
+    if (step === 1) {
+      return {
+        title: t("step1Title"),
+        description: t("step1Description"),
+      }
+    }
+    if (step === 2) {
+      return {
+        title: t("step2Title"),
+        description: t("step2Description"),
+      }
+    }
+    return {
+      title: t("step3Title"),
+      description: t("step3Overview"),
+    }
+  }, [step, t])
 
   const resetSimilarState = useCallback(() => {
     setSimilarResults([])
@@ -860,7 +917,7 @@ export default function CreatePropositionClient({
     }, 300)
 
     return () => clearTimeout(handle)
-  }, [step, trimmedTitle])
+  }, [step, t, trimmedTitle])
 
   // page search handled by usePageSearch hook
 
@@ -970,30 +1027,54 @@ export default function CreatePropositionClient({
 
     router.push(`/propositions/${data.id}`)
   }, [
+    category,
     description,
     imageFiles,
     linkChoice,
+    locale,
     notifyComments,
     notifySolutions,
     notifyVolunteers,
+    pathname,
     router,
+    searchParams,
     selectedPage,
+    subCategory,
+    t,
     trimmedTitle,
+    universe,
   ])
 
   return (
-    <div className="min-h-screen bg-muted/40 px-6 py-16">
+    <div className="min-h-screen bg-muted/40 px-6 py-16 pb-24 sm:pb-16">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <div className="space-y-2">
           <Link
             href="/"
-            className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            className="link-nav hidden w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground sm:inline-flex"
           >
           ← {tCommon("back")}
           </Link>
           <h1 className="text-3xl font-semibold tracking-tight text-foreground">
           {t("pageTitle")}
           </h1>
+        </div>
+
+        <div className="space-y-2">
+          <div className="grid grid-cols-3 gap-2">
+            {[1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className={
+                  index <= step
+                    ? "h-1.5 rounded-full bg-primary"
+                    : "h-1.5 rounded-full bg-muted"
+                }
+              />
+            ))}
+          </div>
+          <p className="text-sm font-semibold text-foreground">{stepMeta.title}</p>
+          <p className="text-sm text-muted-foreground">{stepMeta.description}</p>
         </div>
 
         {step === 1 && (
@@ -1063,6 +1144,65 @@ export default function CreatePropositionClient({
           />
         )}
       </div>
+      {step === 1 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={handleReturnHome}
+              className="min-h-[44px] flex-1"
+            >
+              {tCommon("back")}
+            </Button>
+            <Button
+              onClick={() => goToStep(2)}
+              className="min-h-[44px] flex-[1.4]"
+              disabled={!trimmedTitle}
+            >
+              {tCommon("continue")}
+            </Button>
+          </div>
+        </div>
+      )}
+      {step === 2 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={() => goToStep(1)}
+              className="min-h-[44px] flex-1"
+            >
+              {tCommon("back")}
+            </Button>
+            <Button
+              onClick={() => goToStep(3)}
+              className="min-h-[44px] flex-[1.4]"
+            >
+              {tCommon("continue")}
+            </Button>
+          </div>
+        </div>
+      )}
+      {step === 3 && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+            <Button
+              variant="ghost"
+              onClick={handleReturnHome}
+              className="min-h-[44px] flex-1"
+            >
+              {tCommon("back")}
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              className="min-h-[44px] flex-[1.4]"
+              disabled={!canSubmit || submitLoading}
+            >
+              {submitLoading ? tCommon("submitting") : t("submitButton")}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

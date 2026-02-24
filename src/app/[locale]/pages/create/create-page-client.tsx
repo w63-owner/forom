@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   Command,
   CommandGroup,
@@ -308,19 +307,25 @@ export function CreatePageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40 px-6 py-16">
+    <div className="min-h-screen bg-muted/40 px-6 py-16 pb-24 sm:pb-16">
       <div className="mx-auto w-full max-w-3xl space-y-3">
         <Link
           href="/"
-          className="link-nav inline-flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="link-nav hidden w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground sm:inline-flex"
         >
           ← {tCommon("back")}
         </Link>
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
+            {t("title")}
+          </h1>
+          <p className="text-sm text-muted-foreground">{t("parentHint")}</p>
+        </div>
+        <div className="space-y-4 px-6 py-2">
+            <div className="space-y-2">
+              <label htmlFor="page-name" className="text-sm font-medium text-foreground">
+                {t("nameLabel")}
+              </label>
             <Input
               id="page-name"
               name="name"
@@ -331,15 +336,27 @@ export function CreatePageClient() {
                 if (successMessage) setSuccessMessage(null)
               }}
               placeholder={t("namePlaceholder")}
+              className="h-11"
             />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="page-description" className="text-sm font-medium text-foreground">
+                {t("descriptionLabel")}
+              </label>
             <Textarea
               id="page-description"
               name="description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder={t("descriptionPlaceholder")}
-              rows={6}
+              rows={3}
+              className="min-h-[88px]"
             />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="page-category" className="text-sm font-medium text-foreground">
+                {t("categoryLabel")}
+              </label>
             <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
               <PopoverAnchor asChild>
                 <Input
@@ -358,6 +375,7 @@ export function CreatePageClient() {
                   }}
                   onFocus={() => setCategoryOpen(true)}
                   placeholder={t("categoryPlaceholder")}
+                  className="h-11"
                 />
               </PopoverAnchor>
               <PopoverContent className="max-h-80 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-0">
@@ -385,7 +403,11 @@ export function CreatePageClient() {
                 </Command>
               </PopoverContent>
             </Popover>
+            </div>
             <div className="space-y-2">
+              <label htmlFor="page-parent-query" className="text-sm font-medium text-foreground">
+                {t("parentLabel")}
+              </label>
               <Popover open={parentOpen} onOpenChange={setParentOpen}>
                 <PopoverAnchor asChild>
                   <Input
@@ -404,6 +426,7 @@ export function CreatePageClient() {
                     }}
                     onFocus={() => setParentOpen(Boolean(parentQueryInput.trim()))}
                     placeholder={t("parentPlaceholder")}
+                    className="h-11"
                   />
                 </PopoverAnchor>
                 {parentQueryInput.trim() !== "" && (
@@ -549,7 +572,7 @@ export function CreatePageClient() {
             {successMessage && (
               <p className="text-sm text-muted-foreground">{successMessage}</p>
             )}
-            <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
+            <div className="hidden flex-col items-stretch gap-3 sm:flex sm:flex-row sm:justify-end">
               <Button
                 onClick={handleSubmit}
                 disabled={loading || !name.trim()}
@@ -557,8 +580,25 @@ export function CreatePageClient() {
                 {loading ? tCommon("saving") : t("createButton")}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+      </div>
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden">
+        <div className="mx-auto flex w-full max-w-3xl items-center gap-3">
+          <Button
+            variant="ghost"
+            onClick={() => router.push("/")}
+            className="min-h-[44px] flex-1"
+          >
+            {tCommon("back")}
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading || !name.trim()}
+            className="min-h-[44px] flex-[1.4]"
+          >
+            {loading ? tCommon("saving") : t("createButton")}
+          </Button>
+        </div>
       </div>
     </div>
   )

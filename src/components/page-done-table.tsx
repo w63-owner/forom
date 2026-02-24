@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseClient } from "@/utils/supabase/client"
-import { getStatusKey } from "@/lib/status-labels"
+import { getStatusKey, getStatusToneClass } from "@/lib/status-labels"
 
 type DoneItem = {
   id: string
@@ -121,7 +121,12 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
                           ? new Date(item.created_at).toLocaleDateString()
                           : "—"}
                       </span>
-                      <Badge variant="secondary">{tStatus(getStatusKey("Done"))}</Badge>
+                      <Badge
+                        variant="outline"
+                        className={getStatusToneClass("Done")}
+                      >
+                        {tStatus(getStatusKey("Done"))}
+                      </Badge>
                     </div>
                   </div>
               </td>
@@ -131,7 +136,12 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
                   : "—"}
               </td>
                 <td className="hidden px-4 py-3 text-right md:table-cell">
-                <Badge variant="secondary">{tStatus(getStatusKey("Done"))}</Badge>
+                <Badge
+                  variant="outline"
+                  className={getStatusToneClass("Done")}
+                >
+                  {tStatus(getStatusKey("Done"))}
+                </Badge>
               </td>
             </tr>
           ))}

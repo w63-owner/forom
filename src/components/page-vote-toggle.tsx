@@ -72,7 +72,7 @@ export function PageVoteToggle({
     } catch (error) {
       const description =
         error instanceof AsyncTimeoutError
-          ? "Request timed out. Please try again."
+          ? tVote("voteTimeout")
           : error instanceof Error
             ? error.message
             : undefined
@@ -91,7 +91,7 @@ export function PageVoteToggle({
         hasVoted={hasVoted}
         loading={loading}
         onClick={toggleVote}
-        ariaLabel={hasVoted ? tVote("voteRecordedTitle") : tCommon("vote")}
+        ariaLabel={hasVoted ? tVote("voteRemovedTitle") : tCommon("vote")}
       />
     </div>
   )

@@ -13,7 +13,7 @@ import {
 } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
-import { getStatusKey } from "@/lib/status-labels"
+import { getStatusKey, getStatusToneClass } from "@/lib/status-labels"
 import { getCategoryI18nKey, getSubCategoryI18nKey } from "@/lib/discover-categories"
 import type { Universe } from "@/types/schema"
 
@@ -410,7 +410,10 @@ export function DiscoverPropositionsTable({
                             ) : null
                           })()}
                           <div className="flex h-7 items-center">
-                            <Badge variant="outline">
+                            <Badge
+                              variant="outline"
+                              className={getStatusToneClass(item.status)}
+                            >
                               {tStatus(getStatusKey(item.status))}
                             </Badge>
                           </div>
@@ -461,7 +464,10 @@ export function DiscoverPropositionsTable({
                     )}
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
-                    <Badge variant="outline">
+                    <Badge
+                      variant="outline"
+                      className={getStatusToneClass(item.status)}
+                    >
                       {tStatus(getStatusKey(item.status))}
                     </Badge>
                   </td>

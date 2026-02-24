@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
 import { PagePropositionsTable } from "@/components/page-propositions-table"
+import { compareStatuses } from "@/lib/status-labels"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 type Props = {
@@ -66,7 +67,9 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
 
   let propositionQuery = supabase
     .from("propositions")
-    .select("id, title, description, status, votes_count, created_at")
+    .select(
+      "id, title, description, status, votes_count, created_at, users!author_id(username, email, avatar_url)"
+    )
     .eq("page_id", page.id)
 
   if (status) {
@@ -84,10 +87,7 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
   const { data: propositions } = await propositionQuery.limit(limit)
   const sortedPropositions = [...(propositions ?? [])].sort((a, b) => {
     if (statusSort === "status") {
-      const statusA = a.status ?? "Open"
-      const statusB = b.status ?? "Open"
-      const compare = statusA.localeCompare(statusB)
-      return statusOrder === "asc" ? compare : -compare
+      return compareStatuses(a.status, b.status, statusOrder)
     }
     return 0
   })
@@ -157,6 +157,14 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
                 title: string | null
                 status: string | null
                 votes_count: number | null
+                users?:
+                  | { username: string | null; email: string | null; avatar_url?: string | null }
+                  | {
+                      username: string | null
+                      email: string | null
+                      avatar_url?: string | null
+                    }[]
+                  | null
               }[]}
               initialVotedIds={initialVotedIds}
               query={query}

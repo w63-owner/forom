@@ -14,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea"
 import { PageVerificationRequest } from "@/components/page-verification-request"
 import { ProfileNotifications } from "@/components/profile-notifications"
-import { getStatusKey } from "@/lib/status-labels"
+import { getStatusKey, getStatusToneClass } from "@/lib/status-labels"
 
 type Profile = {
   username: string | null
@@ -373,7 +373,10 @@ export function ProfileShell({
                         {tCommon("replies")}
                       </span>
                       <span>•</span>
-                      <Badge variant="secondary">
+                      <Badge
+                        variant="outline"
+                        className={getStatusToneClass(item.status)}
+                      >
                         {tStatus(getStatusKey(item.status))}
                       </Badge>
                     </div>

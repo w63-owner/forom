@@ -10,7 +10,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { getStatusKey, STATUS_VALUES } from "@/lib/status-labels"
+import {
+  getStatusKey,
+  getStatusToneClass,
+  normalizeStatus,
+  STATUS_VALUES,
+} from "@/lib/status-labels"
 
 type Props = {
   propositionId: string
@@ -99,7 +104,8 @@ export function PropositionStatusBadge({
               disabled={loading}
               aria-label={tStatus(getStatusKey(status))}
               className={cn(
-                "w-fit cursor-pointer gap-1 transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-70",
+                "focus-ring min-h-[44px] w-fit cursor-pointer gap-1 transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-70",
+                getStatusToneClass(status),
                 open && "bg-accent"
               )}
             >
@@ -117,7 +123,7 @@ export function PropositionStatusBadge({
                   onClick={() => handleSelect(option)}
                   disabled={loading}
                   className={cn(
-                    "w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
+                    "focus-ring min-h-[44px] w-full rounded-md px-3 py-2 text-left text-sm transition-colors hover:bg-accent",
                     status === option && "bg-accent font-medium"
                   )}
                 >
@@ -132,8 +138,11 @@ export function PropositionStatusBadge({
   }
 
   return (
-    <Badge variant="outline" className="w-fit">
-      {tStatus(getStatusKey(status))}
+    <Badge
+      variant="outline"
+      className={cn("w-fit", getStatusToneClass(normalizeStatus(status)))}
+    >
+      {tStatus(getStatusKey(normalizeStatus(status)))}
     </Badge>
   )
 }

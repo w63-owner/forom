@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
@@ -51,14 +52,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false)
   const [mode, setModeState] = useState<AuthModalMode>("signup")
   const [nextPath, setNextPath] = useState("/")
-  useEffect(() => {
-    const queryMode = normalizeAuthMode(searchParams.get(AUTH_QUERY_KEY))
-    const queryNext = sanitizeNextPath(searchParams.get(NEXT_QUERY_KEY))
-    if (!queryMode) return
-    setModeState(queryMode)
-    setNextPath(queryNext)
-    setIsOpen(true)
-  }, [searchParams])
+  const finalizeInFlightRef = useRef(false)
 
   const refreshOnboardingState = useCallback(async () => {
     try {
@@ -104,12 +98,68 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
     }
   }, [locale, pathname, router])
 
+  const finalizeSignedIn = useCallback(
+    (requestedNextPath?: string) => {
+      if (finalizeInFlightRef.current) return
+      finalizeInFlightRef.current = true
+      const safeNext = sanitizeNextPath(
+        requestedNextPath ?? searchParams.get(NEXT_QUERY_KEY) ?? nextPath
+      )
+      setIsOpen(false)
+      const nextParams = new URLSearchParams(searchParams.toString())
+      nextParams.delete(AUTH_QUERY_KEY)
+      nextParams.delete(NEXT_QUERY_KEY)
+      updateUrl(pathname || "/", nextParams, router)
+      if (safeNext !== (pathname || "/")) {
+        router.replace(safeNext, { scroll: false })
+      }
+      void refreshOnboardingState()
+    },
+    [nextPath, pathname, refreshOnboardingState, router, searchParams]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    const syncQueryModal = async () => {
+      const queryMode = normalizeAuthMode(searchParams.get(AUTH_QUERY_KEY))
+      const queryNext = sanitizeNextPath(searchParams.get(NEXT_QUERY_KEY))
+      if (!queryMode) return
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        try {
+          const { data } = await supabase.auth.getSession()
+          if (!cancelled && data.session?.user) {
+            finalizeSignedIn(queryNext)
+            return
+          }
+        } catch {
+          // Ignore session probe failures and continue with modal opening.
+        }
+      }
+      if (cancelled) return
+      finalizeInFlightRef.current = false
+      setModeState(queryMode)
+      setNextPath(queryNext)
+      setIsOpen(true)
+    }
+    void syncQueryModal()
+    return () => {
+      cancelled = true
+    }
+  }, [finalizeSignedIn, searchParams])
+
   useEffect(() => {
     const supabase = getSupabaseClient()
     if (!supabase) return
     void refreshOnboardingState()
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: subscription } = supabase.auth.onAuthStateChange((event, session) => {
       if (!session?.user) {
+        finalizeInFlightRef.current = false
+        return
+      }
+      const hasAuthQuery = normalizeAuthMode(searchParams.get(AUTH_QUERY_KEY)) != null
+      if (isOpen || hasAuthQuery || event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+        finalizeSignedIn()
         return
       }
       void refreshOnboardingState()
@@ -117,10 +167,11 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.subscription.unsubscribe()
     }
-  }, [refreshOnboardingState])
+  }, [finalizeSignedIn, isOpen, refreshOnboardingState, searchParams])
 
   const openAuthModal = useCallback(
     (requestedMode: AuthModalMode = "signup", requestedNextPath?: string) => {
+      finalizeInFlightRef.current = false
       const safeNext = sanitizeNextPath(requestedNextPath ?? `${pathname || "/"}`)
       setModeState(requestedMode)
       setNextPath(safeNext)
@@ -135,6 +186,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   )
 
   const closeAuthModal = useCallback(() => {
+    finalizeInFlightRef.current = false
     setIsOpen(false)
     const nextParams = new URLSearchParams(searchParams.toString())
     nextParams.delete(AUTH_QUERY_KEY)
@@ -180,9 +232,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
           setIsOpen(true)
         }}
         onModeChange={setMode}
-        onSignedIn={() => {
-          void refreshOnboardingState()
-        }}
+        onSignedIn={finalizeSignedIn}
       />
     </AuthModalContext.Provider>
   )

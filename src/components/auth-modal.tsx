@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -36,10 +35,16 @@ type AuthModalProps = {
   nextPath: string
   onOpenChange: (nextOpen: boolean) => void
   onModeChange: (mode: AuthModalMode) => void
-  onSignedIn?: () => void
+  onSignedIn?: (nextPathOverride?: string) => void
 }
 
 type OtpVerifyType = "signup" | "email"
+type AuthFlowPhase =
+  | "idle"
+  | "submitting_credentials"
+  | "awaiting_session_confirmation"
+  | "authenticated"
+  | "error"
 
 export function AuthModal({
   open,
@@ -49,7 +54,6 @@ export function AuthModal({
   onModeChange,
   onSignedIn,
 }: AuthModalProps) {
-  const router = useRouter()
   const locale = useLocale()
   const t = useTranslations("Auth")
   const tCommon = useTranslations("Common")
@@ -61,7 +65,6 @@ export function AuthModal({
   const [otpEmail, setOtpEmail] = useState("")
   const [otpCode, setOtpCode] = useState("")
   const [otpVerifyType, setOtpVerifyType] = useState<OtpVerifyType>("signup")
-  const [otpSentAt, setOtpSentAt] = useState<number | null>(null)
   const [otpExpiresAt, setOtpExpiresAt] = useState<number | null>(null)
   const [otpResendUntil, setOtpResendUntil] = useState<number | null>(null)
   const [otpBlockedUntil, setOtpBlockedUntil] = useState<number | null>(null)
@@ -70,6 +73,7 @@ export function AuthModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
+  const [phase, setPhase] = useState<AuthFlowPhase>("idle")
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null)
   const [cooldownSeconds, setCooldownSeconds] = useState<number | null>(null)
 
@@ -177,12 +181,12 @@ export function AuthModal({
       setOtpEmail("")
       setOtpCode("")
       setOtpVerifyType("signup")
-      setOtpSentAt(null)
       setOtpExpiresAt(null)
       setOtpResendUntil(null)
       setOtpBlockedUntil(null)
       setOtpAttempts(0)
       setOtpClock(Date.now())
+      setPhase("idle")
     }
   }, [open])
 
@@ -192,13 +196,53 @@ export function AuthModal({
       setOtpCode("")
       setOtpEmail("")
       setOtpVerifyType("signup")
-      setOtpSentAt(null)
       setOtpExpiresAt(null)
       setOtpResendUntil(null)
       setOtpBlockedUntil(null)
       setOtpAttempts(0)
     }
   }, [mode])
+
+  const confirmSessionAfterTimeout = async () => {
+    const supabase = getSupabaseClient()
+    if (!supabase) return false
+    const delaysMs = [300, 600, 1000, 1500, 2000, 2500, 3000, 4000, 5000]
+    for (let index = 0; index < delaysMs.length; index += 1) {
+      if (index > 0) {
+        await new Promise<void>((resolve) =>
+          window.setTimeout(resolve, delaysMs[index - 1])
+        )
+      }
+      try {
+        const { data, error: sessionError } = await withTimeout(
+          supabase.auth.getSession(),
+          5000,
+          "getSession confirm"
+        )
+        if (!sessionError && data.session?.user) {
+          return true
+        }
+      } catch {
+        // Ignore local session probe errors and fallback to server check.
+      }
+      try {
+        const response = await withTimeout(
+          fetch("/api/auth/session", { cache: "no-store" }),
+          7000,
+          "session endpoint confirm"
+        )
+        const payload = (await response.json().catch(() => null)) as
+          | { user?: { id?: string | null } | null }
+          | null
+        if (response.ok && payload?.user?.id) {
+          return true
+        }
+      } catch {
+        // Ignore transient API probe failures and keep retrying.
+      }
+    }
+    return false
+  }
 
   const handleEmailAuth = async (requestedMode: AuthModalMode) => {
     const supabase = getSupabaseClient()
@@ -210,6 +254,7 @@ export function AuthModal({
     setLoading(true)
     setError(null)
     setInfo(null)
+    setPhase("submitting_credentials")
     const tryRecoverAuthenticatedSession = async () => {
       // Network can be slow: sign-in may succeed after the UI timeout.
       // Probe session a few times before surfacing a hard timeout error.
@@ -253,15 +298,15 @@ export function AuthModal({
           if (signInError.message === "email rate limit exceeded") {
             startCooldown(120)
           }
+          setPhase("error")
           return
         }
         showToast({
           variant: "success",
           title: t("signedInTitle"),
         })
-        onOpenChange(false)
-        onSignedIn?.()
-        router.push(safeNextPath)
+        setPhase("authenticated")
+        onSignedIn?.(safeNextPath)
         return
       }
 
@@ -292,6 +337,7 @@ export function AuthModal({
         if (signUpError.message === "email rate limit exceeded") {
           startCooldown(120)
         }
+        setPhase("error")
         return
       }
 
@@ -302,11 +348,11 @@ export function AuthModal({
       setOtpVerifyType("signup")
       setOtpAttempts(0)
       setOtpBlockedUntil(null)
-      setOtpSentAt(now)
       setOtpExpiresAt(now + OTP_EXPIRY_MINUTES * 60 * 1000)
       setOtpResendUntil(now + OTP_RESEND_COOLDOWN_SECONDS * 1000)
       setStep("verify_code")
       setInfo(null)
+      setPhase("idle")
       showToast({
         variant: "success",
         title: t("accountCreatedTitle"),
@@ -317,22 +363,33 @@ export function AuthModal({
       if (isAbortLikeError(err)) return
       if (err instanceof Error && err.message.includes("timeout")) {
         if (requestedMode === "login") {
-          const recovered = await tryRecoverAuthenticatedSession()
+          setPhase("awaiting_session_confirmation")
+          setInfo(t("signInCheckingSession"))
+          const recovered =
+            (await tryRecoverAuthenticatedSession()) ||
+            (await confirmSessionAfterTimeout())
           if (recovered) {
             showToast({
               variant: "success",
               title: t("signedInTitle"),
+              description: t("signInSessionRecovered"),
             })
-            onOpenChange(false)
-            onSignedIn?.()
-            router.push(safeNextPath)
+            setPhase("authenticated")
+            onSignedIn?.(safeNextPath)
             return
           }
         }
-        setError(requestedMode === "login" ? t("signInTimeout") : t("verifyTimeout"))
+        setInfo(null)
+        setError(
+          requestedMode === "login"
+            ? t("signInSessionNotConfirmed")
+            : t("verifyTimeout")
+        )
+        setPhase("error")
         return
       }
       setError(t("genericError"))
+      setPhase("error")
       showToast({
         variant: "error",
         title:
@@ -412,18 +469,19 @@ export function AuthModal({
       if (typeof window !== "undefined") {
         window.sessionStorage.setItem(FORCE_ONBOARDING_WELCOME_KEY, "1")
       }
-      onOpenChange(false)
-      onSignedIn?.()
-      router.push(
+      setPhase("authenticated")
+      onSignedIn?.(
         `/${locale}/onboarding?welcome=1&next=${encodeURIComponent(safeNextPath)}`
       )
     } catch (err) {
       if (isAbortLikeError(err)) return
       if (err instanceof Error && err.message.includes("timeout")) {
         setError(t("otpVerifyTimeout"))
+        setPhase("error")
         return
       }
       setError(t("genericError"))
+      setPhase("error")
     } finally {
       setLoading(false)
     }
@@ -478,7 +536,6 @@ export function AuthModal({
         setOtpVerifyType("signup")
       }
       const now = Date.now()
-      setOtpSentAt(now)
       setOtpExpiresAt(now + OTP_EXPIRY_MINUTES * 60 * 1000)
       setOtpResendUntil(now + OTP_RESEND_COOLDOWN_SECONDS * 1000)
       setInfo(null)
@@ -719,7 +776,13 @@ export function AuthModal({
               disabled={loading || !canSubmit}
               className="h-11 w-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
             >
-              {loading ? tCommon("saving") : mode === "signup" ? t("createAccount") : t("signInButton")}
+              {loading
+                ? phase === "awaiting_session_confirmation"
+                  ? t("signInFinalizing")
+                  : tCommon("saving")
+                : mode === "signup"
+                  ? t("createAccount")
+                  : t("signInButton")}
             </Button>
           ) : (
             <>

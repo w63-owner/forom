@@ -80,7 +80,7 @@ export default async function Home({ params }: Props) {
       <div className="absolute right-6 top-6 flex items-center gap-2">
         <AuthStatus initialSession={initialSession} />
       </div>
-      <div className="flex flex-1 flex-col items-center px-6 py-16">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <main className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
         <div className="space-y-3">
           <Link

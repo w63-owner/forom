@@ -13,7 +13,11 @@ import {
 } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
-import { getStatusKey } from "@/lib/status-labels"
+import {
+  compareStatuses,
+  getStatusKey,
+  getStatusToneClass,
+} from "@/lib/status-labels"
 
  type PageMeta = { name?: string | null; slug?: string | null }
 
@@ -150,10 +154,7 @@ import { getStatusKey } from "@/lib/status-labels"
           return pageOrder === "asc" ? compare : -compare
         }
         if (pageSort === "status") {
-          const statusA = a.status ?? "Open"
-          const statusB = b.status ?? "Open"
-          const compare = statusA.localeCompare(statusB)
-          return statusOrder === "asc" ? compare : -compare
+          return compareStatuses(a.status, b.status, statusOrder)
         }
         return 0
       })
@@ -420,7 +421,12 @@ import { getStatusKey } from "@/lib/status-labels"
                             <span>—</span>
                           )}
                           <div className="flex h-7 items-center">
-                            <Badge variant="outline">{tStatus(getStatusKey(item.status))}</Badge>
+                            <Badge
+                              variant="outline"
+                              className={getStatusToneClass(item.status)}
+                            >
+                              {tStatus(getStatusKey(item.status))}
+                            </Badge>
                           </div>
                         </div>
                       </div>
@@ -444,7 +450,12 @@ import { getStatusKey } from "@/lib/status-labels"
                     )}
                   </td>
                   <td className="hidden px-4 py-3 md:table-cell">
-                    <Badge variant="outline">{tStatus(getStatusKey(item.status))}</Badge>
+                    <Badge
+                      variant="outline"
+                      className={getStatusToneClass(item.status)}
+                    >
+                      {tStatus(getStatusKey(item.status))}
+                    </Badge>
                   </td>
                   <td className="hidden px-4 py-3 text-right md:table-cell">
                     <PageVoteToggle

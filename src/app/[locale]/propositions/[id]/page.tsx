@@ -17,6 +17,7 @@ import {
   PropositionVolunteerButton,
 } from "@/components/proposition-volunteers"
 import { BackLink } from "@/components/back-link"
+import { DEFAULT_STATUS } from "@/lib/status-labels"
 import { relativeTime } from "@/lib/utils"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import PropositionDetailClient from "./proposition-detail-client"
@@ -219,7 +220,7 @@ export default async function PropositionDetails({ params }: Props) {
                   ))}
                 <PropositionStatusBadge
                   propositionId={data.id}
-                  initialStatus={data.status ?? "Open"}
+                  initialStatus={data.status ?? DEFAULT_STATUS}
                   pageOwnerId={pageData?.owner_id ?? null}
                   currentUserId={currentUser?.id ?? null}
                 />

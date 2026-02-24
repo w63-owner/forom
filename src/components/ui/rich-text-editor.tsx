@@ -5,7 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react"
 import StarterKit from "@tiptap/starter-kit"
 import Link from "@tiptap/extension-link"
 import Placeholder from "@tiptap/extension-placeholder"
-import Image from "@tiptap/extension-image"
+import Underline from "@tiptap/extension-underline"
 import { cn } from "@/lib/utils"
 
 type Props = {
@@ -24,13 +24,8 @@ export function RichTextEditor({
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
-      StarterKit.configure({
-        link: false,
-        underline: false,
-      }),
-      Image.configure({
-        allowBase64: false,
-      }),
+      StarterKit.configure({ link: false }),
+      Underline,
       Link.configure({
         openOnClick: false,
         autolink: true,
@@ -48,7 +43,7 @@ export function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none min-h-[8rem] rounded-md border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring/50 dark:prose-invert",
+          "prose prose-sm max-w-none min-h-[8rem] bg-transparent px-3 py-2 text-base outline-none focus-visible:ring-2 focus-visible:ring-primary/30 dark:prose-invert [&_h2]:mt-4 [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mt-3 [&_h3]:text-lg [&_h3]:font-semibold [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_a]:text-primary [&_a]:underline",
         "data-placeholder": placeholder ?? "",
       },
     },
@@ -62,11 +57,11 @@ export function RichTextEditor({
 
   if (!editor) return null
 
-  const toggleLink = () => {
+  const setLink = () => {
     const previousUrl = editor.getAttributes("link").href as string | undefined
-    const url = window.prompt("URL du lien", previousUrl ?? "")
+    const url = window.prompt("URL", previousUrl ?? "")
     if (url === null) return
-    if (!url) {
+    if (url === "") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run()
       return
     }
@@ -75,7 +70,9 @@ export function RichTextEditor({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex flex-wrap items-center gap-2">
+      <p className="text-sm font-medium text-foreground">Description</p>
+      <div className="rounded-md border border-input p-2">
+        <div className="flex flex-wrap items-center gap-2 border-b border-input pb-2">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -158,7 +155,7 @@ export function RichTextEditor({
         </button>
         <button
           type="button"
-          onClick={toggleLink}
+          onClick={setLink}
           className={cn(
             "rounded-md border border-input px-2 py-1 text-xs",
             editor.isActive("link") && "bg-muted"
@@ -166,8 +163,39 @@ export function RichTextEditor({
         >
           Lien
         </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().unsetLink().run()}
+          className="rounded-md border border-input px-2 py-1 text-xs"
+        >
+          Unlink
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().clearNodes().unsetAllMarks().run()}
+          className="rounded-md border border-input px-2 py-1 text-xs"
+        >
+          Clear
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().undo().run()}
+          className="rounded-md border border-input px-2 py-1 text-xs"
+        >
+          Undo
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().redo().run()}
+          className="rounded-md border border-input px-2 py-1 text-xs"
+        >
+          Redo
+        </button>
+        </div>
+        <div className="pt-2">
+          <EditorContent editor={editor} />
+        </div>
       </div>
-      <EditorContent editor={editor} />
     </div>
   )
 }

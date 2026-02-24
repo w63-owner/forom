@@ -6,11 +6,13 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PropositionStatusBadge } from "@/components/proposition-status-badge"
+import { Avatar } from "@/components/ui/avatar"
 import {
   AsyncTimeoutError,
   fetchWithTimeout,
   withRetry,
 } from "@/lib/async-resilience"
+import { compareStatuses, DEFAULT_STATUS } from "@/lib/status-labels"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
@@ -19,6 +21,10 @@ type PropositionItem = {
   title: string | null
   status: string | null
   votes_count: number | null
+  users?:
+    | { username: string | null; email: string | null; avatar_url?: string | null }
+    | { username: string | null; email: string | null; avatar_url?: string | null }[]
+    | null
 }
 
 type Props = {
@@ -75,6 +81,20 @@ export function PagePropositionsTable({
   )
   const [voteCountsById, setVoteCountsById] = useState<Record<string, number>>({})
 
+  useEffect(() => {
+    setItems(initialItems)
+    setHasMore(initialItems.length >= pageSize)
+    setVotedIds(new Set(initialVotedIds ?? []))
+  }, [initialItems, initialVotedIds, pageSize])
+
+  const getAuthorMeta = (item: PropositionItem) => {
+    const users = item.users
+    const author = Array.isArray(users) ? users[0] ?? null : users ?? null
+    const authorName = author?.username || author?.email || "?"
+    const authorAvatar = author?.avatar_url ?? null
+    return { authorName, authorAvatar }
+  }
+
   const loadVotedIds = async (propositionIds: string[]) => {
     if (propositionIds.length === 0) {
       setVotedIds(new Set())
@@ -108,15 +128,6 @@ export function PagePropositionsTable({
     setVotedIds(new Set(payload.votedIds ?? []))
     setVoteCountsById(payload.voteCountsById ?? {})
   }
-
-  useEffect(() => {
-    setItems(initialItems)
-    setHasMore(initialItems.length >= pageSize)
-  }, [initialItems, pageSize])
-
-  useEffect(() => {
-    setVotedIds(new Set(initialVotedIds ?? []))
-  }, [initialVotedIds])
 
   const handleStatusChange = (propositionId: string, newStatus: string) => {
     setItems((prev) =>
@@ -177,10 +188,7 @@ export function PagePropositionsTable({
     () => (list: PropositionItem[]) => {
       if (statusSort === "none") return list
       return [...list].sort((a, b) => {
-        const statusA = a.status ?? "Open"
-        const statusB = b.status ?? "Open"
-        const compare = statusA.localeCompare(statusB)
-        return statusOrder === "asc" ? compare : -compare
+        return compareStatuses(a.status, b.status, statusOrder)
       })
     },
     [statusSort, statusOrder]
@@ -194,7 +202,7 @@ export function PagePropositionsTable({
     setLoadingMore(true)
     let queryBuilder = supabase
       .from("propositions")
-      .select("id, title, status, votes_count, created_at")
+      .select("id, title, status, votes_count, created_at, users!author_id(username, email, avatar_url)")
       .eq("page_id", pageId)
 
     if (status) {
@@ -258,6 +266,9 @@ export function PagePropositionsTable({
           <table className="w-full text-sm">
             <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
               <tr>
+                <th className="w-20 px-0 py-3 text-left font-medium">
+                  <span className="sr-only">Author</span>
+                </th>
                 <th className="px-4 py-3 text-left font-medium">{tCommon("proposition")}</th>
                 <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("status")}</th>
                 <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("votes")}</th>
@@ -265,7 +276,7 @@ export function PagePropositionsTable({
             </thead>
             <tbody>
               <tr>
-                <td colSpan={3} className="px-4 py-6 text-center">
+                <td colSpan={4} className="px-4 py-6 text-center">
                   <div className="flex flex-col items-center justify-center gap-3">
                     <p className="text-sm text-muted-foreground">
                       {emptyStateText ?? tCommon("searchOrAddProposition")}
@@ -305,46 +316,74 @@ export function PagePropositionsTable({
   return (
     <div className="space-y-3">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm" aria-label={tCommon("propositionPlural")}>
           <thead className="hidden bg-muted/50 text-muted-foreground md:table-header-group">
             <tr>
-              <th className="px-4 py-3 text-left font-medium">{tCommon("proposition")}</th>
-              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("status")}</th>
-              <th className="hidden px-4 py-3 text-right font-medium md:table-cell">{tCommon("votes")}</th>
+              <th scope="col" className="w-20 px-0 py-3 text-left font-medium">
+                <span className="sr-only">Author</span>
+              </th>
+              <th scope="col" className="px-4 py-3 text-left font-medium">
+                {tCommon("proposition")}
+              </th>
+              <th
+                scope="col"
+                className="hidden px-4 py-3 text-right font-medium md:table-cell"
+              >
+                {tCommon("status")}
+              </th>
+              <th
+                scope="col"
+                className="hidden px-4 py-3 text-right font-medium md:table-cell"
+              >
+                {tCommon("votes")}
+              </th>
             </tr>
           </thead>
           <tbody>
             {items.map((item) => (
               <tr
                 key={item.id}
-                className="border-t border-border transition-colors duration-150 hover:bg-muted/30"
+                className="border-t border-border transition-colors duration-150 hover:bg-muted/30 focus-within:bg-muted/30"
               >
-                <td className="px-4 py-3">
+                <td className="w-20 py-[var(--table-row-y)] pl-0 pr-0 align-middle">
+                  {(() => {
+                    const { authorName, authorAvatar } = getAuthorMeta(item)
+                    return (
+                      <Avatar
+                        size="md"
+                        src={authorAvatar}
+                        name={authorName}
+                        className="h-20 w-20 text-lg"
+                      />
+                    )
+                  })()}
+                </td>
+                <td className="table-row-cell">
                   <div className="hidden space-y-2 md:block">
                     <Link
                       href={`${itemLinkPrefix}/${item.id}`}
                       target={itemLinkOpenNewTab ? "_blank" : undefined}
                       rel={itemLinkOpenNewTab ? "noopener noreferrer" : undefined}
-                      className="font-medium text-foreground hover:underline"
+                      className="focus-ring font-semibold text-foreground hover:underline"
                     >
                       {item.title}
                     </Link>
                   </div>
-                  <div className="flex items-center justify-between gap-3 md:hidden">
+                  <div className="flex items-center justify-between gap-4 md:hidden">
                     <div className="min-w-0 space-y-2">
                       <Link
                         href={`${itemLinkPrefix}/${item.id}`}
                         target={itemLinkOpenNewTab ? "_blank" : undefined}
                         rel={itemLinkOpenNewTab ? "noopener noreferrer" : undefined}
-                        className="block font-medium text-foreground hover:underline"
+                        className="focus-ring block font-semibold text-foreground hover:underline"
                       >
                         {item.title}
                       </Link>
                       <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <div className="flex h-7 items-center">
+                        <div className="flex min-h-[44px] items-center">
                           <PropositionStatusBadge
                             propositionId={item.id}
-                            initialStatus={item.status ?? "Open"}
+                            initialStatus={item.status ?? DEFAULT_STATUS}
                             pageOwnerId={pageOwnerId ?? null}
                             currentUserId={currentUserId}
                             onStatusChange={handleStatusChange}
@@ -362,16 +401,16 @@ export function PagePropositionsTable({
                     </div>
                   </div>
                 </td>
-                <td className="hidden px-4 py-3 text-right md:table-cell">
+                <td className="table-row-cell hidden text-right md:table-cell">
                   <PropositionStatusBadge
                     propositionId={item.id}
-                    initialStatus={item.status ?? "Open"}
+                    initialStatus={item.status ?? DEFAULT_STATUS}
                     pageOwnerId={pageOwnerId ?? null}
                     currentUserId={currentUserId}
                     onStatusChange={handleStatusChange}
                   />
                 </td>
-                <td className="hidden px-4 py-3 text-right md:table-cell">
+                <td className="table-row-cell hidden text-right md:table-cell">
                   <PageVoteToggle
                     propositionId={item.id}
                     initialVotes={voteCountsById[item.id] ?? (item.votes_count ?? 0)}

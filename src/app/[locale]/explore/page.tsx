@@ -1,8 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server"
-import { Link } from "@/i18n/navigation"
 import { TopPageHeader } from "@/components/top-page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExploreTopTable } from "@/components/explore-top-table"
+import { compareStatuses } from "@/lib/status-labels"
 import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 import ExploreFilters from "./filters"
 
@@ -151,10 +151,7 @@ export default async function ExplorePage({ params, searchParams }: Props) {
       return pageOrder === "asc" ? compare : -compare
     }
     if (pageSort === "status") {
-      const statusA = a.status ?? "Open"
-      const statusB = b.status ?? "Open"
-      const compare = statusA.localeCompare(statusB)
-      return statusOrder === "asc" ? compare : -compare
+      return compareStatuses(a.status, b.status, statusOrder)
     }
     return 0
   })

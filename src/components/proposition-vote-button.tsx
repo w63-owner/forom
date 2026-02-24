@@ -23,8 +23,9 @@ export function PropositionVoteButton({
       onClick={onClick}
       disabled={loading}
       aria-label={ariaLabel}
+      aria-busy={loading}
       className={[
-        "group inline-flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl border-2 bg-background px-1.5 py-1.5 text-xs font-semibold transition-colors transition-transform duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 md:h-11 md:w-11",
+        "focus-ring group inline-flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl border-2 bg-background px-1.5 py-1.5 text-xs font-semibold transition-colors transition-transform duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 md:h-11 md:w-11",
         hasVoted
           ? "border-emerald-500/40 bg-emerald-50 text-emerald-900 hover:bg-emerald-100 dark:border-emerald-500/50 dark:bg-emerald-950/30 dark:text-emerald-100 dark:hover:bg-emerald-950/40"
           : "border-border text-foreground hover:border-emerald-400/50 hover:bg-emerald-50/40 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-950/20",

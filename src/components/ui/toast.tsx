@@ -143,6 +143,9 @@ function ToastItem({ toast, onClose }: ToastItemProps) {
 
   return (
     <div
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
       className={cn(
         "pointer-events-auto flex w-full items-start gap-3 rounded-lg border px-3 py-2 text-sm shadow-md backdrop-blur-sm",
         "bg-card/95 border-border",
@@ -162,7 +165,8 @@ function ToastItem({ toast, onClose }: ToastItemProps) {
       <button
         type="button"
         onClick={() => onClose(id)}
-        className="mt-0.5 text-xs text-muted-foreground hover:text-foreground"
+        aria-label="Close notification"
+        className="focus-ring mt-0.5 text-xs text-muted-foreground hover:text-foreground"
       >
         ×
       </button>

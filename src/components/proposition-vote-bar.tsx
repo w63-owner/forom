@@ -118,7 +118,7 @@ export function PropositionVoteBar({
     } catch (caughtError) {
       const description =
         caughtError instanceof AsyncTimeoutError
-          ? "Request timed out. Please try again."
+          ? t("voteTimeout")
           : caughtError instanceof Error
             ? caughtError.message
             : undefined
