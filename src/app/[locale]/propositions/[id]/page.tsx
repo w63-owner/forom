@@ -203,7 +203,7 @@ export default async function PropositionDetails({ params }: Props) {
               </div>
             </div>
           <Card>
-            <CardHeader className="space-y-2">
+            <CardHeader className="gap-0 space-y-0">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge className="w-fit" variant="secondary">
                   Proposition
@@ -253,7 +253,7 @@ export default async function PropositionDetails({ params }: Props) {
                 const authorName =
                   author?.username || author?.email || t("anonymous")
                 return (
-                  <div className="flex items-center gap-2.5 text-sm text-muted-foreground">
+                  <div className="mt-1 flex items-center gap-2.5 text-sm text-muted-foreground sm:-mt-1">
                     <Avatar
                       size="lg"
                       src={author?.avatar_url ?? null}
