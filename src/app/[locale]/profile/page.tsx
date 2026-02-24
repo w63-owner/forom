@@ -42,6 +42,18 @@ export default async function ProfilePage({ params }: Props) {
     .eq("id", userData.user.id)
     .maybeSingle()
 
+  const meta = userData.user.user_metadata as
+    | {
+        full_name?: string | null
+        country?: string | null
+        city?: string | null
+        bio?: string | null
+        linkedin?: string | null
+        instagram?: string | null
+        tiktok?: string | null
+      }
+    | undefined
+
   const { count: doneCount } = await supabase
     .from("propositions")
     .select("id", { count: "exact", head: true })
@@ -82,7 +94,31 @@ export default async function ProfilePage({ params }: Props) {
         </Link>
 
         <ProfileShell
-          profile={profile ?? { username: null, email: null, avatar_url: null }}
+          profile={
+            profile
+              ? {
+                  ...profile,
+                  full_name: meta?.full_name ?? null,
+                  country: meta?.country ?? null,
+                  city: meta?.city ?? null,
+                  bio: meta?.bio ?? null,
+                  linkedin: meta?.linkedin ?? null,
+                  instagram: meta?.instagram ?? null,
+                  tiktok: meta?.tiktok ?? null,
+                }
+              : {
+                  username: null,
+                  email: null,
+                  avatar_url: null,
+                  full_name: meta?.full_name ?? null,
+                  country: meta?.country ?? null,
+                  city: meta?.city ?? null,
+                  bio: meta?.bio ?? null,
+                  linkedin: meta?.linkedin ?? null,
+                  instagram: meta?.instagram ?? null,
+                  tiktok: meta?.tiktok ?? null,
+                }
+          }
           userEmailFallback={userData.user.email ?? ""}
           doneCount={doneCount ?? 0}
           ownerId={userData.user.id}

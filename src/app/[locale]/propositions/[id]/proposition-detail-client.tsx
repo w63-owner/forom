@@ -110,17 +110,17 @@ function CommentBlock({
   const username = meta?.username || meta?.email || t("anonymous")
   const isReplying = replyingToId === comment.id
   const indent = depth > 0 ? "pl-6 border-l-2 border-border/60" : ""
-  const contentOffset = !comment.is_solution ? "ml-11" : ""
+  const contentOffset = !comment.is_solution ? "ml-[4.25rem]" : ""
 
   return (
     <div className={`py-3 ${indent}`}>
       {!comment.is_solution && (
         <div className="flex items-start gap-3">
           <Avatar
-            size="md"
+            size="lg"
             src={meta?.avatar_url ?? null}
             name={username}
-            className="mt-0.5 shrink-0"
+            className="mt-0.5 h-14 w-14 shrink-0 text-sm"
           />
           <div className="min-w-0 flex-1">
             <p className="inline-flex items-baseline gap-1.5 text-sm">

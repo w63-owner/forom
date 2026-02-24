@@ -454,7 +454,7 @@
     "supabaseNotConfiguredBody": "Configurez les variables d'environnement Supabase."
   },
   "ProfileNotifications": {
-    "title": "Notifications",
+    "title": "Paramètres de notifications",
     "emptyState": "Vous n'êtes abonné à aucune page ni aucune proposition. Vous serez notifié ici des pages et propositions pour lesquelles vous avez activé les notifications.",
     "subtitle": "Pages et propositions pour lesquelles vous recevez des e-mails. Cliquez sur « Retirer » pour ne plus être notifié.",
     "recentTitle": "Notifications récentes",

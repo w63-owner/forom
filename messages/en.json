@@ -454,7 +454,7 @@
     "supabaseNotConfiguredBody": "Configure the Supabase environment variables."
   },
   "ProfileNotifications": {
-    "title": "Notifications",
+    "title": "Notification settings",
     "emptyState": "You are not subscribed to any page or proposition yet. You will be notified here for pages and propositions you subscribed to.",
     "subtitle": "Pages and propositions you receive emails for. Click \"Remove\" to stop getting notified.",
     "recentTitle": "Recent notifications",

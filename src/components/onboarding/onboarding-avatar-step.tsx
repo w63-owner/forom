@@ -1,6 +1,7 @@
 "use client"
 
-import { Camera, Upload } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Camera, RefreshCw, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -13,14 +14,26 @@ type OnboardingAvatarStepProps = {
   onSkip: () => void
 }
 
-const DEFAULT_AVATARS = [
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=A",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=B",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=C",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=D",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=E",
-  "https://api.dicebear.com/9.x/adventurer/svg?seed=F",
-]
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+function randomSeed(): string {
+  const len = Math.floor(Math.random() * 3) + 1
+  let seed = ""
+  for (let i = 0; i < len; i += 1) {
+    seed += ALPHABET[Math.floor(Math.random() * ALPHABET.length)]
+  }
+  return seed
+}
+
+function buildRandomAvatars(count = 7): string[] {
+  const seeds = new Set<string>()
+  while (seeds.size < count) {
+    seeds.add(randomSeed())
+  }
+  return Array.from(seeds).map(
+    (seed) => `https://api.dicebear.com/9.x/adventurer/svg?seed=${seed}`
+  )
+}
 
 export function OnboardingAvatarStep({
   avatarUrl,
@@ -32,6 +45,15 @@ export function OnboardingAvatarStep({
 }: OnboardingAvatarStepProps) {
   const avatarInitial = (avatarUrl.trim().slice(-1) || "A").toUpperCase()
   const hasSelectedAvatar = avatarUrl.trim().length > 0
+  const [avatarOptions, setAvatarOptions] = useState<string[]>(() => buildRandomAvatars())
+  const [refreshTick, setRefreshTick] = useState(0)
+  const refreshing = useMemo(() => refreshTick > 0, [refreshTick])
+
+  const regenerateAvatars = () => {
+    setRefreshTick((v) => v + 1)
+    setAvatarOptions(buildRandomAvatars())
+    setTimeout(() => setRefreshTick(0), 500)
+  }
 
   return (
     <div className="space-y-7">
@@ -60,8 +82,8 @@ export function OnboardingAvatarStep({
 
       <p className="text-center text-sm text-muted-foreground">Or choose a default avatar</p>
 
-      <div className="flex flex-wrap items-center justify-center gap-3">
-        {DEFAULT_AVATARS.map((url) => {
+      <div className="mx-auto grid w-fit grid-cols-4 justify-items-center gap-2.5 md:flex md:flex-wrap md:items-center md:justify-center md:gap-3">
+        {avatarOptions.map((url) => {
           const selected = avatarUrl === url
           return (
             <button
@@ -77,6 +99,14 @@ export function OnboardingAvatarStep({
             </button>
           )
         })}
+        <button
+          type="button"
+          onClick={regenerateAvatars}
+          aria-label="Generate new avatars"
+          className="inline-flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border bg-background text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+        >
+          <RefreshCw className={cn("size-6", refreshing && "animate-spin")} />
+        </button>
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
