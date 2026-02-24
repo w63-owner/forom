@@ -269,8 +269,9 @@ export function PagePropositionsTable({
     return (
       <div className="space-y-3">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm" data-embed-table="true">
             <thead
+              data-embed-table-header="true"
               className="hidden text-muted-foreground md:table-header-group"
               style={headerColor ? { backgroundColor: headerColor } : undefined}
             >
@@ -330,9 +331,11 @@ export function PagePropositionsTable({
         <table
           className="w-full text-sm"
           aria-label={tCommon("propositionPlural")}
+          data-embed-table="true"
           style={backgroundColor ? { backgroundColor } : undefined}
         >
           <thead
+            data-embed-table-header="true"
             className="hidden text-muted-foreground md:table-header-group"
             style={headerColor ? { backgroundColor: headerColor } : undefined}
           >

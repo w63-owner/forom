@@ -158,7 +158,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
         return
       }
       const hasAuthQuery = normalizeAuthMode(searchParams.get(AUTH_QUERY_KEY)) != null
-      if (isOpen || hasAuthQuery || event === "SIGNED_IN" || event === "INITIAL_SESSION") {
+      if (isOpen || hasAuthQuery || event === "SIGNED_IN") {
         finalizeSignedIn()
         return
       }

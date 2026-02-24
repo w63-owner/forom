@@ -186,7 +186,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
       ? process.env.NEXT_PUBLIC_APP_URL
       : "https://www.forom.app"
-  const embedUrl = `${appUrl}/${locale}/embed/pages/${slug}/propositions?theme=light&limit=10&sort=top&bg=%23f8fafc&header=%23f1f5f9&avatars=1`
+  const embedUrl = `${appUrl}/${locale}/embed/pages/${slug}/propositions?theme=light&limit=10&sort=top&bg=%23ffffff&header=%23ffffff&avatars=1`
 
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
@@ -299,8 +299,8 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     statusOrder={statusOrder ?? null}
                     tab="propositions"
                     embedBaseUrl={isOwner ? embedUrl : null}
-                    backgroundColor="#f8fafc"
-                    headerColor="#f1f5f9"
+                    backgroundColor="#ffffff"
+                    headerColor="#ffffff"
                     showAvatars
                   />
                 </div>

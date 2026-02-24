@@ -834,5 +834,11 @@
     "media": "Media",
     "community": "Community",
     "other": "Other"
+  },
+  "Draft": {
+    "title": "Draft",
+    "subtitle": "Draft space to prepare content before publishing.",
+    "cardTitle": "Page under construction",
+    "cardBody": "Add blocks and content here to test."
   }
 }

@@ -835,5 +835,11 @@
     "media": "Média",
     "community": "Communauté",
     "other": "Autre"
+  },
+  "Draft": {
+    "title": "Draft",
+    "subtitle": "Espace brouillon pour préparer du contenu avant publication.",
+    "cardTitle": "Page en construction",
+    "cardBody": "Ajoute ici les blocs et contenus que tu veux tester."
   }
 }

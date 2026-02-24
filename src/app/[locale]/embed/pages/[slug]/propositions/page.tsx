@@ -48,8 +48,8 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
   const statusOrder = queryParams.statusOrder === "desc" ? "desc" : "asc"
   const theme = queryParams.theme === "dark" ? "dark" : "light"
   const limit = normalizeLimit(queryParams.limit)
-  const backgroundColor = normalizeHexColor(queryParams.bg, "#f8fafc")
-  const headerColor = normalizeHexColor(queryParams.header, "#f1f5f9")
+  const backgroundColor = normalizeHexColor(queryParams.bg, "#ffffff")
+  const headerColor = normalizeHexColor(queryParams.header, "#ffffff")
   const showAvatars = queryParams.avatars !== "0"
 
   const supabase = await getSupabaseServerClient()

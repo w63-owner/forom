@@ -57,8 +57,8 @@ export function PagePropositionSearch({
   const tPage = useTranslations("Page")
   const tPageDashboard = useTranslations("PageDashboard")
   const { showToast } = useToast()
-  const defaultBgColor = backgroundColor ?? "#f8fafc"
-  const defaultHeaderColor = headerColor ?? "#f1f5f9"
+  const defaultBgColor = backgroundColor ?? "#ffffff"
+  const defaultHeaderColor = headerColor ?? "#ffffff"
   const [value, setValue] = useState(initialQuery)
   const [statusValue, setStatusValue] = useState(status ?? "all")
   const [embedOpen, setEmbedOpen] = useState(false)
@@ -66,6 +66,7 @@ export function PagePropositionSearch({
   const [tableHeaderColor, setTableHeaderColor] = useState(defaultHeaderColor)
   const [avatarsEnabled, setAvatarsEnabled] = useState(showAvatars ?? true)
   const debounceRef = useRef<number | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Do not resync value from initialQuery: after our own router.replace (debounce),
   // the re-render would restore the previous value and erase recent input.
@@ -82,6 +83,59 @@ export function PagePropositionSearch({
     const withHash = trimmed.startsWith("#") ? trimmed : `#${trimmed}`
     return /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(withHash) ? withHash : fallback
   }
+
+  const cssColorToHex = (value: string | null | undefined): string | null => {
+    if (!value) return null
+    const normalized = value.trim().toLowerCase()
+    if (!normalized || normalized === "transparent") return null
+    if (normalized.startsWith("#")) {
+      if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/.test(normalized)) {
+        return normalized.length === 4
+          ? `#${normalized[1]}${normalized[1]}${normalized[2]}${normalized[2]}${normalized[3]}${normalized[3]}`
+          : normalized
+      }
+      return null
+    }
+    const rgbaMatch = normalized.match(/^rgba?\(([^)]+)\)$/)
+    if (!rgbaMatch) return null
+    const parts = rgbaMatch[1].split(",").map((part) => part.trim())
+    if (parts.length < 3) return null
+    const r = Number.parseFloat(parts[0])
+    const g = Number.parseFloat(parts[1])
+    const b = Number.parseFloat(parts[2])
+    const a = parts.length >= 4 ? Number.parseFloat(parts[3]) : 1
+    if (![r, g, b].every((n) => Number.isFinite(n))) return null
+    if (Number.isFinite(a) && a <= 0) return null
+    const toHex = (n: number) => Math.min(255, Math.max(0, Math.round(n))).toString(16).padStart(2, "0")
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+  }
+
+  const resolveEffectiveBackgroundHex = (element: HTMLElement | null): string | null => {
+    let current: HTMLElement | null = element
+    while (current) {
+      const hex = cssColorToHex(window.getComputedStyle(current).backgroundColor)
+      if (hex) return hex
+      current = current.parentElement
+    }
+    return null
+  }
+
+  useEffect(() => {
+    if (!embedOpen) return
+    const container =
+      (containerRef.current?.closest("[data-slot='card']") as HTMLElement | null) ??
+      containerRef.current
+    if (!container) return
+
+    const table = container.querySelector("[data-embed-table='true']") as HTMLElement | null
+    const header = container.querySelector("[data-embed-table-header='true']") as HTMLElement | null
+
+    const detectedBg = resolveEffectiveBackgroundHex(table)
+    const detectedHeader = resolveEffectiveBackgroundHex(header) ?? detectedBg
+
+    if (detectedBg) setBgColor(detectedBg)
+    if (detectedHeader) setTableHeaderColor(detectedHeader)
+  }, [embedOpen])
 
   const params = useMemo(() => {
     const next = new URLSearchParams()
@@ -177,7 +231,7 @@ export function PagePropositionSearch({
   }
 
   return (
-    <div className="flex w-full flex-wrap gap-2 md:flex-nowrap md:items-center">
+    <div ref={containerRef} className="flex w-full flex-wrap gap-2 md:flex-nowrap md:items-center">
       <input
         name="q"
         value={value}
@@ -240,7 +294,7 @@ export function PagePropositionSearch({
                   <Input
                     value={bgColor}
                     onChange={(event) => setBgColor(event.target.value)}
-                    placeholder="#f8fafc"
+                    placeholder="#ffffff"
                     className="h-9 pl-8"
                   />
                 </div>
@@ -258,7 +312,7 @@ export function PagePropositionSearch({
                   <Input
                     value={tableHeaderColor}
                     onChange={(event) => setTableHeaderColor(event.target.value)}
-                    placeholder="#f1f5f9"
+                    placeholder="#ffffff"
                     className="h-9 pl-8"
                   />
                 </div>

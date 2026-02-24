@@ -8,7 +8,7 @@ export default async function DraftPage({ params }: Props) {
   return (
     <main>
       <iframe
-        src="https://www.forom.app/fr/embed/pages/forom/propositions?theme=light&limit=10&sort=top&bg=%23f8fafc&header=%23f1f5f9&avatars=0&v=1771941644730"
+        src="https://www.forom.app/fr/embed/pages/forom/propositions?theme=light&limit=10&sort=top&bg=%23ffffff&header=%23ffffff&avatars=0&v=1771942518500"
         width="100%"
         height="640"
         style={{ border: 0 }}
