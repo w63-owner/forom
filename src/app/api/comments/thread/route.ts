@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
+import { createCommentsRequestTracker } from "@/lib/observability/comments-metrics"
 
 export const dynamic = "force-dynamic"
 
@@ -20,26 +21,36 @@ type ThreadCommentRow = {
 }
 
 export async function GET(request: Request) {
-  const startedAt = Date.now()
+  const tracker = createCommentsRequestTracker("thread_read")
+  const attemptHeader = request.headers.get("x-comments-attempt")
+  const attempt = Number(attemptHeader)
+  const retryCount = Number.isFinite(attempt) && attempt > 1 ? attempt - 1 : 0
+  const timeoutHeader = request.headers.get("x-comments-timeouts")
+  const timeoutCount = Number(timeoutHeader)
+  const timedOut = Number.isFinite(timeoutCount) && timeoutCount > 0
+  const respond = (
+    body: { ok: boolean; error?: string; comments?: unknown[] },
+    status: number,
+    propositionId?: string | null
+  ) => {
+    tracker.complete({
+      statusCode: status,
+      propositionId,
+      retries: retryCount,
+      timedOut,
+    })
+    return NextResponse.json(body, { status })
+  }
+
   const url = new URL(request.url)
   const propositionId = url.searchParams.get("propositionId")?.trim() ?? ""
   if (!propositionId || !UUID_PATTERN.test(propositionId)) {
-    const response = NextResponse.json(
-      { ok: false, error: "Invalid propositionId." },
-      { status: 400 }
-    )
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: false, error: "Invalid propositionId." }, 400, null)
   }
 
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
-    const response = NextResponse.json(
-      { ok: false, error: "Supabase not configured." },
-      { status: 500 }
-    )
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: false, error: "Supabase not configured." }, 500, propositionId)
   }
 
   const {
@@ -53,12 +64,7 @@ export async function GET(request: Request) {
     .eq("id", propositionId)
     .maybeSingle()
   if (propositionError) {
-    const response = NextResponse.json(
-      { ok: false, error: propositionError.message },
-      { status: 500 }
-    )
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: false, error: propositionError.message }, 500, propositionId)
   }
 
   const propositionAuthorId = proposition?.author_id ?? null
@@ -72,20 +78,13 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
 
   if (commentsError) {
-    const response = NextResponse.json(
-      { ok: false, error: commentsError.message },
-      { status: 500 }
-    )
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: false, error: commentsError.message }, 500, propositionId)
   }
 
   const comments = (rawComments ?? []) as ThreadCommentRow[]
   const commentIds = comments.map((c) => c.id)
   if (commentIds.length === 0) {
-    const response = NextResponse.json({ ok: true, comments: [] })
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: true, comments: [] }, 200, propositionId)
   }
 
   const { data: allVotes, error: allVotesError } = await supabase
@@ -93,12 +92,7 @@ export async function GET(request: Request) {
     .select("comment_id, type")
     .in("comment_id", commentIds)
   if (allVotesError) {
-    const response = NextResponse.json(
-      { ok: false, error: allVotesError.message },
-      { status: 500 }
-    )
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: false, error: allVotesError.message }, 500, propositionId)
   }
 
   const actorIds = [currentUserId, propositionAuthorId].filter(
@@ -113,12 +107,7 @@ export async function GET(request: Request) {
           .in("user_id", actorIds)
       : { data: [], error: null }
   if (actorVotesError) {
-    const response = NextResponse.json(
-      { ok: false, error: actorVotesError.message },
-      { status: 500 }
-    )
-    response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-    return response
+    return respond({ ok: false, error: actorVotesError.message }, 500, propositionId)
   }
 
   const votesByComment = new Map<
@@ -158,7 +147,5 @@ export async function GET(request: Request) {
     likedByAuthor: votesByComment.get(comment.id)?.likedByAuthor ?? false,
   }))
 
-  const response = NextResponse.json({ ok: true, comments: enrichedComments })
-  response.headers.set("x-comments-latency-ms", String(Date.now() - startedAt))
-  return response
+  return respond({ ok: true, comments: enrichedComments }, 200, propositionId)
 }

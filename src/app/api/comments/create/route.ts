@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
+import { createCommentsRequestTracker } from "@/lib/observability/comments-metrics"
 
 export const dynamic = "force-dynamic"
 
@@ -14,34 +15,47 @@ type CreateCommentBody = {
 }
 
 export async function POST(request: Request) {
+  const tracker = createCommentsRequestTracker("comment_create")
+  const respond = (
+    body: { ok: boolean; error?: string; commentId?: string | null; actorUserId?: string },
+    status: number,
+    propositionId?: string | null
+  ) => {
+    tracker.complete({ statusCode: status, propositionId })
+    return NextResponse.json(body, { status })
+  }
+
   const originValidation = validateMutationOrigin(request)
   if (!originValidation.ok) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: originValidation.reason ?? "Forbidden origin." },
-      { status: 403 }
+      403,
+      null
     )
   }
 
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "Supabase not configured." },
-      { status: 500 }
+      500,
+      null
     )
   }
 
   const { data: authData, error: authError } = await supabase.auth.getUser()
   if (authError || !authData.user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 })
+    return respond({ ok: false, error: "Unauthorized." }, 401, null)
   }
 
   let body: CreateCommentBody
   try {
     body = (await request.json()) as CreateCommentBody
   } catch {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "Invalid JSON body." },
-      { status: 400 }
+      400,
+      null
     )
   }
 
@@ -50,21 +64,23 @@ export async function POST(request: Request) {
   const parentId = body.parentId?.trim() || null
 
   if (!propositionId || !UUID_PATTERN.test(propositionId)) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "Invalid propositionId." },
-      { status: 400 }
+      400,
+      propositionId
     )
   }
   if (parentId && !UUID_PATTERN.test(parentId)) {
-    return NextResponse.json({ ok: false, error: "Invalid parentId." }, { status: 400 })
+    return respond({ ok: false, error: "Invalid parentId." }, 400, propositionId)
   }
   if (!content) {
-    return NextResponse.json({ ok: false, error: "content is required." }, { status: 400 })
+    return respond({ ok: false, error: "content is required." }, 400, propositionId)
   }
   if (content.length > 5000) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "content is too long." },
-      { status: 400 }
+      400,
+      propositionId
     )
   }
 
@@ -80,12 +96,16 @@ export async function POST(request: Request) {
     .single()
 
   if (insertError) {
-    return NextResponse.json({ ok: false, error: insertError.message }, { status: 500 })
+    return respond({ ok: false, error: insertError.message }, 500, propositionId)
   }
 
-  return NextResponse.json({
-    ok: true,
-    commentId: insertedComment?.id ?? null,
-    actorUserId: authData.user.id,
-  })
+  return respond(
+    {
+      ok: true,
+      commentId: insertedComment?.id ?? null,
+      actorUserId: authData.user.id,
+    },
+    200,
+    propositionId
+  )
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
+import { createCommentsRequestTracker } from "@/lib/observability/comments-metrics"
 
 export const dynamic = "force-dynamic"
 
@@ -14,34 +15,47 @@ type ToggleSolutionBody = {
 }
 
 export async function POST(request: Request) {
+  const tracker = createCommentsRequestTracker("comment_solution")
+  const respond = (
+    body: { ok: boolean; error?: string },
+    status: number,
+    propositionId?: string | null
+  ) => {
+    tracker.complete({ statusCode: status, propositionId })
+    return NextResponse.json(body, { status })
+  }
+
   const originValidation = validateMutationOrigin(request)
   if (!originValidation.ok) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: originValidation.reason ?? "Forbidden origin." },
-      { status: 403 }
+      403,
+      null
     )
   }
 
   const supabase = await getSupabaseServerClient()
   if (!supabase) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "Supabase not configured." },
-      { status: 500 }
+      500,
+      null
     )
   }
 
   const { data: authData, error: authError } = await supabase.auth.getUser()
   if (authError || !authData.user) {
-    return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 401 })
+    return respond({ ok: false, error: "Unauthorized." }, 401, null)
   }
 
   let body: ToggleSolutionBody
   try {
     body = (await request.json()) as ToggleSolutionBody
   } catch {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "Invalid JSON body." },
-      { status: 400 }
+      400,
+      null
     )
   }
 
@@ -50,13 +64,14 @@ export async function POST(request: Request) {
   const nextValue = Boolean(body.nextValue)
 
   if (!propositionId || !UUID_PATTERN.test(propositionId)) {
-    return NextResponse.json(
+    return respond(
       { ok: false, error: "Invalid propositionId." },
-      { status: 400 }
+      400,
+      propositionId
     )
   }
   if (!commentId || !UUID_PATTERN.test(commentId)) {
-    return NextResponse.json({ ok: false, error: "Invalid commentId." }, { status: 400 })
+    return respond({ ok: false, error: "Invalid commentId." }, 400, propositionId)
   }
 
   const { error } = await supabase.rpc("set_comment_solution_atomic", {
@@ -67,10 +82,10 @@ export async function POST(request: Request) {
   })
   if (error) {
     if (error.code === "P0001" || error.message?.toLowerCase().includes("unauthorized")) {
-      return NextResponse.json({ ok: false, error: "Unauthorized." }, { status: 403 })
+      return respond({ ok: false, error: "Unauthorized." }, 403, propositionId)
     }
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+    return respond({ ok: false, error: error.message }, 500, propositionId)
   }
 
-  return NextResponse.json({ ok: true })
+  return respond({ ok: true }, 200, propositionId)
 }

@@ -72,7 +72,7 @@ export function RichTextEditor({
     <div className={cn("space-y-2", className)}>
       <p className="text-sm font-medium text-foreground">Description</p>
       <div className="rounded-md border border-input p-2">
-        <div className="flex flex-wrap items-center gap-2 border-b border-input pb-2">
+        <div className="flex items-center gap-2 overflow-x-auto border-b border-input pb-2 touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden [&>button]:shrink-0 [&>button]:whitespace-nowrap">
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}

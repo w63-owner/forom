@@ -357,7 +357,16 @@ export default function PropositionDetailClient({
 
   const fetchComments = useCallback(async () => {
     const requestSeq = ++commentsRequestSeqRef.current
-    const withTimeoutFetch = async (timeoutMs: number): Promise<Response> => {
+    const requestId =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `comments-${Date.now()}-${Math.random().toString(36).slice(2)}`
+
+    const withTimeoutFetch = async (
+      timeoutMs: number,
+      attempt: number,
+      timeoutCount: number
+    ): Promise<Response> => {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort("comments_timeout"), timeoutMs)
       try {
@@ -365,7 +374,12 @@ export default function PropositionDetailClient({
           method: "GET",
           signal: controller.signal,
           cache: "no-store",
-          headers: { "x-comments-client": "proposition-detail" },
+          headers: {
+            "x-comments-client": "proposition-detail",
+            "x-comments-request-id": requestId,
+            "x-comments-attempt": String(attempt),
+            "x-comments-timeouts": String(timeoutCount),
+          },
         })
       } finally {
         clearTimeout(timeoutId)
@@ -374,11 +388,19 @@ export default function PropositionDetailClient({
     const fetchWithRetry = async (): Promise<Response> => {
       let lastError: unknown = null
       const baseTimeoutMs = 8000
+      let timeoutCount = 0
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
-          return await withTimeoutFetch(baseTimeoutMs + attempt * 3000)
+          return await withTimeoutFetch(
+            baseTimeoutMs + attempt * 3000,
+            attempt + 1,
+            timeoutCount
+          )
         } catch (error) {
           lastError = error
+          if (isAbortLikeError(error)) {
+            timeoutCount += 1
+          }
           if (!isAbortLikeError(error) || attempt === 2) {
             throw error
           }
@@ -613,7 +635,7 @@ export default function PropositionDetailClient({
     const response = await fetch("/api/comments/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ commentId, type, currentVote }),
+      body: JSON.stringify({ propositionId, commentId, type, currentVote }),
     })
     if (!response.ok) {
       setCommentsError(t("loadError"))
