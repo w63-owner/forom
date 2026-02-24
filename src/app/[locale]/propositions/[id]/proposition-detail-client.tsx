@@ -84,7 +84,7 @@ type CommentBlockProps = {
   ) => void
   onSubmitReply: (parentId: string) => void
   propositionAuthorAvatarUrl: string | null
-  propositionAuthorName: string
+  propositionAuthorName: string | null
 }
 
 function CommentBlock({
@@ -193,7 +193,7 @@ function CommentBlock({
             <Avatar
               size="sm"
               src={propositionAuthorAvatarUrl}
-              name={propositionAuthorName}
+              name={propositionAuthorName ?? "Author"}
               className="h-6 w-6 border border-border"
             />
             <span className="absolute -bottom-1 -right-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-rose-500 ring-2 ring-background">
@@ -245,7 +245,7 @@ function CommentBlock({
               onVote={onVote}
               onSubmitReply={onSubmitReply}
               propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
-              propositionAuthorName={propositionAuthorName}
+              propositionAuthorName={propositionAuthorName ?? "Author"}
             />
           ))}
         </div>
@@ -739,7 +739,7 @@ export default function PropositionDetailClient({
                   onVote={handleCommentVote}
                   onSubmitReply={handleSubmitReply}
                   propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
-                  propositionAuthorName={propositionAuthorName}
+                  propositionAuthorName={propositionAuthorName ?? "Author"}
                 />
               ))}
             </div>
