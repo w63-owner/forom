@@ -1,9 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { Heart, ThumbsDown, ThumbsUp } from "lucide-react"
+import { FileText, Heart, Lightbulb, ThumbsDown, ThumbsUp } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,6 +41,112 @@ type MentionOption = {
   href: string
 }
 
+const SVG_NS = "http://www.w3.org/2000/svg"
+
+const createMentionChipIcon = (kind: MentionOption["kind"]): SVGSVGElement => {
+  const svg = document.createElementNS(SVG_NS, "svg")
+  svg.setAttribute("xmlns", SVG_NS)
+  svg.setAttribute("viewBox", "0 0 24 24")
+  svg.setAttribute("width", "14")
+  svg.setAttribute("height", "14")
+  svg.setAttribute("fill", "none")
+  svg.setAttribute("stroke", "currentColor")
+  svg.setAttribute("stroke-width", "2")
+  svg.setAttribute("stroke-linecap", "round")
+  svg.setAttribute("stroke-linejoin", "round")
+  svg.setAttribute(
+    "class",
+    kind === "proposition"
+      ? "lucide lucide-lightbulb size-3.5 shrink-0 text-white/90"
+      : "lucide lucide-file-text size-3.5 shrink-0 text-white/90"
+  )
+  svg.setAttribute("aria-hidden", "true")
+
+  const paths =
+    kind === "proposition"
+      ? ["M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5", "M9 18h6", "M10 22h4"]
+      : [
+          "M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z",
+          "M14 2v5a1 1 0 0 0 1 1h5",
+          "M10 9H8",
+          "M16 13H8",
+          "M16 17H8",
+        ]
+
+  paths.forEach((d) => {
+    const path = document.createElementNS(SVG_NS, "path")
+    path.setAttribute("d", d)
+    svg.appendChild(path)
+  })
+
+  return svg
+}
+
+const getEditorTextBeforeCaret = (root: HTMLElement): string => {
+  const selection = window.getSelection()
+  if (!selection || selection.rangeCount === 0) return ""
+  const range = selection.getRangeAt(0)
+  const preRange = range.cloneRange()
+  preRange.selectNodeContents(root)
+  preRange.setEnd(range.endContainer, range.endOffset)
+  return preRange.toString()
+}
+
+const getNodeAtTextOffset = (root: HTMLElement, offset: number) => {
+  if (offset <= 0) {
+    return { node: root, offset: 0 }
+  }
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+  let currentOffset = 0
+  let current = walker.nextNode()
+  while (current) {
+    const value = current.textContent ?? ""
+    const nextOffset = currentOffset + value.length
+    if (offset <= nextOffset) {
+      return { node: current, offset: offset - currentOffset }
+    }
+    currentOffset = nextOffset
+    current = walker.nextNode()
+  }
+  return { node: root, offset: root.childNodes.length }
+}
+
+const serializeCommentEditorContent = (root: HTMLElement): string => {
+  const walk = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      return node.textContent ?? ""
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) {
+      return ""
+    }
+    const element = node as HTMLElement
+    if (element.dataset.mentionChip === "true") {
+      const rawLabel = (element.textContent ?? "").trim()
+      const label = rawLabel.replace(/^[💡📄]\s*/, "")
+      const href = (element.dataset.href ?? "").trim()
+      if (!label || !href) return label
+      return `[${label}](${href})`
+    }
+    if (element.tagName === "BR") return "\n"
+
+    const childText = Array.from(element.childNodes)
+      .map((child) => walk(child))
+      .join("")
+    if (element.tagName === "DIV" || element.tagName === "P") {
+      return `${childText}\n`
+    }
+    return childText
+  }
+
+  const raw = Array.from(root.childNodes)
+    .map((child) => walk(child))
+    .join("")
+  return raw
+    .replace(/\u00a0/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
 const isAbortLikeError = (value: unknown): boolean => {
   if (value instanceof DOMException && value.name === "AbortError") return true
   if (value instanceof Error) {
@@ -63,6 +169,9 @@ const isAbortLikeError = (value: unknown): boolean => {
 }
 
 type CommentItem = EnrichedThreadComment
+
+const countCommentsRecursive = (items: CommentItem[]): number =>
+  items.reduce((total, item) => total + 1 + countCommentsRecursive(item.replies ?? []), 0)
 
 const linkifyPlainTextUrls = (content: string, keyPrefix: string) => {
   const tokenPattern = /(https?:\/\/[^\s]+|\/(?:fr|en)\/[^\s]+)/g
@@ -106,15 +215,28 @@ const renderCommentContent = (content: string) => {
 
     if (label && href) {
       const isHttp = /^https?:\/\//.test(href)
+      const isMentionLabel = /^([💡📄]\s*)?@/.test(label)
+      const mentionKind =
+        href.includes("/propositions/") ? "proposition" : href.includes("/pages/") ? "page" : null
       nodes.push(
         <a
           key={`md-${segmentIndex}`}
           href={href}
-          className="text-primary underline underline-offset-2 hover:opacity-90"
+          className={
+            isMentionLabel
+              ? "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/8 bg-black/70 px-2.5 py-0.5 text-xs text-white/92 shadow-[0_1px_6px_rgba(0,0,0,0.24)] backdrop-blur-xl align-baseline hover:bg-black/75"
+              : "text-primary underline underline-offset-2 hover:opacity-90"
+          }
           target={isHttp ? "_blank" : undefined}
           rel={isHttp ? "noopener noreferrer" : undefined}
         >
-          {label}
+          {isMentionLabel && mentionKind === "proposition" ? (
+            <Lightbulb className="lucide lucide-lightbulb size-3.5 shrink-0 text-white/90" />
+          ) : null}
+          {isMentionLabel && mentionKind === "page" ? (
+            <FileText className="lucide lucide-file-text size-3.5 shrink-0 text-white/90" />
+          ) : null}
+          <span className={isMentionLabel ? "truncate" : undefined}>{label}</span>
         </a>
       )
       segmentIndex += 1
@@ -132,25 +254,6 @@ const renderCommentContent = (content: string) => {
   }
 
   return nodes
-}
-
-const extractMentionLinks = (content: string): Array<{ label: string; href: string }> => {
-  const markdownLinkPattern = /\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/(?:fr|en)\/[^\s)]+)\)/g
-  const links: Array<{ label: string; href: string }> = []
-  const seen = new Set<string>()
-  let match: RegExpExecArray | null = null
-
-  while ((match = markdownLinkPattern.exec(content)) !== null) {
-    const label = (match[1] ?? "").trim()
-    const href = (match[2] ?? "").trim()
-    if (!label || !href) continue
-    const key = `${label}::${href}`
-    if (seen.has(key)) continue
-    seen.add(key)
-    links.push({ label, href })
-  }
-
-  return links
 }
 
 type CommentBlockProps = {
@@ -414,7 +517,7 @@ export default function PropositionDetailClient({
   const [commentMentionOptions, setCommentMentionOptions] = useState<MentionOption[]>([])
   const [commentMentionActiveIndex, setCommentMentionActiveIndex] = useState(0)
   const [commentMentionLoading, setCommentMentionLoading] = useState(false)
-  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const commentEditorRef = useRef<HTMLDivElement | null>(null)
   const commentMentionRangeRef = useRef<{ start: number; end: number } | null>(null)
   const commentMentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const commentMentionAbortRef = useRef<AbortController | null>(null)
@@ -427,10 +530,7 @@ export default function PropositionDetailClient({
   const [replyContent, setReplyContent] = useState("")
   const [replySubmitting, setReplySubmitting] = useState(false)
   const commentsRequestSeqRef = useRef(0)
-  const commentMentionPreviewLinks = useMemo(
-    () => extractMentionLinks(commentValue),
-    [commentValue]
-  )
+  const totalComments = countCommentsRecursive(comments)
 
   const relativeTimeLabel = (dateStr: string) =>
     relativeTime(dateStr, locale)
@@ -516,13 +616,13 @@ export default function PropositionDetailClient({
     [locale]
   )
 
-  const updateCommentMentionsFromInput = useCallback(
-    (value: string, caret: number | null) => {
-      if (!commentInputFocused || caret == null || caret < 0) {
+  const updateCommentMentionsFromInput = useCallback(() => {
+      const root = commentEditorRef.current
+      if (!root || !commentInputFocused) {
         closeCommentMentions()
         return
       }
-      const beforeCaret = value.slice(0, caret)
+      const beforeCaret = getEditorTextBeforeCaret(root)
       const mentionMatch = beforeCaret.match(/(^|\s)@([^\s@]*)$/)
       if (!mentionMatch) {
         closeCommentMentions()
@@ -534,7 +634,10 @@ export default function PropositionDetailClient({
         closeCommentMentions()
         return
       }
-      commentMentionRangeRef.current = { start: atIndex, end: caret }
+      commentMentionRangeRef.current = {
+        start: atIndex,
+        end: beforeCaret.length,
+      }
       setCommentMentionOpen(true)
       setCommentMentionActiveIndex(0)
       if (commentMentionDebounceRef.current) {
@@ -548,29 +651,48 @@ export default function PropositionDetailClient({
       commentMentionDebounceRef.current = setTimeout(() => {
         void fetchCommentMentionOptions(query.trim())
       }, 180)
-    },
-    [closeCommentMentions, commentInputFocused, fetchCommentMentionOptions]
-  )
+    }, [closeCommentMentions, commentInputFocused, fetchCommentMentionOptions])
 
   const insertCommentMention = useCallback(
     (option: MentionOption) => {
       const range = commentMentionRangeRef.current
-      const textarea = commentTextareaRef.current
-      if (!range || !textarea) return
-      const before = commentValue.slice(0, range.start)
-      const after = commentValue.slice(range.end)
+      const editor = commentEditorRef.current
+      if (!range || !editor) return
+      const selection = window.getSelection()
+      if (!selection) return
+      const startPosition = getNodeAtTextOffset(editor, range.start)
+      const endPosition = getNodeAtTextOffset(editor, range.end)
+      const replaceRange = document.createRange()
+      replaceRange.setStart(startPosition.node, startPosition.offset)
+      replaceRange.setEnd(endPosition.node, endPosition.offset)
       const safeLabel = option.label.replace(/[\[\]]/g, "").trim()
-      const inserted = `[@${safeLabel}](${option.href}) `
-      const next = `${before}${inserted}${after}`
-      setCommentValue(next)
+      const mentionText = `@${safeLabel}`
+      const chip = document.createElement("span")
+      const label = document.createElement("span")
+      label.className = "truncate"
+      label.textContent = mentionText
+      chip.appendChild(createMentionChipIcon(option.kind))
+      chip.appendChild(label)
+      chip.dataset.mentionChip = "true"
+      chip.dataset.href = option.href
+      chip.contentEditable = "false"
+      chip.setAttribute("title", mentionText)
+      chip.className =
+        "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/8 bg-black/70 px-2.5 py-0.5 text-xs text-white/92 shadow-[0_1px_6px_rgba(0,0,0,0.24)] backdrop-blur-xl align-baseline"
+      const trailingSpace = document.createTextNode(" ")
+      replaceRange.deleteContents()
+      replaceRange.insertNode(trailingSpace)
+      replaceRange.insertNode(chip)
+      const caretRange = document.createRange()
+      caretRange.setStartAfter(trailingSpace)
+      caretRange.collapse(true)
+      selection.removeAllRanges()
+      selection.addRange(caretRange)
+      setCommentValue(editor.innerText.replace(/\u00a0/g, " "))
       closeCommentMentions()
-      setTimeout(() => {
-        const nextCaret = before.length + inserted.length
-        textarea.focus()
-        textarea.setSelectionRange(nextCaret, nextCaret)
-      }, 0)
+      editor.focus()
     },
-    [closeCommentMentions, commentValue]
+    [closeCommentMentions]
   )
 
   useEffect(() => {
@@ -780,12 +902,15 @@ export default function PropositionDetailClient({
       return
     }
     try {
+      const serializedContent = commentEditorRef.current
+        ? serializeCommentEditorContent(commentEditorRef.current)
+        : commentValue.trim()
       const response = await fetch("/api/comments/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propositionId,
-          content: commentValue.trim(),
+          content: serializedContent,
         }),
       })
       const payload = (await response.json().catch(() => null)) as
@@ -798,7 +923,10 @@ export default function PropositionDetailClient({
 
       setCommentValue("")
       setCommentInputFocused(false)
-      commentTextareaRef.current?.blur()
+      if (commentEditorRef.current) {
+        commentEditorRef.current.innerHTML = ""
+        commentEditorRef.current.blur()
+      }
       await fetchComments()
       fetch("/api/notifications", {
         method: "POST",
@@ -936,42 +1064,30 @@ export default function PropositionDetailClient({
       <div className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">{t("title")}</CardTitle>
+            <CardTitle className="text-lg">
+              {t("title")} ({totalComments})
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="relative">
               <div className="rounded-md border border-input bg-transparent px-3 py-2 shadow-xs transition-[color,box-shadow] hover:border-primary/40 focus-within:border-primary focus-within:ring-[3px] focus-within:ring-primary/30">
-                {commentMentionPreviewLinks.length > 0 && (
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    {commentMentionPreviewLinks.map((item) => {
-                      const isHttp = /^https?:\/\//.test(item.href)
-                      return (
-                        <a
-                          key={`${item.label}-${item.href}`}
-                          href={item.href}
-                          className="inline-flex max-w-full items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-xs text-primary hover:bg-primary/10"
-                          target={isHttp ? "_blank" : undefined}
-                          rel={isHttp ? "noopener noreferrer" : undefined}
-                        >
-                          <span className="truncate">{item.label}</span>
-                        </a>
-                      )
-                    })}
-                  </div>
-                )}
-                <Textarea
-                  ref={commentTextareaRef}
-                  value={commentValue}
-                  onChange={(event) => {
-                    const value = event.target.value
+                <div
+                  ref={commentEditorRef}
+                  contentEditable
+                  role="textbox"
+                  aria-multiline="true"
+                  data-placeholder={t("addCommentPlaceholder")}
+                  className="min-h-10 whitespace-pre-wrap break-words bg-transparent text-sm outline-none empty:before:pointer-events-none empty:before:text-muted-foreground empty:before:content-[attr(data-placeholder)] [&_[data-mention-chip='true']]:cursor-pointer"
+                  onInput={(event) => {
+                    const value = event.currentTarget.innerText.replace(/\u00a0/g, " ")
                     setCommentValue(value)
-                    updateCommentMentionsFromInput(value, event.target.selectionStart)
+                    updateCommentMentionsFromInput()
                   }}
-                  onClick={(event) => {
-                    updateCommentMentionsFromInput(commentValue, event.currentTarget.selectionStart)
+                  onClick={() => {
+                    updateCommentMentionsFromInput()
                   }}
-                  onKeyUp={(event) => {
-                    updateCommentMentionsFromInput(commentValue, event.currentTarget.selectionStart)
+                  onKeyUp={() => {
+                    updateCommentMentionsFromInput()
                   }}
                   onKeyDown={(event) => {
                     if (!commentMentionOpen) return
@@ -989,7 +1105,10 @@ export default function PropositionDetailClient({
                         if (event.key === "ArrowDown") {
                           return (current + 1) % commentMentionOptions.length
                         }
-                        return (current - 1 + commentMentionOptions.length) % commentMentionOptions.length
+                        return (
+                          (current - 1 + commentMentionOptions.length) %
+                          commentMentionOptions.length
+                        )
                       })
                       return
                     }
@@ -1011,9 +1130,6 @@ export default function PropositionDetailClient({
                       if (!commentValue.trim()) setCommentInputFocused(false)
                     }, 150)
                   }
-                  placeholder={t("addCommentPlaceholder")}
-                  rows={2}
-                  className="min-h-10 resize-none border-0 bg-transparent px-0 py-0 shadow-none focus-visible:border-transparent focus-visible:ring-0"
                 />
               </div>
               {commentMentionOpen && (
@@ -1041,7 +1157,12 @@ export default function PropositionDetailClient({
                             }}
                           >
                             <span className="truncate text-foreground">@{option.label}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
+                            <span className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                              {option.kind === "page" ? (
+                                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                              ) : (
+                                <Lightbulb className="size-4 shrink-0 text-muted-foreground" />
+                              )}
                               {option.kind === "page" ? "Page" : "Proposition"}
                             </span>
                           </button>
@@ -1060,7 +1181,10 @@ export default function PropositionDetailClient({
                   onClick={() => {
                     setCommentValue("")
                     setCommentInputFocused(false)
-                    commentTextareaRef.current?.blur()
+                    if (commentEditorRef.current) {
+                      commentEditorRef.current.innerHTML = ""
+                      commentEditorRef.current.blur()
+                    }
                   }}
                 >
                   {t("cancel")}
