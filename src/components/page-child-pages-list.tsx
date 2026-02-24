@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Command, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/toast"
+import { usePageSearch, type PageResult } from "@/hooks/use-page-search"
 
 type ChildPage = {
   id: string
@@ -43,6 +46,28 @@ export function PageChildPagesList({
   const { showToast } = useToast()
   const [childToUnlink, setChildToUnlink] = useState<ChildPage | null>(null)
   const [unlinking, setUnlinking] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [requestingChildId, setRequestingChildId] = useState<string | null>(null)
+  const {
+    query: childQuery,
+    setQuery: setChildQuery,
+    results: childResults,
+    loading: childLoading,
+    error: childError,
+    touched: childTouched,
+    clearResults: clearChildResults,
+  } = usePageSearch({
+    enabled: addOpen,
+  })
+
+  const existingChildIds = useMemo(() => new Set(childPages.map((child) => child.id)), [childPages])
+  const selectableResults = useMemo(
+    () =>
+      childResults.filter(
+        (page) => page.id !== parentPageId && !existingChildIds.has(page.id)
+      ),
+    [childResults, existingChildIds, parentPageId]
+  )
 
   const handleConfirmUnlink = async () => {
     if (!childToUnlink) return
@@ -70,6 +95,57 @@ export function PageChildPagesList({
       showToast({ variant: "error", title: t("unlinkChildError") })
     } finally {
       setUnlinking(false)
+    }
+  }
+
+  const handleSelectChild = async (page: PageResult) => {
+    if (requestingChildId) return
+    setRequestingChildId(page.id)
+    try {
+      const response = await fetch("/api/pages/parent-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parentPageId,
+          childPageId: page.id,
+        }),
+      })
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string }
+        | null
+      if (!response.ok || !payload?.ok) {
+        showToast({
+          variant: "error",
+          title: payload?.error ?? t("addChildRequestError"),
+        })
+        return
+      }
+
+      showToast({
+        variant: "success",
+        title: t("addChildRequestSent", { childName: page.name }),
+      })
+      setAddOpen(false)
+      setChildQuery("", { touched: false })
+      clearChildResults()
+      router.refresh()
+      fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "page_parent_request",
+          pageId: parentPageId,
+          childPageId: page.id,
+          locale,
+        }),
+      }).catch(() => null)
+    } catch {
+      showToast({
+        variant: "error",
+        title: t("addChildRequestError"),
+      })
+    } finally {
+      setRequestingChildId(null)
     }
   }
 
@@ -104,6 +180,56 @@ export function PageChildPagesList({
               )}
             </span>
           ))}
+          {isOwner && (
+            <Popover
+              open={addOpen}
+              onOpenChange={(open) => {
+                setAddOpen(open)
+                if (!open) {
+                  setChildQuery("", { touched: false })
+                  clearChildResults()
+                }
+              }}
+            >
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-background px-3 py-1 text-sm text-foreground transition hover:bg-muted"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  {t("addChildButton")}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-80 p-0">
+                <Command shouldFilter={false}>
+                  <CommandInput
+                    placeholder={t("addChildSearchPlaceholder")}
+                    value={childQuery}
+                    onValueChange={(value) => setChildQuery(value)}
+                  />
+                  <CommandGroup>
+                    {childLoading && <CommandItem disabled>{tCommon("loading")}</CommandItem>}
+                    {!childLoading &&
+                      selectableResults.map((page) => (
+                        <CommandItem
+                          key={page.id}
+                          value={page.name}
+                          onSelect={() => void handleSelectChild(page)}
+                          disabled={requestingChildId === page.id}
+                        >
+                          {page.name}
+                        </CommandItem>
+                      ))}
+                    {!childLoading &&
+                      childTouched &&
+                      selectableResults.length === 0 &&
+                      !childError && <CommandItem disabled>{t("addChildNoResults")}</CommandItem>}
+                    {childError && <CommandItem disabled>{childError}</CommandItem>}
+                  </CommandGroup>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       </div>
 

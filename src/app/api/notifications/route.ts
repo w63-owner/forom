@@ -429,7 +429,7 @@ export async function POST(request: Request) {
         .maybeSingle(),
       supabase
         .from("pages")
-        .select("id, name, slug")
+        .select("id, name, slug, owner_id")
         .eq("id", payload.childPageId)
         .maybeSingle(),
     ])
@@ -438,11 +438,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
-    const [{ data: owner }, { data: actor }] = await Promise.all([
+    const recipientOwnerId =
+      authz.actorUserId === parentPage.owner_id ? childPage?.owner_id ?? null : parentPage.owner_id
+    if (!recipientOwnerId || recipientOwnerId === authz.actorUserId) {
+      return NextResponse.json({ ok: true })
+    }
+
+    const [{ data: recipientUser }, { data: actor }] = await Promise.all([
       supabase
         .from("users")
         .select("email, username")
-        .eq("id", parentPage.owner_id)
+        .eq("id", recipientOwnerId)
         .maybeSingle(),
       authz.actorUserId
         ? supabase
@@ -453,7 +459,7 @@ export async function POST(request: Request) {
         : Promise.resolve({ data: null }),
     ])
 
-    const recipientEmail = owner?.email
+    const recipientEmail = recipientUser?.email
     if (!recipientEmail) {
       return NextResponse.json({ ok: true })
     }

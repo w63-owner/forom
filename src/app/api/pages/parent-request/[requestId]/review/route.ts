@@ -110,15 +110,24 @@ export async function PATCH(
     )
   }
 
-  const { data: parentPage } = await supabase
-    .from("pages")
-    .select("id, owner_id")
-    .eq("id", req.parent_page_id)
-    .maybeSingle()
+  const [{ data: parentPage }, { data: childPage }] = await Promise.all([
+    supabase
+      .from("pages")
+      .select("id, owner_id")
+      .eq("id", req.parent_page_id)
+      .maybeSingle(),
+    supabase
+      .from("pages")
+      .select("id, owner_id")
+      .eq("id", req.child_page_id)
+      .maybeSingle(),
+  ])
 
-  if (!parentPage || parentPage.owner_id !== userData.user.id) {
+  const isParentOwner = parentPage?.owner_id === userData.user.id
+  const isChildOwner = childPage?.owner_id === userData.user.id
+  if (!isParentOwner && !isChildOwner) {
     return NextResponse.json(
-      { ok: false, error: "Forbidden: not the parent page owner" },
+      { ok: false, error: "Forbidden: not a page owner for this request" },
       { status: 403 }
     )
   }

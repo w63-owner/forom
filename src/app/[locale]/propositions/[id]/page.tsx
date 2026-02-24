@@ -274,6 +274,7 @@ export default async function PropositionDetails({ params }: Props) {
                       size="lg"
                       src={author?.avatar_url ?? null}
                       name={authorName}
+                      seed={data.author_id ?? data.id}
                       className="shrink-0"
                     />
                     <p className="flex min-w-0 flex-col gap-1 leading-none md:flex-row md:items-baseline md:gap-0">

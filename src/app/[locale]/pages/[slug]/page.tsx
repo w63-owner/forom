@@ -249,15 +249,13 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     {page.description}
                   </p>
                 )}
-                {childPages && childPages.length > 0 && (
-                  <PageChildPagesList
-                    childPages={childPages}
-                    parentPageId={page.id}
-                    isOwner={!!isOwner}
-                    locale={locale}
-                    title={tPage("childPagesTitle")}
-                  />
-                )}
+                <PageChildPagesList
+                  childPages={childPages ?? []}
+                  parentPageId={page.id}
+                  isOwner={!!isOwner}
+                  locale={locale}
+                  title={tPage("childPagesTitle")}
+                />
               </div>
               <div className="ml-auto flex items-center gap-2 pt-1">
                 <PageSubscribeButton pageId={page.id} />
