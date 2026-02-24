@@ -349,6 +349,7 @@ function CommentBlock({
               onToggleSolution={onToggleSolution}
               onVote={onVote}
               onSubmitReply={onSubmitReply}
+              onRequireAuth={onRequireAuth}
               propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
               propositionAuthorName={propositionAuthorName ?? "Author"}
             />
