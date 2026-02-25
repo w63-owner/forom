@@ -53,43 +53,51 @@ export function ToastProvider({ children }: ProviderProps) {
   const idRef = useRef(0)
 
  useEffect(() => {
-   const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-     const reason = event.reason
-     const isAbortError =
-       Boolean(
-         reason &&
-           typeof reason === "object" &&
-           (("name" in reason &&
-             (reason as { name?: unknown }).name === "AbortError") ||
-             ("message" in reason &&
-               typeof (reason as { message?: unknown }).message === "string" &&
-               ((reason as { message?: string }).message ?? "")
-                 .toLowerCase()
-                  .includes("signal is aborted")) ||
-            ("message" in reason &&
-              typeof (reason as { message?: unknown }).message === "string" &&
-              ((reason as { message?: string }).message ?? "")
-                .toLowerCase()
-                .includes("aborted without reason")))
-       ) ||
-       (typeof reason === "string" &&
-        (reason.toLowerCase().includes("signal is aborted") ||
-          reason.toLowerCase().includes("aborted without reason")))
+   const isAbortLikeReason = (reason: unknown): boolean => {
+     if (reason instanceof AsyncTimeoutError) return true
+     if (reason instanceof DOMException && reason.name === "AbortError") return true
+     const msg =
+       reason instanceof Error
+         ? reason.message.toLowerCase()
+         : typeof reason === "string"
+           ? reason.toLowerCase()
+           : ""
+     return (
+       msg.includes("signal is aborted") ||
+       msg.includes("aborted without reason") ||
+       msg.includes("abort")
+     )
+   }
 
-     if (reason instanceof AsyncTimeoutError || isAbortError) {
-       // Prevent runtime overlay for handled-by-design async timeouts.
+   const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+     if (isAbortLikeReason(event.reason)) {
        event.preventDefault()
        if (process.env.NEXT_PUBLIC_AUTH_DEBUG === "true") {
          console.warn(
            "[async] unhandled rejection suppressed",
-           reason instanceof Error ? reason.message : String(reason)
+           event.reason instanceof Error ? event.reason.message : String(event.reason)
          )
        }
      }
    }
+
+   const handleUncaughtError = (event: ErrorEvent) => {
+     if (isAbortLikeReason(event.error ?? event.message)) {
+       event.preventDefault()
+       if (process.env.NEXT_PUBLIC_AUTH_DEBUG === "true") {
+         console.warn(
+           "[async] uncaught error suppressed",
+           event.error instanceof Error ? event.error.message : event.message
+         )
+       }
+     }
+   }
+
    window.addEventListener("unhandledrejection", handleUnhandledRejection)
+   window.addEventListener("error", handleUncaughtError)
    return () => {
      window.removeEventListener("unhandledrejection", handleUnhandledRejection)
+     window.removeEventListener("error", handleUncaughtError)
    }
  }, [])
 

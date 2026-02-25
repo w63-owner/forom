@@ -38,6 +38,7 @@ export function useNotifications(email: string | null): UseNotificationsResult {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const isMountedRef = useRef(true)
+  const notificationsRef = useRef<NotificationItem[] | null>(null)
 
   useEffect(() => {
     isMountedRef.current = true
@@ -118,6 +119,10 @@ export function useNotifications(email: string | null): UseNotificationsResult {
     }
   }, [email, safeSet, t])
 
+  useEffect(() => {
+    notificationsRef.current = notifications
+  }, [notifications])
+
   const markRead = useCallback(
     async (ids: string[]) => {
       if (!email || ids.length === 0) return
@@ -125,7 +130,7 @@ export function useNotifications(email: string | null): UseNotificationsResult {
       if (!supabase) return
       const now = new Date().toISOString()
       const previousReadAt = new Map(
-        (notifications ?? [])
+        (notificationsRef.current ?? [])
           .filter((item) => ids.includes(item.id))
           .map((item) => [item.id, item.read_at] as const)
       )
@@ -164,26 +169,28 @@ export function useNotifications(email: string | null): UseNotificationsResult {
         })
       }
     },
-    [email, safeSet, notifications, t]
+    [email, safeSet]
   )
 
   const markAllRead = useCallback(async () => {
     if (!email) return
-    const ids = (notifications ?? [])
+    const ids = (notificationsRef.current ?? [])
       .filter((item) => !item.read_at)
       .map((item) => item.id)
     if (ids.length === 0) return
     await markRead(ids)
-  }, [email, markRead, notifications])
+  }, [email, markRead])
 
   useEffect(() => {
-    void refresh()
-  }, [refresh])
-
-  useEffect(() => {
-    if (!email) return
+    if (!email) {
+      void refresh()
+      return
+    }
     const supabase = getSupabaseClient()
-    if (!supabase) return
+    if (!supabase) {
+      void refresh()
+      return
+    }
 
     const normalizedEmail = email.trim().toLowerCase()
     const realtimeEmailFilter = `email=eq.${normalizedEmail}`

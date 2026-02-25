@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import {
   INTERNAL_SIGNATURE_HEADER,
@@ -39,7 +39,7 @@ const statusCanBeUpdatedByActor = async ({
   propositionAuthorId: string | null
   propositionPageId: string | null
   actorUserId: string
-  supabase: any
+  supabase: SupabaseClient
 }): Promise<boolean> => {
   if (!propositionPageId) {
     return propositionAuthorId === actorUserId
@@ -59,7 +59,7 @@ export const validateNotificationAuthorization = async ({
   authenticatedUserId,
   proposition,
 }: {
-  supabase: any
+  supabase: SupabaseClient
   payload: NotificationPayload
   authenticatedUserId: string
   proposition: {
@@ -330,7 +330,7 @@ export async function POST(request: Request) {
   }
   const supabase = createClient(url, serviceRoleKey, {
     auth: { persistSession: false },
-  }) as any
+  })
 
   const safeSendEmail = async (args: Parameters<typeof sendEmail>[0]) => {
     try {
@@ -705,7 +705,7 @@ export async function POST(request: Request) {
       .select("user_id, users(email)")
       .eq("page_id", proposition.page_id)
     await Promise.allSettled(
-      (subscribers ?? []).map(async (subscriber: any) => {
+      (subscribers ?? []).map(async (subscriber: { user_id: string; users: { email?: string | null } | { email?: string | null }[] | null }) => {
         const email = getUserEmail(subscriber.users)
         if (!email) return
         const subject = t(
@@ -791,7 +791,7 @@ export async function POST(request: Request) {
     const label =
       statusLabels[locale]?.[payload.newStatus] ?? payload.newStatus
     await Promise.allSettled(
-      (subscribers ?? []).map(async (subscriber: any) => {
+      (subscribers ?? []).map(async (subscriber: { user_id: string; users: { email?: string | null } | { email?: string | null }[] | null }) => {
         const email = getUserEmail(subscriber.users)
         if (!email) return
         const subject = t(

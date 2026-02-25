@@ -345,7 +345,9 @@
     "signingOut": "Signing out...",
     "notificationsTitle": "Notifications",
     "markAllRead": "Mark all as read",
-    "noNotifications": "You have no notifications yet.",
+    "noNotifications": "No notifications yet",
+    "emptyNotificationsHint": "Subscribe to propositions or pages to get notified when things change.",
+    "seeAllNotifications": "See all notifications",
     "notificationBody_commentCreated": "A new comment was posted for your proposition.",
     "notificationBody_volunteerCreated": "A new volunteer joined your proposition.",
     "notificationBody_statusDoneAuthor": "Your proposition status changed to Done.",
@@ -977,5 +979,11 @@
     "usernameTaken": "Username is already taken.",
     "saving": "Saving...",
     "continue": "Continue"
+  },
+  "Translation": {
+    "translate": "Translate",
+    "translating": "Translating…",
+    "showOriginal": "Show original",
+    "error": "Translation error"
   }
 }

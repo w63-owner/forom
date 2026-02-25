@@ -361,6 +361,8 @@ export default async function PropositionDetails({ params }: Props) {
         <PropositionDetailClient
           propositionId={data.id}
           propositionAuthorId={data.author_id}
+          propositionTitle={data.title}
+          propositionDescription={data.description ?? null}
           initialComments={initialComments}
           propositionAuthorAvatarUrl={
             (() => {

@@ -1,3 +1,5 @@
+import { relativeTime } from "@/lib/utils"
+
 type NotificationLike = {
   type?: string | null
   body?: string | null
@@ -45,5 +47,34 @@ export function getLocalizedNotificationBody(
   if (legacyKey) return t(legacyKey)
 
   return body
+}
+
+export function formatNotificationAge(dateStr: string, locale: string): string {
+  if (locale.startsWith("en")) {
+    const createdAtDate = new Date(dateStr)
+    const createdAt = createdAtDate.getTime()
+    const nowDate = new Date()
+    const now = nowDate.getTime()
+    const diffSeconds = Math.max(0, Math.round((now - createdAt) / 1000))
+    if (diffSeconds < 60) return "just now"
+    const minutes = Math.round(diffSeconds / 60)
+    if (minutes < 60) return `${minutes}mn ago`
+    const hours = Math.round(minutes / 60)
+    if (hours < 24) return `${hours}h ago`
+    const days = Math.round(hours / 24)
+    if (days < 7) return `${days}d ago`
+    if (createdAtDate.getFullYear() !== nowDate.getFullYear()) {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(createdAtDate)
+    }
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric",
+    }).format(createdAtDate)
+  }
+  return relativeTime(dateStr, locale)
 }
 

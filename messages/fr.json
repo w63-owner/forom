@@ -345,7 +345,9 @@
     "signingOut": "Déconnexion...",
     "notificationsTitle": "Notifications",
     "markAllRead": "Tout marquer comme lu",
-    "noNotifications": "Vous n'avez pas encore de notifications.",
+    "noNotifications": "Aucune notification",
+    "emptyNotificationsHint": "Abonnez-vous à des propositions ou des pages pour être notifié des changements.",
+    "seeAllNotifications": "Voir toutes les notifications",
     "notificationBody_commentCreated": "Un nouveau commentaire a été publié pour votre proposition.",
     "notificationBody_volunteerCreated": "Un nouveau volontaire a rejoint votre proposition.",
     "notificationBody_statusDoneAuthor": "Le statut de votre proposition est passé à « Terminé ».",
@@ -977,5 +979,11 @@
     "usernameTaken": "Ce pseudo est déjà pris.",
     "saving": "Enregistrement...",
     "continue": "Continuer"
+  },
+  "Translation": {
+    "translate": "Traduire",
+    "translating": "Traduction…",
+    "showOriginal": "Voir l'original",
+    "error": "Erreur de traduction"
   }
 }

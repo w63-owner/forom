@@ -20,8 +20,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthModal } from "@/components/auth-modal-provider"
+import { TranslateButton } from "@/components/translate-button"
+import { SanitizedHtml } from "@/components/sanitized-html"
 import { getSupabaseClient } from "@/utils/supabase/client"
-import { resolveAuthUser } from "@/utils/supabase/auth-check"
+import { resolveAuthUser, getAuthSnapshotUser } from "@/utils/supabase/auth-check"
+import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 import { relativeTime } from "@/lib/utils"
 import {
   buildCommentTree,
@@ -35,6 +38,8 @@ import { useToast } from "@/components/ui/toast"
 type Props = {
   propositionId: string
   propositionAuthorId: string | null
+  propositionTitle: string
+  propositionDescription: string | null
   propositionAuthorAvatarUrl?: string | null
   propositionAuthorName?: string | null
   initialComments?: EnrichedThreadComment[]
@@ -294,7 +299,6 @@ type CommentBlockProps = {
   onEditComment: (commentId: string, nextContent: string) => Promise<void>
   onDeleteComment: (commentId: string) => Promise<void>
   onSubmitReply: (parentId: string) => void
-  onRequireAuth: () => void
   propositionAuthorAvatarUrl: string | null
   propositionAuthorName: string | null
   propositionAuthorSeed: string
@@ -317,7 +321,6 @@ function CommentBlock({
   onEditComment,
   onDeleteComment,
   onSubmitReply,
-  onRequireAuth,
   propositionAuthorAvatarUrl,
   propositionAuthorName,
   propositionAuthorSeed,
@@ -336,12 +339,15 @@ function CommentBlock({
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [deleteSubmitting, setDeleteSubmitting] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [translatedContent, setTranslatedContent] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isEditing) {
       setEditValue(comment.content)
     }
   }, [comment.content, isEditing])
+
+  const displayContent = translatedContent ?? comment.content
 
   const canShowActions = isCommentOwner && !comment.is_solution
 
@@ -530,7 +536,7 @@ function CommentBlock({
               </div>
             ) : (
               <p className="mt-1 break-words text-sm text-foreground">
-                {renderCommentContent(comment.content)}
+                {renderCommentContent(displayContent)}
               </p>
             )}
           </div>
@@ -544,7 +550,7 @@ function CommentBlock({
               <span className="ml-1.5">{relativeTime(comment.created_at)}</span>
             </div>
             <div className="break-words text-sm text-foreground">
-              {renderCommentContent(comment.content)}
+              {renderCommentContent(displayContent)}
             </div>
           </Alert>
         </div>
@@ -560,10 +566,6 @@ function CommentBlock({
                 : "text-muted-foreground"
             }
             onClick={() => {
-              if (!currentUserId) {
-                onRequireAuth()
-                return
-              }
               onVote(comment.id, "Upvote", comment.currentUserVote ?? null)
             }}
           >
@@ -581,10 +583,6 @@ function CommentBlock({
                 : "text-muted-foreground"
             }
             onClick={() => {
-              if (!currentUserId) {
-                onRequireAuth()
-                return
-              }
               onVote(comment.id, "Downvote", comment.currentUserVote ?? null)
             }}
           >
@@ -613,16 +611,20 @@ function CommentBlock({
           variant="ghost"
           size="xs"
           onClick={() => {
-            if (!currentUserId) {
-              onRequireAuth()
-              return
-            }
             const targetId = comment.parent_id ?? comment.id
             setReplyingToId(replyingToId === targetId ? null : targetId)
           }}
         >
           {t("reply")}
         </Button>
+        <TranslateButton
+          sourceTable="comments"
+          sourceId={comment.id}
+          fields={["content"]}
+          onTranslation={(tr, isOriginal) =>
+            setTranslatedContent(isOriginal ? null : (tr?.content ?? null))
+          }
+        />
         {isAuthor && (
           <Button
             variant="ghost"
@@ -656,7 +658,6 @@ function CommentBlock({
               onEditComment={onEditComment}
               onDeleteComment={onDeleteComment}
               onSubmitReply={onSubmitReply}
-              onRequireAuth={onRequireAuth}
               propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
               propositionAuthorName={propositionAuthorName ?? "Author"}
               propositionAuthorSeed={propositionAuthorSeed}
@@ -701,6 +702,8 @@ function CommentBlock({
 export default function PropositionDetailClient({
   propositionId,
   propositionAuthorId,
+  propositionTitle,
+  propositionDescription,
   propositionAuthorAvatarUrl = null,
   propositionAuthorName = "Author",
   initialComments = [],
@@ -712,6 +715,7 @@ export default function PropositionDetailClient({
   const { showToast } = useToast()
   const hasInitialComments = initialComments.length > 0
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [translatedProposition, setTranslatedProposition] = useState<Record<string, string> | null>(null)
   const [comments, setComments] = useState<CommentItem[]>(initialComments)
   const [commentsLoadState, setCommentsLoadState] =
     useState<CommentsLoadState>(deriveInitialCommentsLoadState(initialComments))
@@ -1298,6 +1302,34 @@ export default function PropositionDetailClient({
     currentVote: "Upvote" | "Downvote" | null
   ) => {
     if (commentVoteInFlightRef.current.has(commentId)) return
+
+    const cachedUser = getAuthSnapshotUser()
+    if (!cachedUser) {
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        const session = await ensureFreshSession(supabase)
+        if (!session.ok) {
+          if (session.kind === "unauthenticated") {
+            showToast({
+              variant: "warning",
+              title: t("loginRequiredTitle"),
+              description: t("loginRequiredBody"),
+            })
+            openAuthForThisProposition()
+            return
+          }
+          if (session.kind === "transient") {
+            showToast({
+              variant: "warning",
+              title: tCommon("sessionReconnectingTitle"),
+              description: t("sessionTransientBody"),
+            })
+            return
+          }
+        }
+      }
+    }
+
     commentVoteInFlightRef.current.add(commentId)
 
     applyCommentVoteOptimistic(commentId, type, currentVote)
@@ -1464,8 +1496,43 @@ export default function PropositionDetailClient({
     handleSubmitReplyRef.current = handleSubmitReply
   })
 
+  const handlePropositionTranslation = useCallback(
+    (translations: Record<string, string> | null) => {
+      setTranslatedProposition(translations)
+    },
+    []
+  )
+
+  const displayTitle = translatedProposition?.title ?? propositionTitle
+  const displayDescription = translatedProposition?.description ?? propositionDescription
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center gap-2">
+        <TranslateButton
+          sourceTable="propositions"
+          sourceId={propositionId}
+          fields={["title", "description"]}
+          onTranslation={(t, isOriginal) =>
+            handlePropositionTranslation(isOriginal ? null : t)
+          }
+        />
+      </div>
+      {translatedProposition && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl">{displayTitle}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {displayDescription?.replace(/<[^>]*>/g, "").trim() ? (
+              <SanitizedHtml
+                html={displayDescription}
+                className="prose prose-sm max-w-none text-[#333D42] dark:prose-invert"
+              />
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
       <div id="comments" className="space-y-4">
         <Card>
           <CardHeader>
@@ -1646,7 +1713,6 @@ export default function PropositionDetailClient({
                   onEditComment={handleEditComment}
                   onDeleteComment={handleDeleteComment}
                   onSubmitReply={handleSubmitReply}
-                  onRequireAuth={openAuthForThisProposition}
                   propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
                   propositionAuthorName={propositionAuthorName ?? "Author"}
                   propositionAuthorSeed={propositionAuthorId ?? propositionId}

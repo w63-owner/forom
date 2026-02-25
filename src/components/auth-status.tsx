@@ -4,13 +4,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { Bell, Check, Loader2, X } from "lucide-react"
+import {
+  Bell,
+  BellRing,
+  Check,
+  CheckCircle2,
+  Lightbulb,
+  Link2,
+  Loader2,
+  MessageSquare,
+  TrendingUp,
+  UserPlus,
+  X,
+} from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/toast"
-import { relativeTime } from "@/lib/utils"
-import { getLocalizedNotificationBody } from "@/lib/notification-text"
+import { getLocalizedNotificationBody, formatNotificationAge } from "@/lib/notification-text"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { shouldSetUnauthenticatedFromServerResult } from "@/utils/supabase/auth-rules"
@@ -111,33 +122,66 @@ function normalizeNotificationLink(link: string | null): string | null {
   return trimmed.replace(/\s+(?=\/)/g, "")
 }
 
-function formatNotificationAge(dateStr: string, locale: string): string {
-  if (locale.startsWith("en")) {
-    const createdAtDate = new Date(dateStr)
-    const createdAt = createdAtDate.getTime()
-    const nowDate = new Date()
-    const now = nowDate.getTime()
-    const diffSeconds = Math.max(0, Math.round((now - createdAt) / 1000))
-    if (diffSeconds < 60) return "just now"
-    const minutes = Math.round(diffSeconds / 60)
-    if (minutes < 60) return `${minutes}mn ago`
-    const hours = Math.round(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.round(hours / 24)
-    if (days < 7) return `${days}d ago`
-    if (createdAtDate.getFullYear() !== nowDate.getFullYear()) {
-      return new Intl.DateTimeFormat("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }).format(createdAtDate)
-    }
-    return new Intl.DateTimeFormat("en-US", {
-      month: "short",
-      day: "numeric",
-    }).format(createdAtDate)
-  }
-  return relativeTime(dateStr, locale)
+const NOTIFICATION_TYPE_META: Record<
+  string,
+  { icon: typeof Bell; borderColor: string; iconColor: string }
+> = {
+  comment_created: {
+    icon: MessageSquare,
+    borderColor: "border-l-sky-500",
+    iconColor: "text-sky-500",
+  },
+  volunteer_created: {
+    icon: UserPlus,
+    borderColor: "border-l-violet-500",
+    iconColor: "text-violet-500",
+  },
+  solution_marked: {
+    icon: CheckCircle2,
+    borderColor: "border-l-emerald-500",
+    iconColor: "text-emerald-500",
+  },
+  solution_unmarked: {
+    icon: CheckCircle2,
+    borderColor: "border-l-amber-500",
+    iconColor: "text-amber-500",
+  },
+  status_done: {
+    icon: CheckCircle2,
+    borderColor: "border-l-emerald-500",
+    iconColor: "text-emerald-500",
+  },
+  status_change: {
+    icon: BellRing,
+    borderColor: "border-l-blue-500",
+    iconColor: "text-blue-500",
+  },
+  proposition_created_linked: {
+    icon: Lightbulb,
+    borderColor: "border-l-amber-500",
+    iconColor: "text-amber-500",
+  },
+  owner_vote_threshold: {
+    icon: TrendingUp,
+    borderColor: "border-l-orange-500",
+    iconColor: "text-orange-500",
+  },
+  page_parent_request: {
+    icon: Link2,
+    borderColor: "border-l-purple-500",
+    iconColor: "text-purple-500",
+  },
+}
+
+const DEFAULT_NOTIFICATION_META = {
+  icon: Bell,
+  borderColor: "border-l-muted-foreground",
+  iconColor: "text-muted-foreground",
+}
+
+function getNotificationMeta(type: string | null | undefined) {
+  if (!type) return DEFAULT_NOTIFICATION_META
+  return NOTIFICATION_TYPE_META[type] ?? DEFAULT_NOTIFICATION_META
 }
 
 function getPageParentRequestLabel(title: string): string | null {
@@ -230,6 +274,9 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
   const [requestIdByNotificationId, setRequestIdByNotificationId] = useState<
     Record<string, string>
   >({})
+  const [notifPopoverOpen, setNotifPopoverOpen] = useState(false)
+  const [badgeBounce, setBadgeBounce] = useState(false)
+  const prevUnreadRef = useRef(0)
   const [sessionDegradedReason, setSessionDegradedReason] = useState<
     "network" | "backend" | null
   >(null)
@@ -253,6 +300,20 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
   } = useNotifications(
     currentUser?.email?.trim() ? currentUser.email : null
   )
+
+  useEffect(() => {
+    setNotifPopoverOpen(false)
+  }, [pathname])
+
+  useEffect(() => {
+    const current = unreadCount ?? 0
+    if (current > prevUnreadRef.current && prevUnreadRef.current >= 0) {
+      setBadgeBounce(true)
+      const timer = setTimeout(() => setBadgeBounce(false), 600)
+      return () => clearTimeout(timer)
+    }
+    prevUnreadRef.current = current
+  }, [unreadCount])
 
   const menuUser = useMemo(() => {
     if (currentUser) return currentUser
@@ -1114,9 +1175,8 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
 
   return (
     <div className={`flex items-center gap-2 ${className ?? ""}`.trim()}>
-      {/* Cloche notifications */}
       {/* Notifications bell */}
-      <Popover>
+      <Popover open={notifPopoverOpen} onOpenChange={setNotifPopoverOpen}>
         <PopoverTrigger asChild>
           <Button
             size="sm"
@@ -1130,42 +1190,56 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
           >
             <Bell className="h-4 w-4" />
             {unread > 0 && (
-              <span className="absolute -bottom-1 -right-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full border border-sky-500/50 bg-sky-500 px-1 text-[10px] font-medium text-white dark:bg-sky-600">
+              <span
+                className={`absolute -bottom-1 -right-1 inline-flex min-w-[1.1rem] items-center justify-center rounded-full border border-sky-500/50 bg-sky-500 px-1 text-[10px] font-medium text-white transition-transform dark:bg-sky-600 ${
+                  badgeBounce ? "animate-bounce" : ""
+                }`}
+              >
                 {unread > 99 ? "99+" : unread}
               </span>
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-80 p-3">
-          <div className="flex items-center justify-between pb-2">
-            <span className="text-sm font-medium">{t("notificationsTitle")}</span>
-            {unread > 0 ? (
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => void markAllRead()}
-                  className="text-xs font-medium text-primary hover:underline"
-                >
-                  {t("markAllRead")}
-                </button>
-              </div>
-            ) : null}
+        <PopoverContent align="end" className="w-[22rem] p-0">
+          <div className="flex items-center justify-between border-b border-border/40 px-4 py-2.5">
+            <span className="text-sm font-semibold">{t("notificationsTitle")}</span>
+            {unread > 0 && (
+              <button
+                type="button"
+                onClick={() => void markAllRead()}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {t("markAllRead")}
+              </button>
+            )}
           </div>
-          <div className="max-h-80 space-y-2 overflow-y-auto text-sm">
+          <div className="max-h-96 overflow-y-auto">
             {loading && (
-              <div className="space-y-2" aria-hidden="true">
-                <div className="h-3 w-3/4 animate-pulse rounded-full bg-muted" />
-                <div className="h-3 w-11/12 animate-pulse rounded-full bg-muted" />
-                <div className="h-3 w-2/3 animate-pulse rounded-full bg-muted" />
+              <div className="space-y-3 px-4 py-3" aria-hidden="true">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-3">
+                    <div className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-muted" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-3/4 animate-pulse rounded bg-muted" />
+                      <div className="h-2.5 w-11/12 animate-pulse rounded bg-muted" />
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             {!loading && error && (
-              <p className="text-xs text-destructive">{error}</p>
+              <p className="px-4 py-3 text-xs text-destructive">{error}</p>
             )}
             {!loading && !error && notifications?.length === 0 && (
-              <p className="text-xs text-muted-foreground">
-                {t("noNotifications")}
-              </p>
+              <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                <Bell className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  {t("noNotifications")}
+                </p>
+                <p className="max-w-[14rem] text-xs text-muted-foreground/70">
+                  {t("emptyNotificationsHint")}
+                </p>
+              </div>
             )}
             {notifications &&
               notifications.length > 0 &&
@@ -1223,20 +1297,23 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                             parentName,
                           })
                         : getLocalizedNotificationBody(n, t)
+                const meta = getNotificationMeta(n.type)
+                const TypeIcon = meta.icon
                 return (
                   <div
                     key={n.id}
-                    className={`flex items-center justify-between gap-3 rounded-md px-2 py-2 ${
+                    className={`flex items-start gap-3 border-l-[3px] px-3 py-2.5 transition-colors ${meta.borderColor} ${
                       n.read_at
-                        ? "bg-background/60 opacity-75"
-                        : "bg-sky-500/10 dark:bg-sky-400/10"
-                    } ${index > 0 ? "mt-2 border-t border-border/40 pt-3" : ""}
-                    ${canOpenNotification ? "cursor-pointer hover:bg-muted/50" : ""}`}
+                        ? "border-l-transparent bg-background/60 opacity-70"
+                        : "bg-sky-500/5 dark:bg-sky-400/5"
+                    } ${index > 0 ? "border-t border-t-border/30" : ""}
+                    ${canOpenNotification ? "cursor-pointer hover:bg-muted/40" : ""}`}
                     role={canOpenNotification ? "button" : undefined}
                     tabIndex={canOpenNotification ? 0 : undefined}
                     onClick={() => {
                       if (!n.read_at) void markRead([n.id])
                       if (!canOpenNotification || !notificationLink) return
+                      setNotifPopoverOpen(false)
                       if (/^https?:\/\//i.test(notificationLink)) {
                         window.location.assign(notificationLink)
                         return
@@ -1248,6 +1325,7 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                       if (event.key !== "Enter" && event.key !== " ") return
                       event.preventDefault()
                       if (!n.read_at) void markRead([n.id])
+                      setNotifPopoverOpen(false)
                       if (/^https?:\/\//i.test(notificationLink)) {
                         window.location.assign(notificationLink)
                         return
@@ -1255,8 +1333,14 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                       router.push(notificationLink)
                     }}
                   >
-                    <div>
-                      <div className="font-medium text-[#333D42]">
+                    <span
+                      className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted/60 ${meta.iconColor}`}
+                      aria-hidden="true"
+                    >
+                      <TypeIcon className="h-3.5 w-3.5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-foreground text-[13px] leading-snug">
                         {effectiveReviewStatus === "approved"
                           ? t("notificationLinkApproved")
                           : effectiveReviewStatus === "rejected"
@@ -1264,11 +1348,11 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                             : localizedTitle}
                       </div>
                       {localizedBody && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground line-clamp-2">
                           {localizedBody}
                         </p>
                       )}
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      <p className="mt-0.5 text-[11px] text-muted-foreground/70">
                         {formatNotificationAge(n.created_at, locale)}
                       </p>
                     </div>
@@ -1346,6 +1430,16 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                 )
               })}
           </div>
+          {/* See all link */}
+          <div className="border-t border-border/40 px-4 py-2">
+            <Link
+              href={`/${locale}/profile?view=notifications`}
+              className="block text-center text-xs font-medium text-primary hover:underline"
+              onClick={() => setNotifPopoverOpen(false)}
+            >
+              {t("seeAllNotifications")}
+            </Link>
+          </div>
         </PopoverContent>
       </Popover>
 
@@ -1385,7 +1479,7 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
           <div className="mb-2 border-b pb-2 text-sm">
             {menuUser ? (
               <>
-                <p className="font-medium text-[#333D42]">
+                <p className="font-medium text-foreground">
                   {menuUser.displayName || menuUser.email}
                 </p>
                 {menuUser.email &&

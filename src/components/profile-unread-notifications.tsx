@@ -127,7 +127,7 @@ export function ProfileUnreadNotifications() {
               }`}
             >
               <div>
-                <div className="font-medium text-[#333D42]">{n.title}</div>
+                <div className="font-medium text-foreground">{n.title}</div>
                 {localizedBody && (
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {localizedBody}
