@@ -180,56 +180,67 @@ export function PageChildPagesList({
               )}
             </span>
           ))}
-          {isOwner && (
-            <Popover
-              open={addOpen}
-              onOpenChange={(open) => {
-                setAddOpen(open)
-                if (!open) {
-                  setChildQuery("", { touched: false })
-                  clearChildResults()
-                }
-              }}
-            >
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-background px-3 py-1 text-sm text-foreground transition hover:bg-muted"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  {t("addChildButton")}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent align="start" className="w-80 p-0">
-                <Command shouldFilter={false}>
-                  <CommandInput
-                    placeholder={t("addChildSearchPlaceholder")}
-                    value={childQuery}
-                    onValueChange={(value) => setChildQuery(value)}
-                  />
-                  <CommandGroup>
-                    {childLoading && <CommandItem disabled>{tCommon("loading")}</CommandItem>}
-                    {!childLoading &&
-                      selectableResults.map((page) => (
+          <Popover
+            open={addOpen}
+            onOpenChange={(open) => {
+              setAddOpen(open)
+              if (!open) {
+                setChildQuery("", { touched: false })
+                clearChildResults()
+              }
+            }}
+          >
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded-full border border-dashed border-border bg-background px-3 py-1 text-sm text-foreground transition hover:bg-muted"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {t("addChildButton")}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-80 p-0">
+              <Command shouldFilter={false}>
+                <CommandInput
+                  placeholder={t("addChildSearchPlaceholder")}
+                  value={childQuery}
+                  onValueChange={(value) => setChildQuery(value)}
+                />
+                <CommandGroup>
+                  {childLoading && <CommandItem disabled>{tCommon("loading")}</CommandItem>}
+                  {!childLoading &&
+                    selectableResults.map((page) => (
+                      <CommandItem
+                        key={page.id}
+                        value={page.name}
+                        onSelect={() => void handleSelectChild(page)}
+                        disabled={requestingChildId === page.id}
+                      >
+                        {page.name}
+                      </CommandItem>
+                    ))}
+                  {!childLoading &&
+                    childTouched &&
+                    selectableResults.length === 0 &&
+                    !childError && (
+                      <>
+                        <CommandItem disabled>{t("addChildNoResults")}</CommandItem>
                         <CommandItem
-                          key={page.id}
-                          value={page.name}
-                          onSelect={() => void handleSelectChild(page)}
-                          disabled={requestingChildId === page.id}
+                          value="create-page"
+                          onSelect={() => {
+                            setAddOpen(false)
+                            router.push(`/${locale}/pages/create`)
+                          }}
                         >
-                          {page.name}
+                          {t("addChildCreatePage")}
                         </CommandItem>
-                      ))}
-                    {!childLoading &&
-                      childTouched &&
-                      selectableResults.length === 0 &&
-                      !childError && <CommandItem disabled>{t("addChildNoResults")}</CommandItem>}
-                    {childError && <CommandItem disabled>{childError}</CommandItem>}
-                  </CommandGroup>
-                </Command>
-              </PopoverContent>
-            </Popover>
-          )}
+                      </>
+                    )}
+                  {childError && <CommandItem disabled>{childError}</CommandItem>}
+                </CommandGroup>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
       </div>
 

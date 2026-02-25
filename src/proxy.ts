@@ -81,47 +81,48 @@ export async function proxy(request: NextRequest) {
       ? NextResponse.next({ request })
       : await intlMiddleware(request)
 
-    const supabase = createMiddlewareSupabaseClient(request, response)
-    if (!supabase) {
-      proxyLog("warn", "auth.proxy.supabase_client_unavailable", {
-        requestId,
-        pathname: request.nextUrl.pathname,
-        normalizedPath,
-        locale,
-        isApiOrAuth,
-        isProtected,
-        hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
-        hasSupabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
-      })
-      tracker.complete({
-        statusCode: 200,
-        outcome: "skipped",
-        reason: "supabase_client_unavailable",
-      })
-      return response
-    }
-
     let userId: string | null = null
     let authErrorReason: string | null = null
-    try {
-      const { data, error } = await supabase.auth.getUser()
-      userId = data.user?.id ?? null
-      if (error) {
-        authErrorReason = `refresh_failed:${error.message}`
+    if (isProtected) {
+      const supabase = createMiddlewareSupabaseClient(request, response)
+      if (!supabase) {
+        proxyLog("warn", "auth.proxy.supabase_client_unavailable", {
+          requestId,
+          pathname: request.nextUrl.pathname,
+          normalizedPath,
+          locale,
+          isApiOrAuth,
+          isProtected,
+          hasSupabaseUrl: Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL),
+          hasSupabaseAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY),
+        })
+        tracker.complete({
+          statusCode: 200,
+          outcome: "skipped",
+          reason: "supabase_client_unavailable",
+        })
+        return response
       }
-    } catch (error) {
-      authErrorReason =
-        error instanceof Error
-          ? `refresh_failed:${error.message}`
-          : "refresh_failed:unknown"
-      proxyLog("warn", "auth.proxy.get_user_exception", {
-        requestId,
-        pathname: request.nextUrl.pathname,
-        normalizedPath,
-        locale,
-        isProtected,
-        message: error instanceof Error ? error.message : "unknown",
-      })
+      try {
+        const { data, error } = await supabase.auth.getUser()
+        userId = data.user?.id ?? null
+        if (error) {
+          authErrorReason = `refresh_failed:${error.message}`
+        }
+      } catch (error) {
+        authErrorReason =
+          error instanceof Error
+            ? `refresh_failed:${error.message}`
+            : "refresh_failed:unknown"
+        proxyLog("warn", "auth.proxy.get_user_exception", {
+          requestId,
+          pathname: request.nextUrl.pathname,
+          normalizedPath,
+          locale,
+          isProtected,
+          message: error instanceof Error ? error.message : "unknown",
+        })
+      }
     }
 
     if (isProtected && !userId) {
@@ -152,7 +153,7 @@ export async function proxy(request: NextRequest) {
 
     tracker.complete({
       statusCode: 200,
-      outcome: userId ? "success" : "no_session",
+      outcome: isProtected ? (userId ? "success" : "no_session") : "skipped",
       reason: authErrorReason,
     })
     return response

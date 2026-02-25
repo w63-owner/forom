@@ -483,7 +483,6 @@ export async function POST(request: Request) {
       .select("id")
       .eq("child_page_id", payload.childPageId)
       .eq("parent_page_id", payload.pageId)
-      .eq("status", "pending")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()

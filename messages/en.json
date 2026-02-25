@@ -367,7 +367,7 @@
     "myPages": "My pages",
     "notificationPreferences": "Notification preferences",
     "ariaUnreadNotifications": "{count, plural, one {# unread notification} other {# unread notifications}}",
-    "unreadBadge": "{count} unread",
+    "unreadBadge": "{count, plural, one {# unread} other {# unread}}",
     "fallbackUser": "User",
     "toastSignedOutTitle": "Signed out",
     "toastSignedOutBody": "You are now signed out.",
@@ -480,7 +480,7 @@
     "subtitle": "Pages and propositions you receive emails for. Click \"Remove\" to stop getting notified.",
     "recentTitle": "Recent notifications",
     "noNotificationsYet": "You have no notifications yet.",
-    "unreadBadge": "{count} unread",
+    "unreadBadge": "{count, plural, one {# unread} other {# unread}}",
     "supabaseNotConfiguredTitle": "Supabase not configured",
     "supabaseNotConfiguredBodyPage": "Unable to remove the page right now.",
     "supabaseNotConfiguredBodyProposition": "Unable to remove the proposition right now.",
@@ -722,7 +722,8 @@
     "loginRequired": "Log in to add a proposition.",
     "imageStorageError": "Unable to prepare image storage. Create the \"proposition-images\" bucket in Supabase (Storage → New bucket, public).",
     "imageBucketMissing": "The \"proposition-images\" storage bucket does not exist. Add SUPABASE_SERVICE_ROLE_KEY in .env.local to create it automatically, or create it in Supabase: Storage → New bucket → name \"proposition-images\", public.",
-    "createPropositionError": "Unable to create the proposition."
+    "createPropositionError": "Unable to create the proposition.",
+    "duplicatePropositionError": "A proposition with this name already exists for this page."
   },
   "PropositionActions": {
     "title": "Actions",

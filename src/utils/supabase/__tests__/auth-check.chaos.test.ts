@@ -18,7 +18,7 @@ describe("resolveAuthUser - chaos", () => {
     globalThis.fetch = originalFetch
   })
 
-  it("chaos: when client getSession throws (non-timeout), Promise.all rejects; server is not used because client and server run in parallel and one rejection fails the race", async () => {
+  it("chaos: when client getSession throws (non-timeout), resolver degrades to null without throwing", async () => {
     const supabase = {
       auth: {
         getSession: () => Promise.reject(new Error("network error")),
@@ -39,7 +39,7 @@ describe("resolveAuthUser - chaos", () => {
     )
     await expect(
       resolveAuthUser(supabase, { timeoutMs: 5000, includeServerFallback: true })
-    ).rejects.toThrow("network error")
+    ).resolves.toBeNull()
   })
 
   it("chaos: when fetch fails (network error), client user is still returned", async () => {
@@ -62,7 +62,7 @@ describe("resolveAuthUser - chaos", () => {
     expect(user?.id).toBe("chaos-user")
   })
 
-  it("chaos: when both client and server fail, promise rejects (no unhandled rejection)", async () => {
+  it("chaos: when both client and server fail, resolver returns null (no unhandled rejection)", async () => {
     const supabase = {
       auth: {
         getSession: () => Promise.reject(new Error("client fail")),
@@ -76,7 +76,7 @@ describe("resolveAuthUser - chaos", () => {
     globalThis.fetch = vi.fn().mockRejectedValue(new Error("fetch fail"))
     await expect(
       resolveAuthUser(supabase, { timeoutMs: 5000, includeServerFallback: true })
-    ).rejects.toThrow("client fail")
+    ).resolves.toBeNull()
   })
 
   it("chaos: server returns 500, client null → result is null (server error not treated as logout)", async () => {
