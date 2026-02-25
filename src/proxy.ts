@@ -34,6 +34,17 @@ const proxyLog = (
   console.info(line)
 }
 
+const isTransientAuthReason = (reason: string | null): boolean => {
+  if (!reason) return false
+  const normalized = reason.toLowerCase()
+  return (
+    normalized.startsWith("refresh_failed:") ||
+    normalized.includes("timeout") ||
+    normalized.includes("network") ||
+    normalized.includes("fetch")
+  )
+}
+
 export async function proxy(request: NextRequest) {
   const requestId =
     (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -125,7 +136,7 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    if (isProtected && !userId) {
+    if (isProtected && !userId && !isTransientAuthReason(authErrorReason)) {
       const nextPath = `${normalizedPath}${request.nextUrl.search}`
       const loginUrl = new URL(`/${locale}`, request.url)
       loginUrl.searchParams.set("auth", "signup")
@@ -153,7 +164,13 @@ export async function proxy(request: NextRequest) {
 
     tracker.complete({
       statusCode: 200,
-      outcome: isProtected ? (userId ? "success" : "no_session") : "skipped",
+      outcome: isProtected
+        ? userId
+          ? "success"
+          : isTransientAuthReason(authErrorReason)
+            ? "error"
+            : "no_session"
+        : "skipped",
       reason: authErrorReason,
     })
     return response

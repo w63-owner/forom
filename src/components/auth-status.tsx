@@ -1404,25 +1404,25 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
           </div>
           <nav className="flex flex-col gap-1 text-sm">
             <Link
-              href="/profile?view=profil"
+              href={`/${locale}/profile?view=profil`}
               className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
             >
               {t("myProfile")}
             </Link>
             <Link
-              href="/profile?view=mes-propositions"
+              href={`/${locale}/profile?view=mes-propositions`}
               className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
             >
               {t("myPropositions")}
             </Link>
             <Link
-              href="/profile?view=mes-pages"
+              href={`/${locale}/profile?view=mes-pages`}
               className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
             >
               {t("myPages")}
             </Link>
             <Link
-              href="/profile?view=notifications"
+              href={`/${locale}/profile?view=notifications`}
               className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
             >
               {t("notificationPreferences")}
