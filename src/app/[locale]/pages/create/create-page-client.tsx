@@ -20,6 +20,7 @@ import { usePageSearch, type PageResult } from "@/hooks/use-page-search"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
+import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 
 const CREATE_PAGE_DRAFT_STORAGE_KEY = "forom:create-page:draft"
 
@@ -274,12 +275,38 @@ export function CreatePageClient() {
       setError(t("supabaseNotConfigured"))
       return
     }
+    const session = await ensureFreshSession(supabase)
+    if (!session.ok) {
+      if (session.kind === "unauthenticated") {
+        showToast({
+          variant: "warning",
+          title: t("loginRequiredTitle"),
+          description: t("loginRequiredBody"),
+        })
+        router.push(`/${locale}/pages/create?auth=signup&next=${encodeURIComponent(`/${locale}/pages/create`)}`)
+        return
+      }
+      if (session.kind === "transient") {
+        setError(t("sessionTransientBody"))
+        showToast({
+          variant: "warning",
+          title: tCommon("sessionReconnectingTitle"),
+          description: t("sessionTransientBody"),
+        })
+        return
+      }
+    }
     const trimmedName = name.trim()
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
     })
     if (!user) {
+      showToast({
+        variant: "warning",
+        title: t("loginRequiredTitle"),
+        description: t("loginRequiredBody"),
+      })
       router.push(`/${locale}/pages/create?auth=signup&next=${encodeURIComponent(`/${locale}/pages/create`)}`)
       return
     }
@@ -301,6 +328,15 @@ export function CreatePageClient() {
         .single()
 
       if (insertError || !data) {
+        if (insertError?.code === "42501") {
+          setError(t("permissionDeniedBody"))
+          showToast({
+            variant: "warning",
+            title: tCommon("permissionDeniedTitle"),
+            description: t("permissionDeniedBody"),
+          })
+          return
+        }
         const message =
           insertError?.code === "23505" ||
           insertError?.message?.includes("pages_slug_unique")

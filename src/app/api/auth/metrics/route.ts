@@ -27,8 +27,17 @@ export async function GET(request: Request) {
     }
   }
 
+  const metrics = getAuthSessionMetricsSnapshot()
+  const middleware = metrics.find((entry) => entry.route === "middleware_refresh")
+  const alerts = {
+    redirectSpike: Boolean(middleware && middleware.protectedRedirectRate > 1.5),
+    refreshFailureSpike: Boolean(middleware && middleware.refreshFailures > 20),
+    highMiddlewareLatency: Boolean(middleware && middleware.p95LatencyMs > 250),
+  }
+
   return NextResponse.json({
     ok: true,
-    metrics: getAuthSessionMetricsSnapshot(),
+    metrics,
+    alerts,
   })
 }

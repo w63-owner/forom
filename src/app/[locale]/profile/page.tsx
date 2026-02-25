@@ -3,7 +3,10 @@ import { redirect } from "next/navigation"
 import { getTranslations } from "next-intl/server"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProfileShell } from "@/components/profile-shell"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import {
+  getSupabaseServerClient,
+  resolveServerSessionUserWithRetry,
+} from "@/utils/supabase/server"
 
 type Props = {
   params: Promise<{ locale: string }>
@@ -31,10 +34,27 @@ export default async function ProfilePage({ params }: Props) {
     )
   }
 
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) {
+  const sessionResolution = await resolveServerSessionUserWithRetry(supabase)
+  if (!sessionResolution.user && !sessionResolution.transientError) {
     redirect(`/${locale}?auth=signup&next=/${locale}/profile`)
   }
+  if (!sessionResolution.user) {
+    return (
+      <div className="min-h-screen bg-muted/40 px-6 py-16">
+        <div className="mx-auto w-full max-w-4xl">
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("supabaseNotConfiguredTitle")}</CardTitle>
+            </CardHeader>
+            <CardContent className="text-muted-foreground">
+              {t("supabaseNotConfiguredBody")}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+  const userData = { user: sessionResolution.user }
 
   const { data: profile } = await supabase
     .from("users")

@@ -43,6 +43,7 @@ type AuthRouteMetricsSnapshot = {
   errors: number
   skipped: number
   refreshFailures: number
+  protectedRedirectRate: number
   successRate: number
   noSessionRate: number
   errorRate: number
@@ -141,6 +142,7 @@ export function getAuthSessionMetricsSnapshot(): AuthRouteMetricsSnapshot[] {
       errors: store.errors,
       skipped: store.skipped,
       refreshFailures: store.refreshFailures,
+      protectedRedirectRate: percentage(store.redirects, store.total),
       successRate: percentage(store.success, store.total),
       noSessionRate: percentage(store.noSession, store.total),
       errorRate: percentage(store.errors, store.total),

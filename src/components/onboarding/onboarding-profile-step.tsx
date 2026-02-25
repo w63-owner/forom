@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import { AtSign, Check } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,7 @@ export function OnboardingProfileStep({
   onUsernameChange,
   onSubmit,
 }: OnboardingProfileStepProps) {
+  const t = useTranslations("OnboardingProfile")
   const fullNameValid = fullName.trim().length >= 2
   const normalizedUsername = username.trim().toLowerCase()
   const usernameValid = USERNAME_PATTERN.test(normalizedUsername)
@@ -85,26 +87,26 @@ export function OnboardingProfileStep({
   return (
     <div className="space-y-6">
       <div className="space-y-1">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">Tell Us About Yourself</h2>
-        <p className="text-base text-muted-foreground">How should we call you?</p>
+        <h2 className="text-3xl font-bold tracking-tight text-foreground">{t("title")}</h2>
+        <p className="text-base text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Full Name</label>
+          <label className="text-sm font-medium text-foreground">{t("fullNameLabel")}</label>
           <Input
             value={fullName}
             onChange={(event) => onFullNameChange(event.target.value)}
-            placeholder="John Doe"
+            placeholder={t("fullNamePlaceholder")}
             className="h-11"
           />
           {!fullNameValid && fullName.length > 0 && (
-            <p className="text-xs text-destructive">Name must be at least 2 characters.</p>
+            <p className="text-xs text-destructive">{t("fullNameError")}</p>
           )}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-medium text-foreground">Username</label>
+          <label className="text-sm font-medium text-foreground">{t("usernameLabel")}</label>
           <div className="relative">
             <AtSign className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -112,7 +114,7 @@ export function OnboardingProfileStep({
               onChange={(event) =>
                 onUsernameChange(event.target.value.replace(/@/g, "").toLowerCase())
               }
-              placeholder="antonin"
+              placeholder={t("usernamePlaceholder")}
               className={`h-11 pl-11 pr-11 ${
                 username.length === 0
                   ? ""
@@ -131,17 +133,17 @@ export function OnboardingProfileStep({
           </div>
           {!usernameValid && username.length > 0 && (
             <p className="text-xs text-destructive">
-              Username must be 3-30 chars, letters/numbers/._-
+              {t("usernameFormatError")}
             </p>
           )}
           {usernameValid && checkingAvailability ? (
-            <p className="text-xs text-muted-foreground">Checking availability...</p>
+            <p className="text-xs text-muted-foreground">{t("checkingAvailability")}</p>
           ) : null}
           {usernameValid && usernameAvailable === true ? (
-            <p className="text-xs text-emerald-600">Username available</p>
+            <p className="text-xs text-emerald-600">{t("usernameAvailable")}</p>
           ) : null}
           {usernameValid && usernameAvailable === false ? (
-            <p className="text-xs text-destructive">Username is already taken.</p>
+            <p className="text-xs text-destructive">{t("usernameTaken")}</p>
           ) : null}
         </div>
       </div>
@@ -154,7 +156,7 @@ export function OnboardingProfileStep({
           disabled={!canContinue}
           className="h-11 min-w-36 text-base font-semibold"
         >
-          {loading ? "Saving..." : "Continue"}
+          {loading ? t("saving") : t("continue")}
         </Button>
       </div>
     </div>

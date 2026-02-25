@@ -8,6 +8,7 @@ import { PropositionVoteButton } from "@/components/proposition-vote-button"
 import { usePropositionVote } from "@/hooks/use-proposition-vote"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { useToast } from "@/components/ui/toast"
+import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 
 type Props = {
   propositionId: string
@@ -69,6 +70,35 @@ export function PropositionVoteBar({
     setError(null)
     const previousVotes = votes
     try {
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        const session = await ensureFreshSession(supabase)
+        if (!session.ok) {
+          if (session.kind === "unauthenticated") {
+            const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+            const nextParams = new URLSearchParams(searchParams.toString())
+            nextParams.set("auth", "signup")
+            nextParams.set("next", currentPath)
+            showToast({
+              variant: "warning",
+              title: tCommon("loginRequiredTitle"),
+              description: t("loginRequired"),
+            })
+            router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
+            return
+          }
+          if (session.kind === "transient") {
+            const description = t("sessionTransient")
+            setError(description)
+            showToast({
+              variant: "warning",
+              title: tCommon("sessionReconnectingTitle"),
+              description,
+            })
+            return
+          }
+        }
+      }
       const result = await runToggleVote()
       if (!result.ok) {
         if (result.status === 401) {
@@ -76,7 +106,22 @@ export function PropositionVoteBar({
           const nextParams = new URLSearchParams(searchParams.toString())
           nextParams.set("auth", "signup")
           nextParams.set("next", currentPath)
+          showToast({
+            variant: "warning",
+            title: tCommon("loginRequiredTitle"),
+            description: t("loginRequired"),
+          })
           router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
+          return
+        }
+        if (result.status === 403) {
+          const description = t("permissionDenied")
+          setError(description)
+          showToast({
+            variant: "warning",
+            title: tCommon("permissionDeniedTitle"),
+            description,
+          })
           return
         }
 

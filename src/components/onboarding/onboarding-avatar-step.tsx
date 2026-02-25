@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import { Camera, RefreshCw, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -43,6 +44,7 @@ export function OnboardingAvatarStep({
   onSubmitAvatar,
   onSkip,
 }: OnboardingAvatarStepProps) {
+  const t = useTranslations("OnboardingAvatar")
   const avatarInitial = (avatarUrl.trim().slice(-1) || "A").toUpperCase()
   const hasSelectedAvatar = avatarUrl.trim().length > 0
   const [avatarOptions, setAvatarOptions] = useState<string[]>(() => buildRandomAvatars())
@@ -61,8 +63,8 @@ export function OnboardingAvatarStep({
         <div className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-xl bg-muted text-muted-foreground">
           <Camera className="size-5" />
         </div>
-        <h2 className="text-4xl font-bold tracking-tight text-foreground">Add Your Photo</h2>
-        <p className="text-base text-muted-foreground">Choose an avatar or upload your own</p>
+        <h2 className="text-4xl font-bold tracking-tight text-foreground">{t("title")}</h2>
+        <p className="text-base text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       <div className="space-y-6">
@@ -73,14 +75,14 @@ export function OnboardingAvatarStep({
             </div>
             <p className="inline-flex items-center gap-2 text-sm font-medium text-foreground">
               <Upload className="size-4" />
-              Drag & drop or click to upload
+              {t("uploadCta")}
             </p>
-            <p className="text-xs text-muted-foreground">PNG, JPG, GIF up to 5MB</p>
+            <p className="text-xs text-muted-foreground">{t("uploadHint")}</p>
           </div>
         </div>
       </div>
 
-      <p className="text-center text-sm text-muted-foreground">Or choose a default avatar</p>
+      <p className="text-center text-sm text-muted-foreground">{t("defaultAvatarTitle")}</p>
 
       <div className="mx-auto grid w-fit grid-cols-4 justify-items-center gap-2.5 md:flex md:flex-wrap md:items-center md:justify-center md:gap-3">
         {avatarOptions.map((url) => {
@@ -95,14 +97,14 @@ export function OnboardingAvatarStep({
                 selected ? "border-primary" : "border-border"
               )}
             >
-              <img src={url} alt="Default avatar option" className="size-full object-cover" />
+              <img src={url} alt={t("defaultAvatarAlt")} className="size-full object-cover" />
             </button>
           )
         })}
         <button
           type="button"
           onClick={regenerateAvatars}
-          aria-label="Generate new avatars"
+          aria-label={t("rerollAria")}
           className="inline-flex size-16 items-center justify-center rounded-full border-2 border-dashed border-border bg-background text-muted-foreground transition-colors hover:border-primary hover:text-primary"
         >
           <RefreshCw className={cn("size-6", refreshing && "animate-spin")} />
@@ -110,7 +112,7 @@ export function OnboardingAvatarStep({
       </div>
 
       <p className="text-center text-sm text-muted-foreground">
-        You can always add a photo later in your settings
+        {t("settingsHint")}
       </p>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
@@ -118,11 +120,11 @@ export function OnboardingAvatarStep({
       <div className="flex items-center justify-end gap-2">
         {hasSelectedAvatar ? (
           <Button type="button" onClick={onSubmitAvatar} disabled={loading}>
-            {loading ? "Saving..." : "Finish"}
+            {loading ? t("saving") : t("finish")}
           </Button>
         ) : (
           <Button type="button" variant="ghost" onClick={onSkip} disabled={loading}>
-            {loading ? "Loading..." : "Skip for now"}
+            {loading ? t("loading") : t("skip")}
           </Button>
         )}
       </div>

@@ -451,31 +451,35 @@ export function ProfileShell({
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-foreground">Instagram</label>
+                    <label className="text-sm font-medium text-foreground">
+                      {tProfile("instagramLabel")}
+                    </label>
                     <div className="relative">
                       <Instagram className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         value={instagram}
                         onChange={(event) => setInstagram(event.target.value)}
                         className="pl-10"
-                        placeholder="https://instagram.com/yourprofile"
+                        placeholder={tProfile("instagramPlaceholder")}
                       />
                     </div>
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-medium text-foreground">TikTok</label>
+                    <label className="text-sm font-medium text-foreground">
+                      {tProfile("tiktokLabel")}
+                    </label>
                     <Input
                       value={tiktok}
                       onChange={(event) => setTiktok(event.target.value)}
-                      placeholder="https://tiktok.com/@yourprofile"
+                      placeholder={tProfile("tiktokPlaceholder")}
                     />
                   </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3">
                   <Button onClick={handleSaveProfile} disabled={savingProfile}>
-                    {savingProfile ? "Saving..." : "Save Changes"}
+                    {savingProfile ? tCommon("saving") : tProfile("saveChanges")}
                   </Button>
                 </div>
 

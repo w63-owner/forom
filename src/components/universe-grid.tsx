@@ -44,11 +44,13 @@ function UniverseCard({
   slug,
   count,
   t,
+  tCommon,
 }: {
   universe: Universe
   slug: string
   count: number
   t: (key: string, values?: Record<string, number>) => string
+  tCommon: (key: string) => string
 }) {
   const Icon = UNIVERSE_ICONS[universe]
   const categories = getCategoriesForUniverseFromCsv(universe)
@@ -96,7 +98,7 @@ function UniverseCard({
                         onClick={() => toggleCategory(category)}
                         className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-expanded={isExpanded}
-                        aria-label={isExpanded ? "Replier" : "Déplier"}
+                        aria-label={isExpanded ? tCommon("collapse") : tCommon("expand")}
                       >
                         {isExpanded ? (
                           <ChevronDown className="size-4" />
@@ -144,6 +146,7 @@ type UniverseGridProps = {
 
 export function UniverseGrid({ initialCounts = {} }: UniverseGridProps) {
   const t = useTranslations("Discover")
+  const tCommon = useTranslations("Common")
 
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -157,6 +160,7 @@ export function UniverseGrid({ initialCounts = {} }: UniverseGridProps) {
             slug={slug}
             count={count}
             t={t}
+            tCommon={tCommon}
           />
         )
       })}

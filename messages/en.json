@@ -292,9 +292,15 @@
     "page": "Page",
     "user": "User",
     "change": "Change",
+    "expand": "Expand",
+    "collapse": "Collapse",
     "website": "Website",
     "loginRequiredTitle": "Login required",
     "loginRequiredBody": "Log in to continue.",
+    "sessionReconnectingTitle": "Session reconnecting",
+    "sessionReconnectingBody": "Temporary session issue. Please try again in a few seconds.",
+    "permissionDeniedTitle": "Action not allowed",
+    "permissionDeniedBody": "You do not have permission for this action.",
     "anonymous": "Anonymous"
   },
   "Omnibar": {
@@ -468,6 +474,11 @@
     "avatarHint": "Click on the image to change your avatar",
     "avatarUpdatedTitle": "Avatar updated",
     "avatarUpdatedBody": "Your new avatar has been saved.",
+    "instagramLabel": "Instagram",
+    "instagramPlaceholder": "https://instagram.com/yourprofile",
+    "tiktokLabel": "TikTok",
+    "tiktokPlaceholder": "https://tiktok.com/@yourprofile",
+    "saveChanges": "Save changes",
     "noPropositions": "You do not have any propositions yet.",
     "ownedPages": "Owned pages",
     "noOwnedPages": "You do not own any pages.",
@@ -592,6 +603,8 @@
     "voteTimeout": "Request timed out. Please try again.",
     "loginRequiredTitle": "Login required",
     "loginRequiredBody": "Log in to vote on propositions.",
+    "permissionDeniedBody": "You are not allowed to vote on this item.",
+    "sessionTransientBody": "Session is temporarily unavailable. Please retry shortly.",
     "supabaseNotConfiguredTitle": "Supabase not configured",
     "supabaseNotConfiguredBody": "Please configure your Supabase environment variables."
   },
@@ -601,6 +614,8 @@
     "voteRemovedTitle": "Vote removed",
     "voteTimeout": "Request timed out. Please try again.",
     "loginRequired": "Log in to vote on propositions.",
+    "permissionDenied": "You are not allowed to vote on this proposition.",
+    "sessionTransient": "Session is temporarily unavailable. Please retry shortly.",
     "upvoteRecorded": "Upvote recorded",
     "downvoteRecorded": "Downvote recorded"
   },
@@ -667,6 +682,10 @@
     "noComments": "No comments yet.",
     "supabaseNotConfigured": "Supabase not configured.",
     "loadError": "Failed to load comments.",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredBody": "Log in to comment and vote.",
+    "permissionDeniedBody": "You do not have permission for this action.",
+    "sessionTransientBody": "Session is temporarily unavailable. Please retry shortly.",
     "retry": "Retry"
   },
   "PropositionCreate": {
@@ -720,6 +739,10 @@
     "selectExistingPageError": "Select an existing page.",
     "supabaseNotConfigured": "Supabase not configured.",
     "loginRequired": "Log in to add a proposition.",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredBody": "Log in to create a proposition.",
+    "permissionDeniedBody": "You are not allowed to create this proposition.",
+    "sessionTransientBody": "Session is temporarily unavailable. Please retry shortly.",
     "imageStorageError": "Unable to prepare image storage. Create the \"proposition-images\" bucket in Supabase (Storage → New bucket, public).",
     "imageBucketMissing": "The \"proposition-images\" storage bucket does not exist. Add SUPABASE_SERVICE_ROLE_KEY in .env.local to create it automatically, or create it in Supabase: Storage → New bucket → name \"proposition-images\", public.",
     "createPropositionError": "Unable to create the proposition.",
@@ -793,6 +816,10 @@
   },
   "PageCreate": {
     "supabaseNotConfigured": "Supabase not configured.",
+    "loginRequiredTitle": "Login required",
+    "loginRequiredBody": "Log in to create a page.",
+    "permissionDeniedBody": "You are not allowed to create this page.",
+    "sessionTransientBody": "Session is temporarily unavailable. Please retry shortly.",
     "nameRequired": "Please enter a page name.",
     "verificationProofRequired": "Please add proof to request verification.",
     "verificationRequestError": "Unable to submit the verification request.",
@@ -865,5 +892,34 @@
     "subtitle": "Draft space to prepare content before publishing.",
     "cardTitle": "Page under construction",
     "cardBody": "Add blocks and content here to test."
+  },
+  "OnboardingAvatar": {
+    "title": "Add your photo",
+    "subtitle": "Choose an avatar or upload your own",
+    "uploadCta": "Drag & drop or click to upload",
+    "uploadHint": "PNG, JPG, GIF up to 5MB",
+    "defaultAvatarTitle": "Or choose a default avatar",
+    "defaultAvatarAlt": "Default avatar option",
+    "rerollAria": "Generate new avatars",
+    "settingsHint": "You can always add a photo later in your settings",
+    "saving": "Saving...",
+    "finish": "Finish",
+    "loading": "Loading...",
+    "skip": "Skip for now"
+  },
+  "OnboardingProfile": {
+    "title": "Tell us about yourself",
+    "subtitle": "How should we call you?",
+    "fullNameLabel": "Full name",
+    "fullNamePlaceholder": "John Doe",
+    "fullNameError": "Name must be at least 2 characters.",
+    "usernameLabel": "Username",
+    "usernamePlaceholder": "antonin",
+    "usernameFormatError": "Username must be 3-30 chars, letters/numbers/._-.",
+    "checkingAvailability": "Checking availability...",
+    "usernameAvailable": "Username available",
+    "usernameTaken": "Username is already taken.",
+    "saving": "Saving...",
+    "continue": "Continue"
   }
 }

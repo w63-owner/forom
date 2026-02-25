@@ -292,9 +292,15 @@
     "page": "Page",
     "user": "Utilisateur",
     "change": "Changer",
+    "expand": "Déplier",
+    "collapse": "Replier",
     "website": "Site web",
     "loginRequiredTitle": "Connexion requise",
     "loginRequiredBody": "Connectez-vous pour continuer.",
+    "sessionReconnectingTitle": "Session en reconnexion",
+    "sessionReconnectingBody": "Problème temporaire de session. Réessayez dans quelques secondes.",
+    "permissionDeniedTitle": "Action non autorisée",
+    "permissionDeniedBody": "Vous n'avez pas la permission pour cette action.",
     "anonymous": "Anonyme"
   },
   "Omnibar": {
@@ -468,6 +474,11 @@
     "avatarHint": "Cliquez sur l'image pour changer votre avatar",
     "avatarUpdatedTitle": "Avatar mis à jour",
     "avatarUpdatedBody": "Votre nouvel avatar a bien été enregistré.",
+    "instagramLabel": "Instagram",
+    "instagramPlaceholder": "https://instagram.com/votreprofil",
+    "tiktokLabel": "TikTok",
+    "tiktokPlaceholder": "https://tiktok.com/@votreprofil",
+    "saveChanges": "Enregistrer les modifications",
     "noPropositions": "Vous n'avez pas encore de propositions.",
     "ownedPages": "Pages possédées",
     "noOwnedPages": "Vous ne possédez aucune page.",
@@ -592,6 +603,8 @@
     "voteTimeout": "La requête a expiré. Veuillez réessayer.",
     "loginRequiredTitle": "Connexion requise",
     "loginRequiredBody": "Connectez-vous pour voter sur les propositions.",
+    "permissionDeniedBody": "Vous n'avez pas l'autorisation de voter sur cet élément.",
+    "sessionTransientBody": "Session momentanément indisponible. Réessayez dans un instant.",
     "supabaseNotConfiguredTitle": "Supabase non configuré",
     "supabaseNotConfiguredBody": "Configurez les variables d'environnement Supabase."
   },
@@ -601,6 +614,8 @@
     "voteRemovedTitle": "Vote retiré",
     "voteTimeout": "La requête a expiré. Veuillez réessayer.",
     "loginRequired": "Connectez-vous pour voter sur les propositions.",
+    "permissionDenied": "Vous n'avez pas l'autorisation de voter sur cette proposition.",
+    "sessionTransient": "Session momentanément indisponible. Réessayez dans un instant.",
     "upvoteRecorded": "Vote positif enregistré",
     "downvoteRecorded": "Vote négatif enregistré"
   },
@@ -667,6 +682,10 @@
     "noComments": "Aucun commentaire pour le moment.",
     "supabaseNotConfigured": "Supabase non configuré.",
     "loadError": "Erreur de chargement des commentaires.",
+    "loginRequiredTitle": "Connexion requise",
+    "loginRequiredBody": "Connectez-vous pour commenter et voter.",
+    "permissionDeniedBody": "Vous n'avez pas l'autorisation pour cette action.",
+    "sessionTransientBody": "Session momentanément indisponible. Réessayez dans un instant.",
     "retry": "Réessayer"
   },
   "PropositionCreate": {
@@ -720,6 +739,10 @@
     "selectExistingPageError": "Sélectionnez une Page existante.",
     "supabaseNotConfigured": "Supabase non configuré.",
     "loginRequired": "Connectez-vous pour ajouter une proposition.",
+    "loginRequiredTitle": "Connexion requise",
+    "loginRequiredBody": "Connectez-vous pour créer une proposition.",
+    "permissionDeniedBody": "Vous n'avez pas l'autorisation de créer cette proposition.",
+    "sessionTransientBody": "Session momentanément indisponible. Réessayez dans un instant.",
     "imageStorageError": "Impossible de préparer le stockage des images. Créez le bucket « proposition-images » dans Supabase (Storage → New bucket, public).",
     "imageBucketMissing": "Le bucket de stockage « proposition-images » n'existe pas. Ajoutez SUPABASE_SERVICE_ROLE_KEY dans .env.local pour le créer automatiquement, ou créez-le dans Supabase : Storage → New bucket → nom « proposition-images », public.",
     "createPropositionError": "Impossible de créer la proposition.",
@@ -793,6 +816,10 @@
   },
   "PageCreate": {
     "supabaseNotConfigured": "Supabase non configuré.",
+    "loginRequiredTitle": "Connexion requise",
+    "loginRequiredBody": "Connectez-vous pour créer une page.",
+    "permissionDeniedBody": "Vous n'avez pas l'autorisation de créer cette page.",
+    "sessionTransientBody": "Session momentanément indisponible. Réessayez dans un instant.",
     "nameRequired": "Veuillez saisir un nom de page.",
     "verificationProofRequired": "Veuillez ajouter une preuve pour demander la vérification.",
     "verificationRequestError": "Impossible d'envoyer la demande de vérification.",
@@ -865,5 +892,34 @@
     "subtitle": "Espace brouillon pour préparer du contenu avant publication.",
     "cardTitle": "Page en construction",
     "cardBody": "Ajoute ici les blocs et contenus que tu veux tester."
+  },
+  "OnboardingAvatar": {
+    "title": "Ajoutez votre photo",
+    "subtitle": "Choisissez un avatar ou importez le vôtre",
+    "uploadCta": "Glissez-déposez ou cliquez pour importer",
+    "uploadHint": "PNG, JPG, GIF jusqu'à 5 Mo",
+    "defaultAvatarTitle": "Ou choisissez un avatar par défaut",
+    "defaultAvatarAlt": "Option d'avatar par défaut",
+    "rerollAria": "Générer de nouveaux avatars",
+    "settingsHint": "Vous pourrez toujours ajouter une photo plus tard dans vos paramètres",
+    "saving": "Enregistrement...",
+    "finish": "Terminer",
+    "loading": "Chargement...",
+    "skip": "Passer pour le moment"
+  },
+  "OnboardingProfile": {
+    "title": "Parlez-nous de vous",
+    "subtitle": "Comment devons-nous vous appeler ?",
+    "fullNameLabel": "Nom complet",
+    "fullNamePlaceholder": "John Doe",
+    "fullNameError": "Le nom doit contenir au moins 2 caractères.",
+    "usernameLabel": "Pseudo",
+    "usernamePlaceholder": "antonin",
+    "usernameFormatError": "Le pseudo doit contenir 3 à 30 caractères (lettres/chiffres/._-).",
+    "checkingAvailability": "Vérification de disponibilité...",
+    "usernameAvailable": "Pseudo disponible",
+    "usernameTaken": "Ce pseudo est déjà pris.",
+    "saving": "Enregistrement...",
+    "continue": "Continuer"
   }
 }

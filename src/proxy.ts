@@ -45,6 +45,17 @@ const isTransientAuthReason = (reason: string | null): boolean => {
   )
 }
 
+const isConfirmedNoSessionReason = (reason: string | null): boolean => {
+  if (!reason) return false
+  const normalized = reason.toLowerCase()
+  return (
+    normalized.includes("no_active_session") ||
+    normalized.includes("session_not_found") ||
+    normalized.includes("invalid refresh token") ||
+    normalized.includes("refresh_token_not_found")
+  )
+}
+
 export async function proxy(request: NextRequest) {
   const requestId =
     (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -136,7 +147,12 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    if (isProtected && !userId && !isTransientAuthReason(authErrorReason)) {
+    if (
+      isProtected &&
+      !userId &&
+      !isTransientAuthReason(authErrorReason) &&
+      isConfirmedNoSessionReason(authErrorReason ?? "no_active_session")
+    ) {
       const nextPath = `${normalizedPath}${request.nextUrl.search}`
       const loginUrl = new URL(`/${locale}`, request.url)
       loginUrl.searchParams.set("auth", "signup")

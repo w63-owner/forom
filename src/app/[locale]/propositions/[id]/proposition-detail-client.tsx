@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { FileText, Heart, Lightbulb, ThumbsDown, ThumbsUp } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
@@ -20,6 +19,8 @@ import {
   type EnrichedThreadComment,
 } from "@/lib/comments/thread-loader"
 import type { ReactNode } from "react"
+import { useToast } from "@/components/ui/toast"
+import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 
 type Props = {
   propositionId: string
@@ -505,10 +506,11 @@ export default function PropositionDetailClient({
   propositionAuthorName = "Author",
   initialComments = [],
 }: Props) {
-  const router = useRouter()
   const locale = useLocale()
   const { openAuthModal } = useAuthModal()
   const t = useTranslations("PropositionComments")
+  const tCommon = useTranslations("Common")
+  const { showToast } = useToast()
   const hasInitialComments = initialComments.length > 0
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [comments, setComments] = useState<CommentItem[]>(initialComments)
@@ -536,6 +538,53 @@ export default function PropositionDetailClient({
   const [replySubmitting, setReplySubmitting] = useState(false)
   const commentsRequestSeqRef = useRef(0)
   const totalComments = countCommentsRecursive(comments)
+  const commentDraftStorageKey = `forom:comment-draft:${propositionId}`
+  const replyDraftStorageKey = `forom:reply-draft:${propositionId}`
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const savedComment = window.localStorage.getItem(commentDraftStorageKey)
+      if (savedComment) {
+        setCommentValue(savedComment)
+        if (commentEditorRef.current && !commentEditorRef.current.textContent?.trim()) {
+          commentEditorRef.current.textContent = savedComment
+        }
+      }
+      const savedReply = window.localStorage.getItem(replyDraftStorageKey)
+      if (savedReply) {
+        setReplyContent(savedReply)
+      }
+    } catch {
+      // Ignore draft restore failures.
+    }
+  }, [commentDraftStorageKey, replyDraftStorageKey])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      if (commentValue.trim()) {
+        window.localStorage.setItem(commentDraftStorageKey, commentValue)
+      } else {
+        window.localStorage.removeItem(commentDraftStorageKey)
+      }
+    } catch {
+      // Ignore draft persistence failures.
+    }
+  }, [commentDraftStorageKey, commentValue])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      if (replyContent.trim()) {
+        window.localStorage.setItem(replyDraftStorageKey, replyContent)
+      } else {
+        window.localStorage.removeItem(replyDraftStorageKey)
+      }
+    } catch {
+      // Ignore draft persistence failures.
+    }
+  }, [replyContent, replyDraftStorageKey])
 
   const relativeTimeLabel = (dateStr: string) =>
     relativeTime(dateStr, locale)
@@ -557,6 +606,37 @@ export default function PropositionDetailClient({
   const openAuthForThisProposition = useCallback(() => {
     openAuthModal("signup", `/${locale}/propositions/${propositionId}`)
   }, [locale, openAuthModal, propositionId])
+
+  const ensureCommentSession = useCallback(async (): Promise<boolean> => {
+    const supabase = getSupabaseClient()
+    if (!supabase) {
+      setCommentsError(t("supabaseNotConfigured"))
+      return false
+    }
+    const session = await ensureFreshSession(supabase)
+    if (!session.ok) {
+      if (session.kind === "unauthenticated") {
+        showToast({
+          variant: "warning",
+          title: t("loginRequiredTitle"),
+          description: t("loginRequiredBody"),
+        })
+        openAuthForThisProposition()
+        return false
+      }
+      if (session.kind === "transient") {
+        const description = t("sessionTransientBody")
+        setCommentsError(description)
+        showToast({
+          variant: "warning",
+          title: tCommon("sessionReconnectingTitle"),
+          description,
+        })
+        return false
+      }
+    }
+    return true
+  }, [openAuthForThisProposition, showToast, t, tCommon])
 
   const closeCommentMentions = useCallback(() => {
     setCommentMentionOpen(false)
@@ -894,6 +974,12 @@ export default function PropositionDetailClient({
       commentSubmitInProgressRef.current = false
       return
     }
+    const hasSession = await ensureCommentSession()
+    if (!hasSession) {
+      commentSubmitInProgressRef.current = false
+      setCommentSubmitting(false)
+      return
+    }
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
@@ -901,9 +987,12 @@ export default function PropositionDetailClient({
     if (!user) {
       commentSubmitInProgressRef.current = false
       setCommentSubmitting(false)
-      router.push(
-        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
-      )
+      showToast({
+        variant: "warning",
+        title: t("loginRequiredTitle"),
+        description: t("loginRequiredBody"),
+      })
+      openAuthForThisProposition()
       return
     }
     try {
@@ -922,12 +1011,34 @@ export default function PropositionDetailClient({
         | { ok?: boolean; error?: string; commentId?: string }
         | null
       if (!response.ok || !payload?.ok) {
+        if (response.status === 401) {
+          showToast({
+            variant: "warning",
+            title: t("loginRequiredTitle"),
+            description: t("loginRequiredBody"),
+          })
+          openAuthForThisProposition()
+          return
+        }
+        if (response.status === 403) {
+          const description = t("permissionDeniedBody")
+          setCommentsError(description)
+          showToast({
+            variant: "warning",
+            title: tCommon("permissionDeniedTitle"),
+            description,
+          })
+          return
+        }
         setCommentsError(t("loadError"))
         return
       }
 
       setCommentValue("")
       setCommentInputFocused(false)
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(commentDraftStorageKey)
+      }
       if (commentEditorRef.current) {
         commentEditorRef.current.innerHTML = ""
         commentEditorRef.current.blur()
@@ -989,14 +1100,19 @@ export default function PropositionDetailClient({
       setCommentsError(t("supabaseNotConfigured"))
       return
     }
+    const hasSession = await ensureCommentSession()
+    if (!hasSession) return
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
     })
     if (!user) {
-      router.push(
-        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
-      )
+      showToast({
+        variant: "warning",
+        title: t("loginRequiredTitle"),
+        description: t("loginRequiredBody"),
+      })
+      openAuthForThisProposition()
       return
     }
     const response = await fetch("/api/comments/vote", {
@@ -1005,6 +1121,25 @@ export default function PropositionDetailClient({
       body: JSON.stringify({ propositionId, commentId, type, currentVote }),
     })
     if (!response.ok) {
+      if (response.status === 401) {
+        showToast({
+          variant: "warning",
+          title: t("loginRequiredTitle"),
+          description: t("loginRequiredBody"),
+        })
+        openAuthForThisProposition()
+        return
+      }
+      if (response.status === 403) {
+        const description = t("permissionDeniedBody")
+        setCommentsError(description)
+        showToast({
+          variant: "warning",
+          title: tCommon("permissionDeniedTitle"),
+          description,
+        })
+        return
+      }
       setCommentsError(t("loadError"))
       return
     }
@@ -1026,6 +1161,12 @@ export default function PropositionDetailClient({
       replySubmitInProgressRef.current = false
       return
     }
+    const hasSession = await ensureCommentSession()
+    if (!hasSession) {
+      replySubmitInProgressRef.current = false
+      setReplySubmitting(false)
+      return
+    }
     const user = await resolveAuthUser(supabase, {
       timeoutMs: 3500,
       includeServerFallback: true,
@@ -1033,9 +1174,12 @@ export default function PropositionDetailClient({
     if (!user) {
       replySubmitInProgressRef.current = false
       setReplySubmitting(false)
-      router.push(
-        `/${locale}/propositions/${propositionId}?auth=signup&next=${encodeURIComponent(`/${locale}/propositions/${propositionId}`)}`
-      )
+      showToast({
+        variant: "warning",
+        title: t("loginRequiredTitle"),
+        description: t("loginRequiredBody"),
+      })
+      openAuthForThisProposition()
       return
     }
     try {
@@ -1052,11 +1196,33 @@ export default function PropositionDetailClient({
         | { ok?: boolean; error?: string; commentId?: string }
         | null
       if (!response.ok || !payload?.ok) {
+        if (response.status === 401) {
+          showToast({
+            variant: "warning",
+            title: t("loginRequiredTitle"),
+            description: t("loginRequiredBody"),
+          })
+          openAuthForThisProposition()
+          return
+        }
+        if (response.status === 403) {
+          const description = t("permissionDeniedBody")
+          setCommentsError(description)
+          showToast({
+            variant: "warning",
+            title: tCommon("permissionDeniedTitle"),
+            description,
+          })
+          return
+        }
         setCommentsError(t("loadError"))
         return
       }
       setReplyContent("")
       setReplyingToId(null)
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(replyDraftStorageKey)
+      }
       await fetchComments()
     } finally {
       setReplySubmitting(false)

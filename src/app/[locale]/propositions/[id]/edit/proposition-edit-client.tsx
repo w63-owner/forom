@@ -512,7 +512,11 @@ export default function PropositionEditClient({
                                     type="button"
                                     onClick={() => toggleExpanded(key)}
                                     className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-                                    aria-label={isExpanded ? "Replier" : "Déplier"}
+                                    aria-label={
+                                      isExpanded
+                                        ? tCommon("collapse")
+                                        : tCommon("expand")
+                                    }
                                   >
                                     {isExpanded ? (
                                       <ChevronDown className="size-4" />

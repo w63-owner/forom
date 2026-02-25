@@ -42,6 +42,8 @@ import {
   isDuplicatePropositionError,
   canSubmitProposition,
 } from "@/lib/proposition-submission"
+import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
+import { useToast } from "@/components/ui/toast"
 
 const CREATE_PROPOSITION_DRAFT_STORAGE_KEY = "forom:create-proposition:draft"
 
@@ -576,7 +578,11 @@ const Step3Card = memo(function Step3Card({
                                 type="button"
                                 onClick={() => toggleExpanded(key)}
                                 className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground"
-                                aria-label={isExpanded ? "Replier" : "Déplier"}
+                                aria-label={
+                                  isExpanded
+                                    ? tCommon("collapse")
+                                    : tCommon("expand")
+                                }
                               >
                                 {isExpanded ? (
                                   <ChevronDown className="size-4" />
@@ -701,6 +707,7 @@ export default function CreatePropositionClient({
 }: Props) {
   const t = useTranslations("PropositionCreate")
   const tCommon = useTranslations("Common")
+  const { showToast } = useToast()
   const locale = useLocale()
   const router = useRouter()
   const pathname = usePathname()
@@ -1039,6 +1046,32 @@ export default function CreatePropositionClient({
       setSubmitError(t("supabaseNotConfigured"))
       return
     }
+    const session = await ensureFreshSession(supabase)
+    if (!session.ok) {
+      if (session.kind === "unauthenticated") {
+        showToast({
+          variant: "warning",
+          title: t("loginRequiredTitle"),
+          description: t("loginRequiredBody"),
+        })
+        setSubmitError(t("loginRequiredBody"))
+        const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+        const nextParams = new URLSearchParams(searchParams.toString())
+        nextParams.set("auth", "signup")
+        nextParams.set("next", currentPath)
+        router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
+        return
+      }
+      if (session.kind === "transient") {
+        showToast({
+          variant: "warning",
+          title: tCommon("sessionReconnectingTitle"),
+          description: t("sessionTransientBody"),
+        })
+        setSubmitError(t("sessionTransientBody"))
+        return
+      }
+    }
 
     setSubmitLoading(true)
     setSubmitError(null)
@@ -1122,6 +1155,16 @@ export default function CreatePropositionClient({
       .single()
 
     if (error || !data) {
+      if (error?.code === "42501") {
+        showToast({
+          variant: "warning",
+          title: tCommon("permissionDeniedTitle"),
+          description: t("permissionDeniedBody"),
+        })
+        setSubmitError(t("permissionDeniedBody"))
+        setSubmitLoading(false)
+        return
+      }
       setSubmitError(
         isDuplicatePropositionError(error ?? null)
           ? t("duplicatePropositionError")
@@ -1148,8 +1191,10 @@ export default function CreatePropositionClient({
     router,
     searchParams,
     selectedPage,
+    showToast,
     subCategory,
     t,
+    tCommon,
     trimmedTitle,
     universe,
   ])

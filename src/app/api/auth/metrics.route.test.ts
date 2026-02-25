@@ -40,12 +40,18 @@ describe("auth metrics route", () => {
     const payload = (await response.json()) as {
       ok: boolean
       metrics: Array<{ route: string; total: number }>
+      alerts: {
+        redirectSpike: boolean
+        refreshFailureSpike: boolean
+        highMiddlewareLatency: boolean
+      }
     }
     expect(payload.ok).toBe(true)
     const middleware = payload.metrics.find(
       (entry) => entry.route === "middleware_refresh"
     )
     expect(middleware?.total).toBe(1)
+    expect(payload.alerts.redirectSpike).toBe(false)
   })
 
   it("rejects unsigned requests in production when secret is configured", async () => {

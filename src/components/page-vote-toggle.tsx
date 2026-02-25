@@ -6,6 +6,8 @@ import { useToast } from "@/components/ui/toast"
 import { AsyncTimeoutError } from "@/lib/async-resilience"
 import { PropositionVoteButton } from "@/components/proposition-vote-button"
 import { usePropositionVote } from "@/hooks/use-proposition-vote"
+import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
+import { getSupabaseClient } from "@/utils/supabase/client"
 
 type Props = {
   propositionId: string
@@ -40,6 +42,33 @@ export function PageVoteToggle({
 
   const toggleVote = async () => {
     try {
+      const supabase = getSupabaseClient()
+      if (supabase) {
+        const session = await ensureFreshSession(supabase)
+        if (!session.ok) {
+          if (session.kind === "unauthenticated") {
+            const currentPath = `${pathname || "/"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
+            const nextParams = new URLSearchParams(searchParams.toString())
+            nextParams.set("auth", "signup")
+            nextParams.set("next", currentPath)
+            showToast({
+              variant: "warning",
+              title: tVote("loginRequiredTitle"),
+              description: tVote("loginRequiredBody"),
+            })
+            router.replace(`${pathname || "/"}?${nextParams.toString()}`)
+            return
+          }
+          if (session.kind === "transient") {
+            showToast({
+              variant: "warning",
+              title: tCommon("sessionReconnectingTitle"),
+              description: tVote("sessionTransientBody"),
+            })
+            return
+          }
+        }
+      }
       const result = await runToggleVote()
       if (!result.ok) {
         if (result.status === 401) {
@@ -47,7 +76,20 @@ export function PageVoteToggle({
           const nextParams = new URLSearchParams(searchParams.toString())
           nextParams.set("auth", "signup")
           nextParams.set("next", currentPath)
+          showToast({
+            variant: "warning",
+            title: tVote("loginRequiredTitle"),
+            description: tVote("loginRequiredBody"),
+          })
           router.replace(`${pathname || "/"}?${nextParams.toString()}`)
+          return
+        }
+        if (result.status === 403) {
+          showToast({
+            variant: "warning",
+            title: tCommon("permissionDeniedTitle"),
+            description: tVote("permissionDeniedBody"),
+          })
           return
         }
         const description = result.error ?? tVote("voteFailedTitle")

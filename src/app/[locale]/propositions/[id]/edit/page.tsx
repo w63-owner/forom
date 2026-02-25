@@ -1,5 +1,8 @@
 import { notFound, redirect } from "next/navigation"
-import { getSupabaseServerClient } from "@/utils/supabase/server"
+import {
+  getSupabaseServerClient,
+  resolveServerSessionUserWithRetry,
+} from "@/utils/supabase/server"
 import PropositionEditClient from "./proposition-edit-client"
 
 type Props = {
@@ -16,10 +19,14 @@ export default async function PropositionEditPage({ params }: Props) {
   const supabase = await getSupabaseServerClient()
   if (!supabase) notFound()
 
-  const { data: userData } = await supabase.auth.getUser()
-  if (!userData.user) {
+  const sessionResolution = await resolveServerSessionUserWithRetry(supabase)
+  if (!sessionResolution.user && !sessionResolution.transientError) {
     redirect(`/${locale}/propositions/${id}/edit?auth=signup&next=/${locale}/propositions/${id}/edit`)
   }
+  if (!sessionResolution.user) {
+    notFound()
+  }
+  const userData = { user: sessionResolution.user }
 
   const { data, error } = await supabase
     .from("propositions")
@@ -30,7 +37,7 @@ export default async function PropositionEditPage({ params }: Props) {
   if (error || !data) notFound()
 
   if (data.author_id !== userData.user.id) {
-    redirect(`/propositions/${id}`)
+    redirect(`/${locale}/propositions/${id}`)
   }
 
   let initialPage: { id: string; name: string; slug: string } | null = null
