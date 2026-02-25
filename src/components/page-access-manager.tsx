@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
@@ -42,6 +42,7 @@ export function PageAccessManager({ pageId, ownerId, initialVisibility }: Props)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
+  const loadSeqRef = useRef(0)
 
   const isPrivate = visibility === "private"
 
@@ -56,7 +57,8 @@ export function PageAccessManager({ pageId, ownerId, initialVisibility }: Props)
     return user
   }
 
-  const loadLists = async () => {
+  const loadLists = async (attempt = 1) => {
+    const loadSeq = ++loadSeqRef.current
     try {
       const [invRes, membersRes] = await Promise.all([
         fetch(`/api/pages/invitations/list?pageId=${encodeURIComponent(pageId)}`, {
@@ -72,6 +74,23 @@ export function PageAccessManager({ pageId, ownerId, initialVisibility }: Props)
       const membersPayload = (await membersRes.json().catch(() => null)) as
         | { ok?: boolean; members?: Member[]; error?: string }
         | null
+
+      // At page reload, auth cookies can be briefly out of sync with client hydration.
+      // Retry once after forcing auth reconciliation before surfacing empty states.
+      if (attempt < 2 && (invRes.status === 401 || membersRes.status === 401)) {
+        const supabase = getSupabaseClient()
+        if (supabase) {
+          await resolveAuthUser(supabase, {
+            timeoutMs: 3500,
+            includeServerFallback: true,
+          }).catch(() => null)
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250))
+        if (loadSeq === loadSeqRef.current) {
+          await loadLists(attempt + 1)
+        }
+        return
+      }
 
       if (!invRes.ok || !invPayload?.ok) {
         setInvitations([])
@@ -92,9 +111,28 @@ export function PageAccessManager({ pageId, ownerId, initialVisibility }: Props)
         errors.push(membersPayload?.error ?? t("loadError"))
       }
       setError(errors.length > 0 ? errors[0] : null)
+
+      if (process.env.NODE_ENV !== "production") {
+        console.info("private_access_lists_loaded", {
+          pageId,
+          attempt,
+          invitationStatus: invRes.status,
+          memberStatus: membersRes.status,
+          invitationCount: invPayload?.invitations?.length ?? 0,
+          memberCount: membersPayload?.members?.length ?? 0,
+          errorCount: errors.length,
+        })
+      }
     } catch (err) {
       if (!isAbortLikeError(err)) {
         setError(t("loadError"))
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("private_access_lists_failed", {
+            pageId,
+            attempt,
+            reason: err instanceof Error ? err.message : "unknown",
+          })
+        }
       }
     }
   }
