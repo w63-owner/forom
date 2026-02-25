@@ -153,7 +153,7 @@ export async function POST(request: Request) {
   const newTranslations: Record<string, string> = {}
 
   for (const field of missingFields) {
-    const sourceText = (sourceRow as Record<string, string | null>)[field]
+    const sourceText = (sourceRow as unknown as Record<string, string | null>)[field]
     if (!sourceText?.trim()) {
       newTranslations[field] = ""
       continue
