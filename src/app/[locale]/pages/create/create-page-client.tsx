@@ -6,12 +6,6 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { X } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Alert } from "@/components/ui/alert"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
@@ -36,12 +30,10 @@ export function CreatePageClient() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
-  const [categoryQuery, setCategoryQuery] = useState("")
   const [isRepresentative, setIsRepresentative] = useState(false)
   const [verificationMethod, setVerificationMethod] = useState("email")
   const [verificationProof, setVerificationProof] = useState("")
   const [verificationNote, setVerificationNote] = useState("")
-  const [categoryOpen, setCategoryOpen] = useState(false)
   const [parentQueryInput, setParentQueryInput] = useState("")
   const [parentOpen, setParentOpen] = useState(false)
   const parentAnchorRef = useRef<HTMLInputElement | null>(null)
@@ -122,27 +114,7 @@ export function CreatePageClient() {
     },
   ]
 
-  const selectedCategoryLabel =
-    categoryGroups
-      .flatMap((group) => group.items)
-      .find((item) => item.value === category)?.label ?? ""
-
-  useEffect(() => {
-    if (!categoryQuery && selectedCategoryLabel) {
-      setCategoryQuery(selectedCategoryLabel)
-    }
-  }, [categoryQuery, selectedCategoryLabel])
-
-  const filteredCategoryGroups = categoryQuery.trim()
-    ? categoryGroups
-        .map((group) => ({
-          ...group,
-          items: group.items.filter((item) =>
-            item.label.toLowerCase().includes(categoryQuery.trim().toLowerCase())
-          ),
-        }))
-        .filter((group) => group.items.length > 0)
-    : categoryGroups
+  const categoryOptions = categoryGroups.flatMap((group) => group.items)
 
   const verificationMethods = [
     { value: "email", label: tVerification("methodEmail"), hint: tVerification("methodEmailHint") },
@@ -177,7 +149,6 @@ export function CreatePageClient() {
             name?: string
             description?: string
             category?: string
-            categoryQuery?: string
             isRepresentative?: boolean
             verificationMethod?: string
             verificationProof?: string
@@ -193,7 +164,6 @@ export function CreatePageClient() {
       if (typeof parsed.name === "string") setName(parsed.name)
       if (typeof parsed.description === "string") setDescription(parsed.description)
       if (typeof parsed.category === "string") setCategory(parsed.category)
-      if (typeof parsed.categoryQuery === "string") setCategoryQuery(parsed.categoryQuery)
       if (typeof parsed.isRepresentative === "boolean") setIsRepresentative(parsed.isRepresentative)
       if (typeof parsed.verificationMethod === "string") {
         setVerificationMethod(parsed.verificationMethod)
@@ -220,7 +190,6 @@ export function CreatePageClient() {
         name,
         description,
         category,
-        categoryQuery,
         isRepresentative,
         verificationMethod,
         verificationProof,
@@ -237,7 +206,6 @@ export function CreatePageClient() {
     name,
     description,
     category,
-    categoryQuery,
     isRepresentative,
     verificationMethod,
     verificationProof,
@@ -481,52 +449,20 @@ export function CreatePageClient() {
               <label htmlFor="page-category" className="text-sm font-medium text-foreground">
                 {t("categoryLabel")}
               </label>
-            <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-              <PopoverAnchor asChild>
-                <Input
-                  id="page-category"
-                  name="category"
-                  value={categoryQuery}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    setCategoryQuery(value)
-                    if (!value.trim()) {
-                      setCategory("")
-                    }
-                    if (!categoryOpen) {
-                      setCategoryOpen(true)
-                    }
-                  }}
-                  onFocus={() => setCategoryOpen(true)}
-                  placeholder={t("categoryPlaceholder")}
-                  className="h-11"
-                />
-              </PopoverAnchor>
-              <PopoverContent className="max-h-80 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-0">
-                <Command shouldFilter={false}>
-                  {filteredCategoryGroups.map((group) => (
-                    <CommandGroup key={group.label} heading={group.label}>
-                      {group.items.map((item) => (
-                        <CommandItem
-                          key={item.value}
-                          value={item.label}
-                          onSelect={() => {
-                            setCategory(item.value)
-                            setCategoryQuery(item.label)
-                            setCategoryOpen(false)
-                          }}
-                        >
-                          {item.label}
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  ))}
-                  {filteredCategoryGroups.length === 0 && (
-                    <CommandItem disabled>{t("categoryEmpty")}</CommandItem>
-                  )}
-                </Command>
-              </PopoverContent>
-            </Popover>
+              <select
+                id="page-category"
+                name="category"
+                value={category}
+                onChange={(event) => setCategory(event.target.value)}
+                className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              >
+                <option value="">{t("categoryPlaceholder")}</option>
+                {categoryOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <label htmlFor="page-parent-query" className="text-sm font-medium text-foreground">

@@ -20,7 +20,6 @@ import {
 } from "@/lib/comments/thread-loader"
 import type { ReactNode } from "react"
 import { useToast } from "@/components/ui/toast"
-import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 
 type Props = {
   propositionId: string
@@ -607,37 +606,6 @@ export default function PropositionDetailClient({
     openAuthModal("signup", `/${locale}/propositions/${propositionId}`)
   }, [locale, openAuthModal, propositionId])
 
-  const ensureCommentSession = useCallback(async (): Promise<boolean> => {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setCommentsError(t("supabaseNotConfigured"))
-      return false
-    }
-    const session = await ensureFreshSession(supabase)
-    if (!session.ok) {
-      if (session.kind === "unauthenticated") {
-        showToast({
-          variant: "warning",
-          title: t("loginRequiredTitle"),
-          description: t("loginRequiredBody"),
-        })
-        openAuthForThisProposition()
-        return false
-      }
-      if (session.kind === "transient") {
-        const description = t("sessionTransientBody")
-        setCommentsError(description)
-        showToast({
-          variant: "warning",
-          title: tCommon("sessionReconnectingTitle"),
-          description,
-        })
-        return false
-      }
-    }
-    return true
-  }, [openAuthForThisProposition, showToast, t, tCommon])
-
   const closeCommentMentions = useCallback(() => {
     setCommentMentionOpen(false)
     setCommentMentionOptions([])
@@ -967,34 +935,6 @@ export default function PropositionDetailClient({
     setCommentSubmitting(true)
     setCommentsError(null)
 
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setCommentsError(t("supabaseNotConfigured"))
-      setCommentSubmitting(false)
-      commentSubmitInProgressRef.current = false
-      return
-    }
-    const hasSession = await ensureCommentSession()
-    if (!hasSession) {
-      commentSubmitInProgressRef.current = false
-      setCommentSubmitting(false)
-      return
-    }
-    const user = await resolveAuthUser(supabase, {
-      timeoutMs: 3500,
-      includeServerFallback: true,
-    })
-    if (!user) {
-      commentSubmitInProgressRef.current = false
-      setCommentSubmitting(false)
-      showToast({
-        variant: "warning",
-        title: t("loginRequiredTitle"),
-        description: t("loginRequiredBody"),
-      })
-      openAuthForThisProposition()
-      return
-    }
     try {
       const serializedContent = commentEditorRef.current
         ? serializeCommentEditorContent(commentEditorRef.current)
@@ -1051,7 +991,6 @@ export default function PropositionDetailClient({
           type: "comment_created",
           propositionId,
           commentId: payload.commentId,
-          actorUserId: user.id,
           locale,
         }),
       }).catch(() => null)
@@ -1095,26 +1034,6 @@ export default function PropositionDetailClient({
     type: "Upvote" | "Downvote",
     currentVote: "Upvote" | "Downvote" | null
   ) => {
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setCommentsError(t("supabaseNotConfigured"))
-      return
-    }
-    const hasSession = await ensureCommentSession()
-    if (!hasSession) return
-    const user = await resolveAuthUser(supabase, {
-      timeoutMs: 3500,
-      includeServerFallback: true,
-    })
-    if (!user) {
-      showToast({
-        variant: "warning",
-        title: t("loginRequiredTitle"),
-        description: t("loginRequiredBody"),
-      })
-      openAuthForThisProposition()
-      return
-    }
     const response = await fetch("/api/comments/vote", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1154,34 +1073,6 @@ export default function PropositionDetailClient({
     setReplySubmitting(true)
     setCommentsError(null)
 
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setCommentsError(t("supabaseNotConfigured"))
-      setReplySubmitting(false)
-      replySubmitInProgressRef.current = false
-      return
-    }
-    const hasSession = await ensureCommentSession()
-    if (!hasSession) {
-      replySubmitInProgressRef.current = false
-      setReplySubmitting(false)
-      return
-    }
-    const user = await resolveAuthUser(supabase, {
-      timeoutMs: 3500,
-      includeServerFallback: true,
-    })
-    if (!user) {
-      replySubmitInProgressRef.current = false
-      setReplySubmitting(false)
-      showToast({
-        variant: "warning",
-        title: t("loginRequiredTitle"),
-        description: t("loginRequiredBody"),
-      })
-      openAuthForThisProposition()
-      return
-    }
     try {
       const response = await fetch("/api/comments/reply", {
         method: "POST",
