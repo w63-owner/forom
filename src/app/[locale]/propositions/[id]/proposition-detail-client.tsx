@@ -335,6 +335,7 @@ function CommentBlock({
   const [editValue, setEditValue] = useState(comment.content)
   const [editSubmitting, setEditSubmitting] = useState(false)
   const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (!isEditing) {
@@ -360,10 +361,11 @@ function CommentBlock({
     }
   }
 
-  const handleDelete = async () => {
+  const handleDeleteConfirmed = async () => {
     setDeleteSubmitting(true)
     try {
       await onDeleteComment(comment.id)
+      setDeleteConfirmOpen(false)
       setActionsOpen(false)
       setDesktopActionsOpen(false)
     } finally {
@@ -421,8 +423,10 @@ function CommentBlock({
                       <button
                         type="button"
                         className="mt-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
-                        onClick={() => void handleDelete()}
-                        disabled={deleteSubmitting}
+                        onClick={() => {
+                          setDesktopActionsOpen(false)
+                          setDeleteConfirmOpen(true)
+                        }}
                       >
                         <Trash2 className="size-4" />
                         {t("commentActionDelete")}
@@ -460,12 +464,35 @@ function CommentBlock({
                         <button
                           type="button"
                           className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-base text-destructive hover:bg-destructive/10"
-                          onClick={() => void handleDelete()}
-                          disabled={deleteSubmitting}
+                          onClick={() => {
+                            setActionsOpen(false)
+                            setDeleteConfirmOpen(true)
+                          }}
                         >
                           <Trash2 className="size-5" />
                           {t("commentActionDelete")}
                         </button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                    <DialogContent className="max-w-sm" showCloseButton={false}>
+                      <DialogHeader>
+                        <DialogTitle>{t("deleteConfirmTitle")}</DialogTitle>
+                      </DialogHeader>
+                      <p className="text-sm text-muted-foreground">{t("deleteConfirmBody")}</p>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteConfirmOpen(false)}>
+                          {t("cancel")}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deleteSubmitting}
+                          onClick={() => void handleDeleteConfirmed()}
+                        >
+                          {deleteSubmitting ? t("deleting") : t("commentActionDelete")}
+                        </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -700,8 +727,11 @@ export default function PropositionDetailClient({
   const commentMentionRangeRef = useRef<{ start: number; end: number } | null>(null)
   const commentMentionDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const commentMentionAbortRef = useRef<AbortController | null>(null)
+  const componentAbortRef = useRef<AbortController | null>(null)
   const commentSubmitInProgressRef = useRef(false)
   const replySubmitInProgressRef = useRef(false)
+  const handleSubmitCommentRef = useRef<(() => void) | null>(null)
+  const handleSubmitReplyRef = useRef<((parentId: string) => void) | null>(null)
   const commentsInitialLoadDoneRef = useRef(hasInitialComments)
   const initialBackgroundRefreshScheduledRef = useRef(false)
   const fetchCommentsRef = useRef<() => void>(() => {})
@@ -922,16 +952,38 @@ export default function PropositionDetailClient({
   )
 
   useEffect(() => {
+    const controller = new AbortController()
+    componentAbortRef.current = controller
+    const supabase = getSupabaseClient()
+
     const loadCurrentUser = async () => {
-      const supabase = getSupabaseClient()
-      if (!supabase) return
-      const user = await resolveAuthUser(supabase, {
-        timeoutMs: 3500,
-        includeServerFallback: true,
-      })
-      setCurrentUserId(user?.id ?? null)
+      try {
+        if (!supabase || controller.signal.aborted) return
+        const user = await resolveAuthUser(supabase, {
+          timeoutMs: 3500,
+          includeServerFallback: true,
+        })
+        if (!controller.signal.aborted) {
+          setCurrentUserId(user?.id ?? null)
+        }
+      } catch {
+        // Silently ignore abort/timeout errors during unmount
+      }
     }
     void loadCurrentUser()
+
+    const { data: { subscription } } = supabase?.auth.onAuthStateChange(
+      (_event, session) => {
+        if (!controller.signal.aborted) {
+          setCurrentUserId(session?.user?.id ?? null)
+        }
+      }
+    ) ?? { data: { subscription: null } }
+
+    return () => {
+      controller.abort()
+      subscription?.unsubscribe()
+    }
   }, [])
 
   const fetchComments = useCallback(async () => {
@@ -946,8 +998,13 @@ export default function PropositionDetailClient({
       attempt: number,
       timeoutCount: number
     ): Promise<Response> => {
+      if (componentAbortRef.current?.signal.aborted) {
+        throw new Error("Component unmounted")
+      }
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort("comments_timeout"), timeoutMs)
+      const onComponentAbort = () => { controller.abort() }
+      componentAbortRef.current?.signal.addEventListener("abort", onComponentAbort)
       try {
         return await fetch(`/api/comments/thread?propositionId=${propositionId}`, {
           method: "GET",
@@ -962,6 +1019,7 @@ export default function PropositionDetailClient({
         })
       } finally {
         clearTimeout(timeoutId)
+        componentAbortRef.current?.signal.removeEventListener("abort", onComponentAbort)
       }
     }
     const fetchWithRetry = async (): Promise<Response> => {
@@ -1130,7 +1188,7 @@ export default function PropositionDetailClient({
             title: t("loginRequiredTitle"),
             description: t("loginRequiredBody"),
           })
-          openAuthForThisProposition()
+          openAuthModal("signup", `/${locale}/propositions/${propositionId}`, () => handleSubmitCommentRef.current?.())
           return
         }
         if (response.status === 403) {
@@ -1173,6 +1231,10 @@ export default function PropositionDetailClient({
     }
   }
 
+  useEffect(() => {
+    handleSubmitCommentRef.current = handleSubmitComment
+  })
+
   const handleToggleSolution = async (commentId: string, nextValue: boolean) => {
     if (!isAuthor) return
     setCommentsError(null)
@@ -1202,40 +1264,80 @@ export default function PropositionDetailClient({
     }).catch(() => null)
   }
 
+  const commentVoteInFlightRef = useRef<Set<string>>(new Set())
+
+  const applyCommentVoteOptimistic = (
+    commentId: string,
+    type: "Upvote" | "Downvote",
+    currentVote: "Upvote" | "Downvote" | null
+  ) => {
+    const isToggleOff = currentVote === type
+    setComments((prev) => {
+      const update = (items: CommentItem[]): CommentItem[] =>
+        items.map((c) => {
+          if (c.id === commentId) {
+            const delta = isToggleOff ? -1 : currentVote ? 0 : 1
+            return {
+              ...c,
+              currentUserVote: isToggleOff ? null : type,
+              votesCount: Math.max(0, (c.votesCount ?? 0) + delta),
+            }
+          }
+          if (c.replies?.length) {
+            return { ...c, replies: update(c.replies) }
+          }
+          return c
+        })
+      return update(prev)
+    })
+  }
+
   const handleCommentVote = async (
     commentId: string,
     type: "Upvote" | "Downvote",
     currentVote: "Upvote" | "Downvote" | null
   ) => {
-    const response = await fetch("/api/comments/vote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ propositionId, commentId, type, currentVote }),
-    })
-    if (!response.ok) {
-      if (response.status === 401) {
-        showToast({
-          variant: "warning",
-          title: t("loginRequiredTitle"),
-          description: t("loginRequiredBody"),
-        })
-        openAuthForThisProposition()
+    if (commentVoteInFlightRef.current.has(commentId)) return
+    commentVoteInFlightRef.current.add(commentId)
+
+    applyCommentVoteOptimistic(commentId, type, currentVote)
+
+    try {
+      const response = await fetch("/api/comments/vote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ propositionId, commentId, type, currentVote }),
+      })
+      if (!response.ok) {
+        applyCommentVoteOptimistic(commentId, currentVote ?? type, type === currentVote ? null : type)
+        if (response.status === 401) {
+          showToast({
+            variant: "warning",
+            title: t("loginRequiredTitle"),
+            description: t("loginRequiredBody"),
+          })
+          openAuthForThisProposition()
+          return
+        }
+        if (response.status === 403) {
+          const description = t("permissionDeniedBody")
+          setCommentsError(description)
+          showToast({
+            variant: "warning",
+            title: tCommon("permissionDeniedTitle"),
+            description,
+          })
+          return
+        }
+        setCommentsError(t("loadError"))
         return
       }
-      if (response.status === 403) {
-        const description = t("permissionDeniedBody")
-        setCommentsError(description)
-        showToast({
-          variant: "warning",
-          title: tCommon("permissionDeniedTitle"),
-          description,
-        })
-        return
-      }
+    } catch {
+      applyCommentVoteOptimistic(commentId, currentVote ?? type, type === currentVote ? null : type)
       setCommentsError(t("loadError"))
-      return
+    } finally {
+      commentVoteInFlightRef.current.delete(commentId)
     }
-    await fetchComments()
   }
 
   const handleEditComment = async (commentId: string, nextContent: string) => {
@@ -1330,7 +1432,7 @@ export default function PropositionDetailClient({
             title: t("loginRequiredTitle"),
             description: t("loginRequiredBody"),
           })
-          openAuthForThisProposition()
+          openAuthModal("signup", `/${locale}/propositions/${propositionId}`, () => handleSubmitReplyRef.current?.(parentId))
           return
         }
         if (response.status === 403) {
@@ -1357,6 +1459,10 @@ export default function PropositionDetailClient({
       replySubmitInProgressRef.current = false
     }
   }
+
+  useEffect(() => {
+    handleSubmitReplyRef.current = handleSubmitReply
+  })
 
   return (
     <div className="space-y-6">

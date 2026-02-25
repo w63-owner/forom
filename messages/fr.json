@@ -692,6 +692,9 @@
     "commentActionsTitle": "Ajouter un commentaire",
     "commentActionEdit": "Modifier",
     "commentActionDelete": "Supprimer",
+    "deleteConfirmTitle": "Supprimer le commentaire ?",
+    "deleteConfirmBody": "Cette action est irréversible. Êtes-vous sûr de vouloir supprimer ce commentaire ?",
+    "deleting": "Suppression...",
     "editPlaceholder": "Modifier votre commentaire...",
     "saveEdit": "Enregistrer",
     "savingEdit": "Enregistrement..."

@@ -24,11 +24,13 @@ import { useLocale } from "next-intl"
 
 const FORCE_ONBOARDING_WELCOME_KEY = "forom_force_onboarding_welcome"
 
+type PendingAction = () => void
+
 type AuthModalContextValue = {
   isOpen: boolean
   mode: AuthModalMode
   nextPath: string
-  openAuthModal: (mode?: AuthModalMode, nextPath?: string) => void
+  openAuthModal: (mode?: AuthModalMode, nextPath?: string, pendingAction?: PendingAction) => void
   closeAuthModal: () => void
   setMode: (mode: AuthModalMode) => void
 }
@@ -53,6 +55,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<AuthModalMode>("signup")
   const [nextPath, setNextPath] = useState("/")
   const finalizeInFlightRef = useRef(false)
+  const pendingActionRef = useRef<PendingAction | null>(null)
 
   const refreshOnboardingState = useCallback(async () => {
     try {
@@ -110,8 +113,14 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
       nextParams.delete(AUTH_QUERY_KEY)
       nextParams.delete(NEXT_QUERY_KEY)
       updateUrl(pathname || "/", nextParams, router)
+
+      const action = pendingActionRef.current
+      pendingActionRef.current = null
+
       if (safeNext !== (pathname || "/")) {
         router.replace(safeNext, { scroll: false })
+      } else if (action) {
+        setTimeout(action, 300)
       }
       void refreshOnboardingState()
     },
@@ -158,7 +167,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
         return
       }
       const hasAuthQuery = normalizeAuthMode(searchParams.get(AUTH_QUERY_KEY)) != null
-      if (isOpen || hasAuthQuery || event === "SIGNED_IN") {
+      if (isOpen || hasAuthQuery) {
         finalizeSignedIn()
         return
       }
@@ -170,8 +179,9 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   }, [finalizeSignedIn, isOpen, refreshOnboardingState, searchParams])
 
   const openAuthModal = useCallback(
-    (requestedMode: AuthModalMode = "signup", requestedNextPath?: string) => {
+    (requestedMode: AuthModalMode = "signup", requestedNextPath?: string, pendingAction?: PendingAction) => {
       finalizeInFlightRef.current = false
+      pendingActionRef.current = pendingAction ?? null
       const safeNext = sanitizeNextPath(requestedNextPath ?? `${pathname || "/"}`)
       setModeState(requestedMode)
       setNextPath(safeNext)
@@ -187,6 +197,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
 
   const closeAuthModal = useCallback(() => {
     finalizeInFlightRef.current = false
+    pendingActionRef.current = null
     setIsOpen(false)
     const nextParams = new URLSearchParams(searchParams.toString())
     nextParams.delete(AUTH_QUERY_KEY)

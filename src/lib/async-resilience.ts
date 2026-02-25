@@ -91,8 +91,16 @@ export class AsyncTimeoutError extends Error {
     init: RequestInit = {},
     timeoutMs = 15000
   ): Promise<Response> {
+    if (init.signal?.aborted) {
+      throw new AsyncTimeoutError("Signal already aborted")
+    }
+
     const controller = new AbortController()
-  const id = setTimeout(() => controller.abort("timeout"), timeoutMs)
+    const id = setTimeout(() => controller.abort("timeout"), timeoutMs)
+
+    const onExternalAbort = () => { controller.abort() }
+    init.signal?.addEventListener("abort", onExternalAbort)
+
     try {
       return await fetch(input, { ...init, signal: controller.signal })
     } catch (error) {
@@ -102,5 +110,6 @@ export class AsyncTimeoutError extends Error {
       throw error
     } finally {
       clearTimeout(id)
+      init.signal?.removeEventListener("abort", onExternalAbort)
     }
   }

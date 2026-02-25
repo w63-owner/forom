@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
+import { useAuthModal } from "@/components/auth-modal-provider"
 
 // Bell outline (default / not subscribed)
 function BellOutlineIcon({ className }: { className?: string }) {
@@ -58,6 +59,8 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
   const { showToast } = useToast()
+  const { openAuthModal } = useAuthModal()
+  const handleClickRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const fetchSubscription = async () => {
@@ -87,12 +90,7 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
       includeServerFallback: true,
     })
     if (!user) {
-      const currentPath =
-        typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : `/${locale}/propositions/${propositionId}`
-      const separator = currentPath.includes("?") ? "&" : "?"
-      window.location.href = `${currentPath}${separator}auth=signup&next=${encodeURIComponent(currentPath)}`
+      openAuthModal("signup", `/${locale}/propositions/${propositionId}`, () => handleClickRef.current?.())
       return
     }
     setLoading(true)
@@ -122,6 +120,10 @@ export function PropositionNotifyButton({ propositionId, className }: Props) {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    handleClickRef.current = handleClick
+  })
 
   return (
     <button

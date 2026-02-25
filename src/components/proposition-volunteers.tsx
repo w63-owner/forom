@@ -8,12 +8,14 @@ import {
   useState,
 } from "react"
 import { useLocale, useTranslations } from "next-intl"
+import { usePathname } from "next/navigation"
 import { UserMinus, UserPlus } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
+import { useAuthModal } from "@/components/auth-modal-provider"
 
 export type VolunteerItem = {
   user_id: string
@@ -190,6 +192,8 @@ function displayName(v: VolunteerItem, fallback: string) {
 /** Avatars + volunteer button/status, in toolbar (left of Edit). */
 export function PropositionVolunteerButton() {
   const t = useTranslations("Volunteers")
+  const pathname = usePathname()
+  const { openAuthModal } = useAuthModal()
   const {
     volunteers,
     isOrphan,
@@ -206,7 +210,6 @@ export function PropositionVolunteerButton() {
     return null
   }
 
-  // Volunteers only for orphan propositions.
   if (!isOrphan) {
     return null
   }
@@ -276,9 +279,15 @@ export function PropositionVolunteerButton() {
   return (
     <div className="flex items-center gap-2">
       {avatars}
-      <span className="text-xs text-muted-foreground">
-        {t("loginToVolunteer")}
-      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1 text-xs text-muted-foreground hover:text-foreground"
+        onClick={() => openAuthModal("signup", pathname || "/")}
+      >
+        <UserPlus className="size-3" />
+        {t("join")}
+      </Button>
     </div>
   )
 }
@@ -286,6 +295,8 @@ export function PropositionVolunteerButton() {
 /** Compact menu action for volunteers (mobile). */
 export function PropositionVolunteerMenuAction() {
   const t = useTranslations("Volunteers")
+  const pathname = usePathname()
+  const { openAuthModal } = useAuthModal()
   const {
     isOrphan,
     currentUserId,
@@ -303,9 +314,13 @@ export function PropositionVolunteerMenuAction() {
 
   if (!currentUserId) {
     return (
-      <span className="px-2 py-1.5 text-xs text-muted-foreground">
-        {t("loginToVolunteer")}
-      </span>
+      <button
+        type="button"
+        onClick={() => openAuthModal("signup", pathname || "/")}
+        className="w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted"
+      >
+        {t("join")}
+      </button>
     )
   }
 

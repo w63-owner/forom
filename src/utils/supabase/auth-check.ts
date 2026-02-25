@@ -69,7 +69,7 @@ const initSnapshot = async (supabase: SupabaseClient) => {
       return
     }
   }
-  if (snapshot.initialized) return
+  if (snapshot.initialized && snapshot.user) return
   try {
     const { data } = await withRetry(
       () => withTimeoutPromise(supabase.auth.getSession(), 5000),
@@ -82,7 +82,7 @@ const initSnapshot = async (supabase: SupabaseClient) => {
     snapshot.user = data.session?.user ?? null
     snapshot.initialized = true
   } catch {
-    // Keep lazy behavior; caller can still trigger fresh checks.
+    snapshot.initialized = true
   }
 }
 
@@ -95,7 +95,7 @@ export async function resolveAuthUser(
   supabase: SupabaseClient,
   options?: AuthCheckOptions
 ): Promise<User | null> {
-  const timeoutMs = Math.max(options?.timeoutMs ?? 4000, 5000)
+  const timeoutMs = options?.timeoutMs ?? 4000
   const includeServerFallback = options?.includeServerFallback ?? true
 
   await initSnapshot(supabase)

@@ -1,6 +1,7 @@
 "use client"
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useRef } from "react"
+import { usePathname } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { useToast } from "@/components/ui/toast"
 import { AsyncTimeoutError } from "@/lib/async-resilience"
@@ -8,6 +9,7 @@ import { PropositionVoteButton } from "@/components/proposition-vote-button"
 import { usePropositionVote } from "@/hooks/use-proposition-vote"
 import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { useAuthModal } from "@/components/auth-modal-provider"
 
 type Props = {
   propositionId: string
@@ -26,12 +28,12 @@ export function PageVoteToggle({
   initialHasVoted,
   onVoteChange,
 }: Props) {
-  const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const tCommon = useTranslations("Common")
   const tVote = useTranslations("Vote")
   const { showToast } = useToast()
+  const { openAuthModal } = useAuthModal()
+  const toggleVoteRef = useRef<(() => void) | null>(null)
   const { votes, hasVoted, loading, toggleVote: runToggleVote } = usePropositionVote({
     propositionId,
     initialVotes,
@@ -40,6 +42,8 @@ export function PageVoteToggle({
     syncOnVisibility: false,
   })
 
+  const currentPath = pathname || "/"
+
   const toggleVote = async () => {
     try {
       const supabase = getSupabaseClient()
@@ -47,16 +51,12 @@ export function PageVoteToggle({
         const session = await ensureFreshSession(supabase)
         if (!session.ok) {
           if (session.kind === "unauthenticated") {
-            const currentPath = `${pathname || "/"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-            const nextParams = new URLSearchParams(searchParams.toString())
-            nextParams.set("auth", "signup")
-            nextParams.set("next", currentPath)
             showToast({
               variant: "warning",
               title: tVote("loginRequiredTitle"),
               description: tVote("loginRequiredBody"),
             })
-            router.replace(`${pathname || "/"}?${nextParams.toString()}`)
+            openAuthModal("signup", currentPath, () => toggleVoteRef.current?.())
             return
           }
           if (session.kind === "transient") {
@@ -72,16 +72,12 @@ export function PageVoteToggle({
       const result = await runToggleVote()
       if (!result.ok) {
         if (result.status === 401) {
-          const currentPath = `${pathname || "/"}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-          const nextParams = new URLSearchParams(searchParams.toString())
-          nextParams.set("auth", "signup")
-          nextParams.set("next", currentPath)
           showToast({
             variant: "warning",
             title: tVote("loginRequiredTitle"),
             description: tVote("loginRequiredBody"),
           })
-          router.replace(`${pathname || "/"}?${nextParams.toString()}`)
+          openAuthModal("signup", currentPath, () => toggleVoteRef.current?.())
           return
         }
         if (result.status === 403) {
@@ -125,6 +121,10 @@ export function PageVoteToggle({
       })
     }
   }
+
+  useEffect(() => {
+    toggleVoteRef.current = toggleVote
+  })
 
   return (
     <div className="flex justify-end">

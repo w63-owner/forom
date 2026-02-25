@@ -47,11 +47,15 @@ type RawVoteRow = {
   user_id?: string
 }
 
+const DEFAULT_COMMENTS_LIMIT = 200
+
 type LoadThreadOptions = {
   supabase: SupabaseClient
   propositionId: string
   currentUserId?: string | null
   propositionAuthorId?: string | null
+  /** Max comments to load. Defaults to 200 for performance at scale. */
+  limit?: number
 }
 
 export async function loadEnrichedCommentsFlat({
@@ -59,9 +63,11 @@ export async function loadEnrichedCommentsFlat({
   propositionId,
   currentUserId = null,
   propositionAuthorId = null,
+  limit = DEFAULT_COMMENTS_LIMIT,
 }: LoadThreadOptions): Promise<{
   propositionAuthorId: string | null
   comments: EnrichedThreadComment[]
+  hasMore: boolean
 }> {
   let resolvedAuthorId = propositionAuthorId
   if (!resolvedAuthorId) {
@@ -76,6 +82,7 @@ export async function loadEnrichedCommentsFlat({
     resolvedAuthorId = proposition?.author_id ?? null
   }
 
+  const fetchLimit = limit + 1
   const { data: rawComments, error: commentsError } = await supabase
     .from("comments")
     .select(
@@ -83,14 +90,17 @@ export async function loadEnrichedCommentsFlat({
     )
     .eq("proposition_id", propositionId)
     .order("created_at", { ascending: false })
+    .limit(fetchLimit)
   if (commentsError) {
     throw new Error(commentsError.message)
   }
 
-  const comments = (rawComments ?? []) as RawCommentRow[]
+  const allRows = (rawComments ?? []) as RawCommentRow[]
+  const hasMore = allRows.length > limit
+  const comments = hasMore ? allRows.slice(0, limit) : allRows
   const commentIds = comments.map((comment) => comment.id)
   if (commentIds.length === 0) {
-    return { propositionAuthorId: resolvedAuthorId, comments: [] }
+    return { propositionAuthorId: resolvedAuthorId, comments: [], hasMore: false }
   }
 
   const { data: allVotes, error: allVotesError } = await supabase
@@ -149,7 +159,7 @@ export async function loadEnrichedCommentsFlat({
     likedByAuthor: votesByComment.get(comment.id)?.likedByAuthor ?? false,
   }))
 
-  return { propositionAuthorId: resolvedAuthorId, comments: enriched }
+  return { propositionAuthorId: resolvedAuthorId, comments: enriched, hasMore }
 }
 
 export function buildCommentTree(

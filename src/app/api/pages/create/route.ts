@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 import { sanitizeVisibility } from "@/lib/private-pages"
 import { getSupabaseServerClient, resolveServerSessionUserWithRetry } from "@/utils/supabase/server"
+import { applyRateLimit } from "@/lib/api-rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -45,6 +46,9 @@ export async function POST(request: Request) {
     )
   }
 
+  const rateLimited = applyRateLimit(request, "pages/create", auth.user.id)
+  if (rateLimited) return rateLimited
+
   let body: Body
   try {
     body = (await request.json()) as Body
@@ -68,6 +72,12 @@ export async function POST(request: Request) {
   if (!name || !visibility) {
     return NextResponse.json(
       { ok: false, code: "invalid_payload", error: "name and visibility are required." },
+      { status: 400 }
+    )
+  }
+  if (name.length > 255) {
+    return NextResponse.json(
+      { ok: false, code: "invalid_payload", error: "name must be 255 characters or less." },
       { status: 400 }
     )
   }

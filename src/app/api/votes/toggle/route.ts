@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
+import { applyRateLimit } from "@/lib/api-rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -33,6 +34,9 @@ export async function POST(request: Request) {
       { status: 401 }
     )
   }
+
+  const rateLimited = applyRateLimit(request, "votes/toggle", authData.user.id)
+  if (rateLimited) return rateLimited
 
   let body: ToggleVoteBody
   try {

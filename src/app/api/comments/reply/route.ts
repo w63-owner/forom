@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 import { validateMutationOrigin } from "@/lib/security/origin-guard"
 import { createCommentsRequestTracker } from "@/lib/observability/comments-metrics"
+import { applyRateLimit } from "@/lib/api-rate-limit"
 
 export const dynamic = "force-dynamic"
 
@@ -47,6 +48,9 @@ export async function POST(request: Request) {
   if (authError || !authData.user) {
     return respond({ ok: false, error: "Unauthorized." }, 401, null)
   }
+
+  const rateLimited = applyRateLimit(request, "comments/reply", authData.user.id)
+  if (rateLimited) return rateLimited
 
   let body: ReplyBody
   try {

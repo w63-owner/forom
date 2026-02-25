@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import debounce from "lodash/debounce"
 import { useLocale, useTranslations } from "next-intl"
 import { getSupabaseClient } from "@/utils/supabase/client"
@@ -42,12 +42,16 @@ export function usePageSearch({
       (err.message.toLowerCase().includes("signal is aborted") ||
         err.message.toLowerCase().includes("aborted without reason")))
 
+  const activeControllerRef = useRef<AbortController | null>(null)
+
   const debouncedSearch = useMemo(
     () =>
       debounce(async (value: string) => {
+        activeControllerRef.current?.abort()
+        const controller = new AbortController()
+        activeControllerRef.current = controller
         setLoading(true)
         setError(null)
-        const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort("timeout"), 5000)
         try {
           const response = await fetch(
@@ -146,10 +150,17 @@ export function usePageSearch({
   useEffect(() => {
     if (enabled) return
     debouncedSearch.cancel()
+    activeControllerRef.current?.abort()
     setResults([])
     setError(null)
     setLoading(false)
   }, [debouncedSearch, enabled])
+
+  useEffect(() => {
+    return () => {
+      activeControllerRef.current?.abort()
+    }
+  }, [])
 
   const onQueryChange = (
     value: string,

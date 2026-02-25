@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { AsyncTimeoutError } from "@/lib/async-resilience"
 import { PropositionVoteButton } from "@/components/proposition-vote-button"
@@ -9,6 +9,7 @@ import { usePropositionVote } from "@/hooks/use-proposition-vote"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { useToast } from "@/components/ui/toast"
 import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
+import { useAuthModal } from "@/components/auth-modal-provider"
 
 type Props = {
   propositionId: string
@@ -23,14 +24,14 @@ export function PropositionVoteBar({
   initialHasVoted,
   propositionPageId,
 }: Props) {
-  const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const t = useTranslations("PropositionVotes")
   const tCommon = useTranslations("Common")
   const locale = useLocale()
   const [error, setError] = useState<string | null>(null)
   const { showToast } = useToast()
+  const { openAuthModal } = useAuthModal()
+  const handleVoteRef = useRef<(() => void) | null>(null)
   const [ownerNotifyDaily, setOwnerNotifyDaily] = useState(false)
   const [ownerVoteThreshold, setOwnerVoteThreshold] = useState<number | null>(
     null
@@ -66,6 +67,8 @@ export function PropositionVoteBar({
       })
   }, [propositionPageId])
 
+  const currentPath = `${pathname || `/${locale}`}`
+
   const handleVote = async () => {
     setError(null)
     const previousVotes = votes
@@ -75,16 +78,12 @@ export function PropositionVoteBar({
         const session = await ensureFreshSession(supabase)
         if (!session.ok) {
           if (session.kind === "unauthenticated") {
-            const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-            const nextParams = new URLSearchParams(searchParams.toString())
-            nextParams.set("auth", "signup")
-            nextParams.set("next", currentPath)
             showToast({
               variant: "warning",
               title: tCommon("loginRequiredTitle"),
               description: t("loginRequired"),
             })
-            router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
+            openAuthModal("signup", currentPath, () => handleVoteRef.current?.())
             return
           }
           if (session.kind === "transient") {
@@ -102,16 +101,12 @@ export function PropositionVoteBar({
       const result = await runToggleVote()
       if (!result.ok) {
         if (result.status === 401) {
-          const currentPath = `${pathname || `/${locale}`}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`
-          const nextParams = new URLSearchParams(searchParams.toString())
-          nextParams.set("auth", "signup")
-          nextParams.set("next", currentPath)
           showToast({
             variant: "warning",
             title: tCommon("loginRequiredTitle"),
             description: t("loginRequired"),
           })
-          router.replace(`${pathname || `/${locale}`}?${nextParams.toString()}`)
+          openAuthModal("signup", currentPath, () => handleVoteRef.current?.())
           return
         }
         if (result.status === 403) {
@@ -175,6 +170,10 @@ export function PropositionVoteBar({
       })
     }
   }
+
+  useEffect(() => {
+    handleVoteRef.current = handleVote
+  })
 
   return (
     <div className="space-y-2">
