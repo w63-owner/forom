@@ -12,6 +12,7 @@ import {
   CommandItem,
 } from "@/components/ui/command"
 import { usePageSearch, type PageResult } from "@/hooks/use-page-search"
+import { isAbortLikeError } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
@@ -85,24 +86,36 @@ export function PageParentRequest({ pageId, ownerId }: Props) {
     })
     if (!user || user.id !== ownerId) return
 
-    const { data: pageData } = await supabase
+    const { data: pageData, error: pageError } = await supabase
       .from("pages")
       .select("parent_page_id")
       .eq("id", pageId)
       .maybeSingle()
+    if (pageError) {
+      if (!isAbortLikeError(pageError)) {
+        setError(pageError.message)
+      }
+      return
+    }
 
     if (pageData?.parent_page_id) {
-      const { data: parentData } = await supabase
+      const { data: parentData, error: parentError } = await supabase
         .from("pages")
         .select("id, name, slug")
         .eq("id", pageData.parent_page_id)
         .maybeSingle()
+      if (parentError) {
+        if (!isAbortLikeError(parentError)) {
+          setError(parentError.message)
+        }
+        return
+      }
       setCurrentParent((parentData as ParentPage | null) ?? null)
     } else {
       setCurrentParent(null)
     }
 
-    const { data: requestData } = await supabase
+    const { data: requestData, error: requestLoadError } = await supabase
       .from("page_parent_requests")
       .select(
         "id, status, parent_page_id, created_at, parent:pages!page_parent_requests_parent_page_id_fkey(id, name, slug)"
@@ -111,6 +124,12 @@ export function PageParentRequest({ pageId, ownerId }: Props) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()
+    if (requestLoadError) {
+      if (!isAbortLikeError(requestLoadError)) {
+        setError(requestLoadError.message)
+      }
+      return
+    }
 
     if (requestData) {
       const parent = Array.isArray(requestData.parent)
@@ -175,7 +194,9 @@ export function PageParentRequest({ pageId, ownerId }: Props) {
       )
 
     if (requestError) {
-      setError(requestError.message)
+      if (!isAbortLikeError(requestError)) {
+        setError(requestError.message)
+      }
       setLoading(false)
       return
     }

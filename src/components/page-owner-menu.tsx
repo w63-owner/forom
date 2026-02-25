@@ -89,6 +89,8 @@ export function PageOwnerMenu({
         variant="ghost"
         size="sm"
         type="button"
+        aria-label="Owner actions"
+        title="Owner actions"
         className="h-8 w-8 rounded-full px-0 text-muted-foreground hover:bg-muted/60"
         onClick={() => setActivePanel("menu")}
       >

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Alert } from "@/components/ui/alert"
+import { isAbortLikeError } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
@@ -56,31 +57,45 @@ export function PageAccessManager({ pageId, ownerId, initialVisibility }: Props)
   }
 
   const loadLists = async () => {
-    const user = await requireOwner()
-    if (!user) return
-    const [invRes, membersRes] = await Promise.all([
-      fetch(`/api/pages/invitations/list?pageId=${encodeURIComponent(pageId)}`, {
-        cache: "no-store",
-      }),
-      fetch(`/api/pages/members/list?pageId=${encodeURIComponent(pageId)}`, {
-        cache: "no-store",
-      }),
-    ])
-    const invPayload = (await invRes.json().catch(() => null)) as
-      | { ok?: boolean; invitations?: Invitation[]; error?: string }
-      | null
-    const membersPayload = (await membersRes.json().catch(() => null)) as
-      | { ok?: boolean; members?: Member[]; error?: string }
-      | null
-    if (!invRes.ok || !invPayload?.ok) {
-      setError(invPayload?.error ?? t("loadError"))
-    } else {
-      setInvitations(invPayload.invitations ?? [])
-    }
-    if (!membersRes.ok || !membersPayload?.ok) {
-      setError(membersPayload?.error ?? t("loadError"))
-    } else {
-      setMembers(membersPayload.members ?? [])
+    try {
+      const [invRes, membersRes] = await Promise.all([
+        fetch(`/api/pages/invitations/list?pageId=${encodeURIComponent(pageId)}`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/pages/members/list?pageId=${encodeURIComponent(pageId)}`, {
+          cache: "no-store",
+        }),
+      ])
+      const invPayload = (await invRes.json().catch(() => null)) as
+        | { ok?: boolean; invitations?: Invitation[]; error?: string }
+        | null
+      const membersPayload = (await membersRes.json().catch(() => null)) as
+        | { ok?: boolean; members?: Member[]; error?: string }
+        | null
+
+      if (!invRes.ok || !invPayload?.ok) {
+        setInvitations([])
+      } else {
+        setInvitations((invPayload.invitations ?? []).filter((invitation) => !invitation.revoked_at))
+      }
+      if (!membersRes.ok || !membersPayload?.ok) {
+        setMembers([])
+      } else {
+        setMembers(membersPayload.members ?? [])
+      }
+
+      const errors: string[] = []
+      if (!invRes.ok || !invPayload?.ok) {
+        errors.push(invPayload?.error ?? t("loadError"))
+      }
+      if (!membersRes.ok || !membersPayload?.ok) {
+        errors.push(membersPayload?.error ?? t("loadError"))
+      }
+      setError(errors.length > 0 ? errors[0] : null)
+    } catch (err) {
+      if (!isAbortLikeError(err)) {
+        setError(t("loadError"))
+      }
     }
   }
 

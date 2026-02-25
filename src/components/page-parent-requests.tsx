@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
+import { isAbortLikeError } from "@/lib/async-resilience"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
@@ -56,7 +57,9 @@ export function PageParentRequests({ pageId, ownerId }: Props) {
       .order("created_at", { ascending: false })
 
     if (fetchError) {
-      setError(fetchError.message)
+      if (!isAbortLikeError(fetchError)) {
+        setError(fetchError.message)
+      }
       return
     }
     const normalized: ParentRequest[] = (data ?? []).map((row: any) => ({

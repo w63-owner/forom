@@ -97,9 +97,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: createError?.message ?? "Create failed." }, { status: 500 })
   }
 
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
-      ? process.env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")
+  const configuredAppUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() ?? ""
+  const requestOrigin = new URL(request.url).origin.replace(/\/+$/, "")
+  const appUrl = configuredAppUrl.startsWith("http")
+    ? configuredAppUrl.replace(/\/+$/, "")
+    : process.env.NODE_ENV === "development"
+      ? requestOrigin
       : "https://www.forom.app"
   const inviteUrl = `${appUrl}/fr/invite/page?token=${encodeURIComponent(token)}`
 
