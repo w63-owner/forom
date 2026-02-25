@@ -54,7 +54,7 @@ export const getSupabaseClient = (): SupabaseClient | null => {
       },
     },
     auth: {
-      lock: async (name: string, acquireTimeout: number, fn: () => Promise<unknown>) => {
+      lock: async <R>(name: string, acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
         if (
           typeof globalThis !== "undefined" &&
           globalThis.navigator?.locks
@@ -74,7 +74,7 @@ export const getSupabaseClient = (): SupabaseClient | null => {
                 if (lock) {
                   return await fn()
                 }
-                return undefined as unknown
+                return undefined as unknown as R
               }
             )
           } catch (error) {
