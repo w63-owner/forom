@@ -44,6 +44,7 @@ import {
 } from "@/lib/proposition-submission"
 import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 import { useToast } from "@/components/ui/toast"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 
 const CREATE_PROPOSITION_DRAFT_STORAGE_KEY = "forom:create-proposition:draft"
 
@@ -113,6 +114,34 @@ type Step3Props = {
   onCategoryQueryChange: (value: string) => void
   onCategoryOpenChange: (open: boolean) => void
   onCategorySelect: (universe: Universe | null, category: string, subCategory: string) => void
+}
+
+type NotificationToggleProps = {
+  id: string
+  label: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}
+
+function NotificationToggle({
+  id,
+  label,
+  checked,
+  onCheckedChange,
+}: NotificationToggleProps) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <label id={`${id}-label`} htmlFor={id} className="text-sm text-foreground">
+        {label}
+      </label>
+      <ToggleSwitch
+        id={id}
+        ariaLabelledBy={`${id}-label`}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
+  )
 }
 
 const Step1Card = memo(function Step1Card({
@@ -435,7 +464,7 @@ const Step3Card = memo(function Step3Card({
           </div>
         </div>
 
-        <div className="space-y-4 rounded-lg border bg-muted/20 px-4 py-4">
+        <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3PageTitle")}
           </h2>
@@ -524,7 +553,7 @@ const Step3Card = memo(function Step3Card({
           )}
         </div>
 
-        <div className="space-y-4 rounded-lg border bg-muted/20 px-4 py-4">
+        <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3CategoryTitle")}
           </h2>
@@ -632,49 +661,29 @@ const Step3Card = memo(function Step3Card({
           </Popover>
         </div>
 
-        <div className="space-y-4 rounded-lg border bg-muted/20 px-4 py-4">
+        <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
           <h2 className="text-lg font-semibold text-foreground">
             {t("step3NotificationsTitle")}
           </h2>
           <div className="space-y-2 text-sm font-normal">
-            <p className="text-foreground">
-              {t("step3NotificationsIntro")}
-            </p>
-            <label className="flex items-center gap-2">
-              <input
-                id="proposition-notify-comments"
-                name="notifyComments"
-                type="checkbox"
-                checked={notifyComments}
-                onChange={(event) => onNotifyCommentsChange(event.target.checked)}
-                className="h-4 w-4 rounded border-border"
-              />
-              {t("notifyComments")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                id="proposition-notify-volunteers"
-                name="notifyVolunteers"
-                type="checkbox"
-                checked={notifyVolunteers}
-                onChange={(event) =>
-                  onNotifyVolunteersChange(event.target.checked)
-                }
-                className="h-4 w-4 rounded border-border"
-              />
-              {t("notifyVolunteers")}
-            </label>
-            <label className="flex items-center gap-2">
-              <input
-                id="proposition-notify-solutions"
-                name="notifySolutions"
-                type="checkbox"
-                checked={notifySolutions}
-                onChange={(event) => onNotifySolutionsChange(event.target.checked)}
-                className="h-4 w-4 rounded border-border"
-              />
-              {t("notifySolutions")}
-            </label>
+            <NotificationToggle
+              id="proposition-notify-comments"
+              label={t("notifyComments")}
+              checked={notifyComments}
+              onCheckedChange={onNotifyCommentsChange}
+            />
+            <NotificationToggle
+              id="proposition-notify-volunteers"
+              label={t("notifyVolunteers")}
+              checked={notifyVolunteers}
+              onCheckedChange={onNotifyVolunteersChange}
+            />
+            <NotificationToggle
+              id="proposition-notify-solutions"
+              label={t("notifySolutions")}
+              checked={notifySolutions}
+              onCheckedChange={onNotifySolutionsChange}
+            />
           </div>
         </div>
 
@@ -762,6 +771,8 @@ export default function CreatePropositionClient({
     null,
   ])
   const previewUrlsRef = useRef<(string | null)[]>([])
+  const titleEditedRef = useRef(false)
+  const draftRestoreDoneRef = useRef(false)
   const [draftHydrated, setDraftHydrated] = useState(false)
 
   useEffect(() => {
@@ -774,6 +785,8 @@ export default function CreatePropositionClient({
   }, [previewUrls])
 
   useEffect(() => {
+    if (draftRestoreDoneRef.current) return
+    draftRestoreDoneRef.current = true
     if (typeof window === "undefined") return
     try {
       const raw = window.localStorage.getItem(CREATE_PROPOSITION_DRAFT_STORAGE_KEY)
@@ -800,7 +813,9 @@ export default function CreatePropositionClient({
         setDraftHydrated(true)
         return
       }
-      if (typeof parsed.title === "string") setTitle(parsed.title)
+      if (!titleEditedRef.current && typeof parsed.title === "string") {
+        setTitle(parsed.title)
+      }
       if (typeof parsed.description === "string") setDescription(parsed.description)
       if (parsed.linkChoice === "none" || parsed.linkChoice === "existing") {
         setLinkChoice(parsed.linkChoice)
@@ -892,6 +907,7 @@ export default function CreatePropositionClient({
   const handleTitleChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const nextTitle = event.target.value
+      titleEditedRef.current = true
       setTitle(nextTitle)
       if (!nextTitle.trim()) {
         resetSimilarState()

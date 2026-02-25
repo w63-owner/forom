@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useToast } from "@/components/ui/toast"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import {
   Select,
   SelectContent,
@@ -330,24 +331,12 @@ export function PagePropositionSearch({
                 <label id="embed-show-avatars-label" className="text-xs text-foreground">
                   {tPageDashboard("embedShowAvatarsLabel")}
                 </label>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={avatarsEnabled}
-                  aria-labelledby="embed-show-avatars-label"
-                  onClick={() => setAvatarsEnabled((prev) => !prev)}
-                  className={`focus-ring relative inline-flex h-6 w-11 items-center rounded-full border transition-colors ${
-                    avatarsEnabled
-                      ? "border-emerald-500/70 bg-emerald-500/25"
-                      : "border-border bg-muted/60"
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-background shadow transition-transform ${
-                      avatarsEnabled ? "translate-x-5" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                <ToggleSwitch
+                  id="embed-show-avatars"
+                  checked={avatarsEnabled}
+                  ariaLabelledBy="embed-show-avatars-label"
+                  onCheckedChange={setAvatarsEnabled}
+                />
               </div>
               <button
                 type="button"

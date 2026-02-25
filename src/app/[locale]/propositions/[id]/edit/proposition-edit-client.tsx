@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { DISCOVER_CATEGORIES_BY_UNIVERSE } from "@/lib/discover-categories"
 import type { Universe } from "@/types/schema"
@@ -35,6 +36,34 @@ type PageResult = {
   id: string
   name: string
   slug: string
+}
+
+type NotificationToggleProps = {
+  id: string
+  label: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}
+
+function NotificationToggle({
+  id,
+  label,
+  checked,
+  onCheckedChange,
+}: NotificationToggleProps) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <label id={`${id}-label`} htmlFor={id} className="text-sm text-foreground">
+        {label}
+      </label>
+      <ToggleSwitch
+        id={id}
+        ariaLabelledBy={`${id}-label`}
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+      />
+    </div>
+  )
 }
 
 type Props = {
@@ -575,43 +604,30 @@ export default function PropositionEditClient({
                 </PopoverContent>
               </Popover>
             </div>
-            <div className="space-y-2 text-sm">
-              <p className="font-medium text-foreground">
-                {t("notificationsIntro")}
-              </p>
-              <label className="flex items-center gap-2">
-                <input
+            <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {tCommon("notifications")}
+              </h2>
+              <div className="space-y-2 text-sm font-normal">
+                <NotificationToggle
                   id="proposition-edit-notify-comments"
-                  name="notifyComments"
-                  type="checkbox"
+                  label={t("notifyComments")}
                   checked={notifyComments}
-                  onChange={(e) => setNotifyComments(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
+                  onCheckedChange={setNotifyComments}
                 />
-                {t("notifyComments")}
-              </label>
-              <label className="flex items-center gap-2">
-                <input
+                <NotificationToggle
                   id="proposition-edit-notify-volunteers"
-                  name="notifyVolunteers"
-                  type="checkbox"
+                  label={t("notifyVolunteers")}
                   checked={notifyVolunteers}
-                  onChange={(e) => setNotifyVolunteers(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
+                  onCheckedChange={setNotifyVolunteers}
                 />
-                {t("notifyVolunteers")}
-              </label>
-              <label className="flex items-center gap-2">
-                <input
+                <NotificationToggle
                   id="proposition-edit-notify-solutions"
-                  name="notifySolutions"
-                  type="checkbox"
+                  label={t("notifySolutions")}
                   checked={notifySolutions}
-                  onChange={(e) => setNotifySolutions(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
+                  onCheckedChange={setNotifySolutions}
                 />
-                {t("notifySolutions")}
-              </label>
+              </div>
             </div>
             <Select
               value={linkChoice}

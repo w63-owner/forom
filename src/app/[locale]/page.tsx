@@ -49,6 +49,7 @@ export default async function Home({ params }: Props) {
   ])
   const initialSession =
     serverUser != null ? { user: serverUser } : null
+  const creditsLabel = locale === "fr" ? "Crédits" : "Credits"
 
   const recentPropositions =
     supabase
@@ -151,6 +152,10 @@ export default async function Home({ params }: Props) {
       </div>
       <div className="absolute inset-x-0 bottom-6 text-center text-xs text-muted-foreground">
         <span>v{packageJson.version}</span>
+        <span className="mx-2">•</span>
+        <Link href="/credits" className="hover:underline">
+          {creditsLabel}
+        </Link>
         <span className="mx-2">•</span>
         <span>
           Created by{" "}
