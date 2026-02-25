@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { Bell, Check, X } from "lucide-react"
+import { Bell, Check, Loader2, X } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -36,6 +36,10 @@ type SessionUser = {
 }
 
 type ParentRequestStatus = "pending" | "approved" | "rejected"
+type ParentRequestLabels = {
+  parentName: string | null
+  childName: string | null
+}
 type AuthSyncPayload = {
   source: string
   isAuthenticated: boolean
@@ -50,6 +54,7 @@ type AuthStatusProps = {
 
 const AUTH_SYNC_CHANNEL = "forom:auth-state"
 const AUTH_SYNC_STORAGE_KEY = "forom:auth-state-event"
+const AUTH_HEARTBEAT_LEADER_KEY = "forom:auth-heartbeat-leader"
 // Client-tab sync is UX-only and must never be used for authorization decisions.
 // All sensitive actions are still validated server-side.
 
@@ -135,6 +140,34 @@ function formatNotificationAge(dateStr: string, locale: string): string {
   return relativeTime(dateStr, locale)
 }
 
+function getPageParentRequestLabel(title: string): string | null {
+  const trimmed = title.trim()
+  if (!trimmed) return null
+  const separators = [":", " : ", " - "]
+  for (const separator of separators) {
+    const idx = trimmed.lastIndexOf(separator)
+    if (idx >= 0) {
+      const candidate = trimmed.slice(idx + separator.length).trim()
+      if (candidate) return candidate
+    }
+  }
+  return trimmed
+}
+
+function getParentNameFromRequestQuestion(body: string): string | null {
+  const trimmed = body.trim()
+  if (!trimmed) return null
+  const frMatch = trimmed.match(/sous-page de\s+(.+?)\s*\?/i)
+  if (frMatch?.[1]) return frMatch[1].trim()
+  const enMatch = trimmed.match(/sub-page of\s+(.+?)\s*\?/i)
+  if (enMatch?.[1]) return enMatch[1].trim()
+  return null
+}
+
+function normalizeName(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase()
+}
+
 function isIgnorableSessionError(error: unknown): boolean {
   if (error instanceof AsyncTimeoutError) return true
   if (error instanceof DOMException && error.name === "AbortError") return true
@@ -191,6 +224,17 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
   const [requestStatusById, setRequestStatusById] = useState<
     Record<string, ParentRequestStatus>
   >({})
+  const [requestLabelsById, setRequestLabelsById] = useState<
+    Record<string, ParentRequestLabels>
+  >({})
+  const [requestIdByNotificationId, setRequestIdByNotificationId] = useState<
+    Record<string, string>
+  >({})
+  const [sessionDegradedReason, setSessionDegradedReason] = useState<
+    "network" | "backend" | null
+  >(null)
+  const refreshFailureCountRef = useRef(0)
+  const lastSessionExpiredToastAtRef = useRef(0)
   const hadUserRef = useRef(Boolean(initialUser))
   const authSyncSourceRef = useRef(
     `auth-${Math.random().toString(36).slice(2, 10)}`
@@ -302,6 +346,21 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
     }
   }, [authResolvedState, isAuthenticated, currentUser])
 
+  useEffect(() => {
+    if (!sessionDegradedReason) return
+    showToast({
+      variant: "info",
+      title:
+        sessionDegradedReason === "network"
+          ? t("sessionNetworkIssueTitle")
+          : t("sessionBackendIssueTitle"),
+      description:
+        sessionDegradedReason === "network"
+          ? t("sessionNetworkIssueBody")
+          : t("sessionBackendIssueBody"),
+    })
+  }, [sessionDegradedReason, showToast, t])
+
   const handleReviewParentRequest = useCallback(
     async (requestId: string, status: "approved" | "rejected") => {
       const normalizedRequestId = requestId.trim()
@@ -372,35 +431,117 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
   )
 
   useEffect(() => {
-    const requestIds = (notifications ?? [])
-      .map((notification) => {
-        const notificationLink = normalizeNotificationLink(notification.link)
-        if (notification.type !== "page_parent_request" || !notificationLink) {
-          return null
-        }
-        return getParentRequestIdFromLink(notificationLink)
-      })
-      .filter((id): id is string => Boolean(id))
+    const allNotifications = notifications ?? []
+    const directRequestIdByNotificationId: Record<string, string> = {}
+    const unresolvedParentRequestNotifications = allNotifications.filter((notification) => {
+      if (notification.type !== "page_parent_request") return false
+      const notificationLink = normalizeNotificationLink(notification.link)
+      const requestId = notificationLink ? getParentRequestIdFromLink(notificationLink) : null
+      if (requestId) {
+        directRequestIdByNotificationId[notification.id] = requestId
+        return false
+      }
+      return true
+    })
 
-    if (requestIds.length === 0) {
+    if (
+      Object.keys(directRequestIdByNotificationId).length === 0 &&
+      unresolvedParentRequestNotifications.length === 0
+    ) {
+      setRequestIdByNotificationId({})
       setRequestStatusById({})
+      setRequestLabelsById({})
       return
     }
-
-    const uniqueRequestIds = Array.from(new Set(requestIds))
     const supabase = getSupabaseClient()
     if (!supabase) return
 
     let cancelled = false
     ;(async () => {
       try {
+        const fallbackRequestIdByNotificationId: Record<string, string> = {}
+        if (unresolvedParentRequestNotifications.length > 0) {
+          const { data: pendingRows } = await supabase
+            .from("page_parent_requests")
+            .select(
+              "id, created_at, parent:pages!page_parent_requests_parent_page_id_fkey(name), child:pages!page_parent_requests_child_page_id_fkey(name)"
+            )
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .limit(80)
+
+          const normalizedPendingRows = (pendingRows ?? []).map((row) => {
+            const parent = Array.isArray(row.parent) ? row.parent[0] ?? null : row.parent ?? null
+            const child = Array.isArray(row.child) ? row.child[0] ?? null : row.child ?? null
+            return {
+              id: typeof row.id === "string" ? row.id : "",
+              createdAt: row.created_at ? new Date(row.created_at).getTime() : NaN,
+              parentName:
+                parent && typeof parent.name === "string" ? parent.name.trim() : "",
+              childName:
+                child && typeof child.name === "string" ? child.name.trim() : "",
+            }
+          })
+
+          unresolvedParentRequestNotifications.forEach((notification) => {
+            const childLabel = getPageParentRequestLabel(notification.title)
+            const parentLabel = getParentNameFromRequestQuestion(notification.body ?? "")
+            const normalizedChildLabel = normalizeName(childLabel)
+            const normalizedParentLabel = normalizeName(parentLabel)
+            const notificationTime = notification.created_at
+              ? new Date(notification.created_at).getTime()
+              : NaN
+
+            const candidates = normalizedPendingRows.filter((row) => {
+              if (!row.id) return false
+              const rowChild = normalizeName(row.childName)
+              const rowParent = normalizeName(row.parentName)
+              const childMatches = normalizedChildLabel
+                ? rowChild === normalizedChildLabel
+                : true
+              const parentMatches = normalizedParentLabel
+                ? rowParent === normalizedParentLabel
+                : true
+              return childMatches && parentMatches
+            })
+
+            const sortedCandidates = candidates.sort((a, b) => {
+              if (!Number.isFinite(notificationTime)) return b.createdAt - a.createdAt
+              const aDistance = Math.abs(a.createdAt - notificationTime)
+              const bDistance = Math.abs(b.createdAt - notificationTime)
+              return aDistance - bDistance
+            })
+            const best = sortedCandidates[0]
+            if (best?.id) {
+              fallbackRequestIdByNotificationId[notification.id] = best.id
+            }
+          })
+        }
+
+        const requestIdMap = {
+          ...directRequestIdByNotificationId,
+          ...fallbackRequestIdByNotificationId,
+        }
+        if (cancelled) return
+        setRequestIdByNotificationId(requestIdMap)
+
+        const uniqueRequestIds = Array.from(new Set(Object.values(requestIdMap)))
+        if (uniqueRequestIds.length === 0) {
+          setRequestStatusById({})
+          setRequestLabelsById({})
+          return
+        }
+
         const { data } = await supabase
           .from("page_parent_requests")
-          .select("id, status")
+          .select(
+            "id, status, parent:pages!page_parent_requests_parent_page_id_fkey(name), child:pages!page_parent_requests_child_page_id_fkey(name)"
+          )
           .in("id", uniqueRequestIds)
 
         if (cancelled || !data) return
         const next: Record<string, ParentRequestStatus> = {}
+        const labels: Record<string, ParentRequestLabels> = {}
         for (const row of data) {
           if (
             typeof row.id === "string" &&
@@ -409,9 +550,22 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
               row.status === "rejected")
           ) {
             next[row.id] = row.status
+            const parent = Array.isArray(row.parent) ? row.parent[0] ?? null : row.parent ?? null
+            const child = Array.isArray(row.child) ? row.child[0] ?? null : row.child ?? null
+            labels[row.id] = {
+              parentName:
+                parent && typeof parent.name === "string" && parent.name.trim().length > 0
+                  ? parent.name.trim()
+                  : null,
+              childName:
+                child && typeof child.name === "string" && child.name.trim().length > 0
+                  ? child.name.trim()
+                  : null,
+            }
           }
         }
         setRequestStatusById(next)
+        setRequestLabelsById(labels)
       } catch (error) {
         if (cancelled || isIgnorableSessionError(error)) return
         logAuth("parent request status load failed", {
@@ -533,6 +687,10 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
           // Keep current user fallback; DB/profile sync below may still refine.
         }
       }
+      if (isActive) {
+        setSessionDegradedReason(null)
+        refreshFailureCountRef.current = 0
+      }
 
       // Try to refine with profile username/avatar in DB.
       if (userId) {
@@ -594,6 +752,52 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
       } catch {
         return { ok: false }
       }
+    }
+
+    const shouldThisTabLeadHeartbeat = () => {
+      if (typeof window === "undefined") return true
+      const now = Date.now()
+      const tabId = authSyncSourceRef.current
+      const LEASE_MS = 90_000
+      try {
+        const raw = window.localStorage.getItem(AUTH_HEARTBEAT_LEADER_KEY)
+        const parsed = raw
+          ? (JSON.parse(raw) as { tabId?: string; leaseUntil?: number } | null)
+          : null
+        if (
+          parsed?.tabId === tabId ||
+          !parsed?.tabId ||
+          !parsed?.leaseUntil ||
+          parsed.leaseUntil < now
+        ) {
+          window.localStorage.setItem(
+            AUTH_HEARTBEAT_LEADER_KEY,
+            JSON.stringify({ tabId, leaseUntil: now + LEASE_MS })
+          )
+          return true
+        }
+        return false
+      } catch {
+        return true
+      }
+    }
+
+    const classifySessionError = (error: unknown): "network" | "backend" => {
+      const message =
+        error instanceof Error
+          ? error.message.toLowerCase()
+          : typeof error === "string"
+            ? error.toLowerCase()
+            : ""
+      if (
+        message.includes("network") ||
+        message.includes("fetch") ||
+        message.includes("abort") ||
+        message.includes("timeout")
+      ) {
+        return "network"
+      }
+      return "backend"
     }
 
     fallbackTimeout = setTimeout(async () => {
@@ -711,10 +915,14 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
           }
           if (isActive) {
             if (hadUserRef.current) {
-              showToast({
-                variant: "info",
-                title: t("sessionExpired"),
-              })
+              const now = Date.now()
+              if (now - lastSessionExpiredToastAtRef.current > 60_000) {
+                showToast({
+                  variant: "info",
+                  title: t("sessionExpired"),
+                })
+                lastSessionExpiredToastAtRef.current = now
+              }
               hadUserRef.current = false
             }
             setCurrentUser(null)
@@ -755,27 +963,63 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
     document.addEventListener("visibilitychange", onVisibilityChange)
 
     // Proactive refresh every 15 min while the tab is visible so the session stays alive
-    const REFRESH_INTERVAL_MS = 15 * 60 * 1000
-    const refreshInterval = setInterval(() => {
+    const REFRESH_INTERVAL_MS = 20 * 60 * 1000
+    const runHeartbeatRefresh = () => {
+      if (!shouldThisTabLeadHeartbeat()) return
       if (document.visibilityState !== "visible") return
       withTimeoutPromise(supabase.auth.getSession(), 12000)
         .then(({ data: { session } }) => {
           if (session) {
-            withTimeoutPromise(supabase.auth.refreshSession(), 12000).catch(() => {})
+            withTimeoutPromise(supabase.auth.refreshSession(), 12000)
+              .then(() => {
+                refreshFailureCountRef.current = 0
+                if (isActive) setSessionDegradedReason(null)
+              })
+              .catch((error) => {
+                const reason = classifySessionError(error)
+                refreshFailureCountRef.current += 1
+                if (isActive && refreshFailureCountRef.current <= 3) {
+                  setSessionDegradedReason(reason)
+                }
+              })
           }
         })
         .catch((error) => {
           if (isIgnorableSessionError(error)) return
+          const reason = classifySessionError(error)
+          refreshFailureCountRef.current += 1
+          if (isActive && refreshFailureCountRef.current <= 3) {
+            setSessionDegradedReason(reason)
+          }
           logAuth("interval getSession failed", {
             message: error instanceof Error ? error.message : String(error),
           })
         })
-    }, REFRESH_INTERVAL_MS)
+    }
+    const refreshInterval = setInterval(runHeartbeatRefresh, REFRESH_INTERVAL_MS)
+    const refreshRetryFast = setInterval(() => {
+      if (refreshFailureCountRef.current <= 0) return
+      if (refreshFailureCountRef.current > 3) return
+      runHeartbeatRefresh()
+    }, 60_000)
+    const refreshRetryMedium = setInterval(() => {
+      if (refreshFailureCountRef.current <= 1) return
+      if (refreshFailureCountRef.current > 3) return
+      runHeartbeatRefresh()
+    }, 120_000)
+    const refreshRetrySlow = setInterval(() => {
+      if (refreshFailureCountRef.current <= 2) return
+      if (refreshFailureCountRef.current > 3) return
+      runHeartbeatRefresh()
+    }, 300_000)
 
     return () => {
       isActive = false
       clearTimeout(fallbackTimeout)
       clearInterval(refreshInterval)
+      clearInterval(refreshRetryFast)
+      clearInterval(refreshRetryMedium)
+      clearInterval(refreshRetrySlow)
       document.removeEventListener("visibilitychange", onVisibilityChange)
       logAuth("auth status unmounted")
       subscription.subscription.unsubscribe()
@@ -928,13 +1172,15 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
               notifications.map((n, index) => {
                 const notificationLink = normalizeNotificationLink(n.link)
                 const requestId =
-                  n.type === "page_parent_request" && notificationLink
-                    ? getParentRequestIdFromLink(notificationLink)
+                  n.type === "page_parent_request"
+                    ? requestIdByNotificationId[n.id] ?? null
                     : null
                 const reviewStatus =
                   requestId !== null ? reviewedByRequestId[requestId] : undefined
                 const persistedStatus =
                   requestId !== null ? requestStatusById[requestId] : undefined
+                const requestLabels =
+                  requestId !== null ? requestLabelsById[requestId] : undefined
                 const effectiveReviewStatus =
                   reviewStatus ??
                   (persistedStatus === "approved" || persistedStatus === "rejected"
@@ -943,17 +1189,44 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                 const isReviewing =
                   requestId !== null && reviewingRequestId === requestId
                 const showActions =
-                  requestId !== null && !isReviewing && persistedStatus === "pending"
+                  requestId !== null &&
+                  !isReviewing &&
+                  persistedStatus !== "approved" &&
+                  persistedStatus !== "rejected"
                 const canOpenNotification = Boolean(notificationLink && !showActions)
-                const localizedBody =
-                  effectiveReviewStatus !== "approved" &&
-                  effectiveReviewStatus !== "rejected"
-                    ? getLocalizedNotificationBody(n, t)
+                const requestLabel =
+                  n.type === "page_parent_request"
+                    ? getPageParentRequestLabel(n.title)
                     : null
+                const parentName =
+                  requestLabels?.parentName?.trim() ||
+                  requestLabel ||
+                  tCommon("page")
+                const childName =
+                  requestLabels?.childName?.trim() ||
+                  requestLabel ||
+                  tCommon("page")
+                const localizedTitle =
+                  n.type === "page_parent_request"
+                    ? t("notificationParentRequestTitleWithParent", {
+                        parentName,
+                      })
+                    : n.title
+                const localizedBody =
+                  effectiveReviewStatus === "approved"
+                    ? t("notificationRequestApprovedByYou")
+                    : effectiveReviewStatus === "rejected"
+                      ? t("notificationRequestRejectedByYou")
+                      : n.type === "page_parent_request"
+                        ? t("notificationParentRequestQuestion", {
+                            childName,
+                            parentName,
+                          })
+                        : getLocalizedNotificationBody(n, t)
                 return (
                   <div
                     key={n.id}
-                    className={`flex items-start justify-between gap-3 rounded-md px-2 py-2 ${
+                    className={`flex items-center justify-between gap-3 rounded-md px-2 py-2 ${
                       n.read_at
                         ? "bg-background/60 opacity-75"
                         : "bg-sky-500/10 dark:bg-sky-400/10"
@@ -988,7 +1261,7 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                           ? t("notificationLinkApproved")
                           : effectiveReviewStatus === "rejected"
                             ? t("notificationLinkRejected")
-                            : n.title}
+                            : localizedTitle}
                       </div>
                       {localizedBody && (
                         <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1000,6 +1273,14 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
+                      {isReviewing && (
+                        <span
+                          className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground"
+                          aria-hidden="true"
+                        >
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </span>
+                      )}
                       {showActions && (
                         <>
                           <button
@@ -1044,7 +1325,22 @@ export function AuthStatus({ initialSession, className }: AuthStatusProps = {}) 
                           </button>
                         </>
                       )}
-                      {canOpenNotification && null}
+                      {!isReviewing && effectiveReviewStatus === "approved" && (
+                        <span
+                          className="inline-flex h-6 w-6 items-center justify-center rounded bg-green-100 text-green-700 animate-in zoom-in-90 fade-in duration-200 dark:bg-green-950 dark:text-green-400"
+                          aria-label={t("notificationLinkApproved")}
+                        >
+                          <Check className="h-4 w-4" />
+                        </span>
+                      )}
+                      {!isReviewing && effectiveReviewStatus === "rejected" && (
+                        <span
+                          className="inline-flex h-6 w-6 items-center justify-center rounded bg-destructive/10 text-destructive animate-in zoom-in-90 fade-in duration-200"
+                          aria-label={t("notificationLinkRejected")}
+                        >
+                          <X className="h-4 w-4" />
+                        </span>
+                      )}
                     </div>
                   </div>
                 )

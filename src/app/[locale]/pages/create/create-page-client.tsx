@@ -21,6 +21,8 @@ import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
 
+const CREATE_PAGE_DRAFT_STORAGE_KEY = "forom:create-page:draft"
+
 export function CreatePageClient() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -46,6 +48,7 @@ export function CreatePageClient() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [draftHydrated, setDraftHydrated] = useState(false)
   const {
     query: parentQuery,
     setQuery: setParentQuery,
@@ -159,6 +162,88 @@ export function CreatePageClient() {
       return () => clearTimeout(timeout)
     }
   }, [name, searchParams])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    try {
+      const raw = window.localStorage.getItem(CREATE_PAGE_DRAFT_STORAGE_KEY)
+      if (!raw) {
+        setDraftHydrated(true)
+        return
+      }
+      const parsed = JSON.parse(raw) as
+        | {
+            name?: string
+            description?: string
+            category?: string
+            categoryQuery?: string
+            isRepresentative?: boolean
+            verificationMethod?: string
+            verificationProof?: string
+            verificationNote?: string
+            selectedParent?: PageResult | null
+            parentQueryInput?: string
+          }
+        | null
+      if (!parsed) {
+        setDraftHydrated(true)
+        return
+      }
+      if (typeof parsed.name === "string") setName(parsed.name)
+      if (typeof parsed.description === "string") setDescription(parsed.description)
+      if (typeof parsed.category === "string") setCategory(parsed.category)
+      if (typeof parsed.categoryQuery === "string") setCategoryQuery(parsed.categoryQuery)
+      if (typeof parsed.isRepresentative === "boolean") setIsRepresentative(parsed.isRepresentative)
+      if (typeof parsed.verificationMethod === "string") {
+        setVerificationMethod(parsed.verificationMethod)
+      }
+      if (typeof parsed.verificationProof === "string") setVerificationProof(parsed.verificationProof)
+      if (typeof parsed.verificationNote === "string") setVerificationNote(parsed.verificationNote)
+      if (parsed.selectedParent?.id && parsed.selectedParent?.name && parsed.selectedParent?.slug) {
+        setSelectedParent(parsed.selectedParent)
+        setParentQuery(parsed.selectedParent.name, { keepSelection: true, touched: false })
+      }
+      if (typeof parsed.parentQueryInput === "string") setParentQueryInput(parsed.parentQueryInput)
+    } catch {
+      // Ignore malformed draft payloads.
+    } finally {
+      setDraftHydrated(true)
+    }
+  }, [setParentQuery, setSelectedParent])
+
+  useEffect(() => {
+    if (!draftHydrated) return
+    if (typeof window === "undefined") return
+    try {
+      const payload = {
+        name,
+        description,
+        category,
+        categoryQuery,
+        isRepresentative,
+        verificationMethod,
+        verificationProof,
+        verificationNote,
+        selectedParent,
+        parentQueryInput,
+      }
+      window.localStorage.setItem(CREATE_PAGE_DRAFT_STORAGE_KEY, JSON.stringify(payload))
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [
+    draftHydrated,
+    name,
+    description,
+    category,
+    categoryQuery,
+    isRepresentative,
+    verificationMethod,
+    verificationProof,
+    verificationNote,
+    selectedParent,
+    parentQueryInput,
+  ])
 
   const handleSelectParent = (page: PageResult) => {
     setSelectedParent(page)
@@ -294,6 +379,9 @@ export function CreatePageClient() {
         })
       }
       if (data.slug) {
+        if (typeof window !== "undefined") {
+          window.localStorage.removeItem(CREATE_PAGE_DRAFT_STORAGE_KEY)
+        }
         router.push(`/pages/${data.slug}`)
       }
     } catch (err) {
