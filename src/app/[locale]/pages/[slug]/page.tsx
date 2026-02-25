@@ -110,7 +110,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
   const propositionQuery = supabase
     .from("propositions")
     .select(
-      "id, title, description, status, votes_count, created_at, users!author_id(username, email, avatar_url)"
+      "id, title, description, status, votes_count, created_at, comments(count), users!author_id(username, email, avatar_url)"
     )
     .eq("page_id", page.id)
 
@@ -228,6 +228,16 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     >
                       ✓
                     </span>
+                  )}
+                  {!page.is_verified && isOwner && (
+                    <PageOwnerMenu
+                      pageId={page.id}
+                      ownerId={page.owner_id}
+                      initialDaily={page.owner_notify_daily ?? false}
+                      initialThreshold={page.owner_vote_threshold ?? null}
+                      isVerified={page.is_verified}
+                      trigger="verificationBadge"
+                    />
                   )}
                 </CardTitle>
                 <div className="flex flex-wrap items-center gap-2">

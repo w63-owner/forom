@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert } from "@/components/ui/alert"
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { usePageSearch, type PageResult } from "@/hooks/use-page-search"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
@@ -42,6 +50,7 @@ export function CreatePageClient() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [draftHydrated, setDraftHydrated] = useState(false)
+  const draftRestoreDoneRef = useRef(false)
   const {
     query: parentQuery,
     setQuery: setParentQuery,
@@ -137,6 +146,8 @@ export function CreatePageClient() {
   }, [name, searchParams])
 
   useEffect(() => {
+    if (draftRestoreDoneRef.current) return
+    draftRestoreDoneRef.current = true
     if (typeof window === "undefined") return
     try {
       const raw = window.localStorage.getItem(CREATE_PAGE_DRAFT_STORAGE_KEY)
@@ -449,20 +460,22 @@ export function CreatePageClient() {
               <label htmlFor="page-category" className="text-sm font-medium text-foreground">
                 {t("categoryLabel")}
               </label>
-              <select
-                id="page-category"
-                name="category"
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground"
+              <Select
+                value={category || "__none"}
+                onValueChange={(value) => setCategory(value === "__none" ? "" : value)}
               >
-                <option value="">{t("categoryPlaceholder")}</option>
-                {categoryOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger id="page-category" className="h-11 w-full">
+                  <SelectValue placeholder={t("categoryPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">{t("categoryPlaceholder")}</SelectItem>
+                  {categoryOptions.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <label htmlFor="page-parent-query" className="text-sm font-medium text-foreground">
@@ -531,7 +544,6 @@ export function CreatePageClient() {
                   </PopoverContent>
                 )}
               </Popover>
-              <p className="text-xs text-muted-foreground">{t("parentHint")}</p>
               {selectedParent && (
                 <Alert variant="success" className="relative items-center pr-9">
                   <div className="space-y-0.5">
@@ -558,18 +570,20 @@ export function CreatePageClient() {
             <div className="space-y-3 rounded-lg border border-border bg-background/60 p-4 text-sm">
               <p className="font-medium text-foreground">{t("representativeTitle")}</p>
               <p className="text-muted-foreground">{t("representativeDescription")}</p>
-              <label className="flex items-center gap-2 text-muted-foreground">
-                <input
+              <label
+                id="page-is-representative-label"
+                className="flex items-center justify-between gap-3 text-muted-foreground"
+              >
+                <span>{t("representativeLabel")}</span>
+                <ToggleSwitch
                   id="page-is-representative"
-                  name="isRepresentative"
-                  type="checkbox"
                   checked={isRepresentative}
-                  onChange={(event) => {
-                    setIsRepresentative(event.target.checked)
+                  ariaLabelledBy="page-is-representative-label"
+                  onCheckedChange={(checked) => {
+                    setIsRepresentative(checked)
                     if (error) setError(null)
                   }}
                 />
-                <span>{t("representativeLabel")}</span>
               </label>
               {isRepresentative && (
                 <div className="space-y-3">
@@ -577,20 +591,22 @@ export function CreatePageClient() {
                     <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                       {tVerification("methodLabel")}
                     </label>
-                    <select
-                      id="page-verification-method"
-                      name="verificationMethod"
+                    <Select
                       value={verificationMethod}
-                      onChange={(event) => setVerificationMethod(event.target.value)}
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+                      onValueChange={setVerificationMethod}
                       disabled={loading}
                     >
-                      {verificationMethods.map((method) => (
-                        <option key={method.value} value={method.value}>
-                          {method.label}
-                        </option>
-                      ))}
-                    </select>
+                      <SelectTrigger id="page-verification-method" className="h-9 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {verificationMethods.map((method) => (
+                          <SelectItem key={method.value} value={method.value}>
+                            {method.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     {selectedVerificationMethod?.hint && (
                       <p className="text-xs text-muted-foreground">
                         {selectedVerificationMethod.hint}

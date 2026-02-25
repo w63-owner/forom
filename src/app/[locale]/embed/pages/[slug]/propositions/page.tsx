@@ -81,7 +81,7 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
   let propositionQuery = supabase
     .from("propositions")
     .select(
-      "id, title, description, status, votes_count, created_at, users!author_id(username, email, avatar_url)"
+      "id, title, description, status, votes_count, created_at, comments(count), users!author_id(username, email, avatar_url)"
     )
     .eq("page_id", page.id)
 

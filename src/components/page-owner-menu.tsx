@@ -15,6 +15,7 @@ type Props = {
   initialDaily: boolean
   initialThreshold: number | null
   isVerified: boolean
+  trigger?: "menu" | "verificationBadge"
 }
 
 export function PageOwnerMenu({
@@ -23,6 +24,7 @@ export function PageOwnerMenu({
   initialDaily,
   initialThreshold,
   isVerified,
+  trigger = "menu",
 }: Props) {
   const tPage = useTranslations("PageOwner")
   const tCommon = useTranslations("Common")
@@ -31,19 +33,46 @@ export function PageOwnerMenu({
   const [showParentLink, setShowParentLink] = useState(false)
   const [showParentRequests, setShowParentRequests] = useState(false)
 
+  const isVerificationBadgeTrigger = trigger === "verificationBadge"
+
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(open) => {
+        if (open && isVerificationBadgeTrigger) {
+          setShowVerification(true)
+        }
+        if (!open && isVerificationBadgeTrigger) {
+          setShowVerification(false)
+        }
+      }}
+    >
       <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 rounded-full px-0 text-muted-foreground hover:bg-muted/60"
-        >
-          ⋯
-        </Button>
+        {isVerificationBadgeTrigger ? (
+          <button
+            type="button"
+            className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/60 bg-transparent text-[11px] font-semibold text-muted-foreground transition-colors hover:border-foreground/60 hover:text-foreground"
+            aria-label={tPage("verification")}
+            title={tPage("verification")}
+            onClick={() => setShowVerification(true)}
+          >
+            ✓
+          </button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 rounded-full px-0 text-muted-foreground hover:bg-muted/60"
+          >
+            ⋯
+          </Button>
+        )}
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2">
-        {!showNotifications && !showVerification && !showParentLink && !showParentRequests ? (
+        {!isVerificationBadgeTrigger &&
+        !showNotifications &&
+        !showVerification &&
+        !showParentLink &&
+        !showParentRequests ? (
           <div className="space-y-1">
             <Button
               variant="ghost"

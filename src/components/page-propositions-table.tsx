@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { MessageSquare } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
@@ -21,6 +22,10 @@ type PropositionItem = {
   title: string | null
   status: string | null
   votes_count: number | null
+  comments?:
+    | { count: number | null }
+    | { count: number | null }[]
+    | null
   users?:
     | { username: string | null; email: string | null; avatar_url?: string | null }
     | { username: string | null; email: string | null; avatar_url?: string | null }[]
@@ -101,6 +106,11 @@ export function PagePropositionsTable({
     return { authorName, authorAvatar }
   }
 
+  const getCommentsCount = (item: PropositionItem) => {
+    if (Array.isArray(item.comments)) return item.comments[0]?.count ?? 0
+    return item.comments?.count ?? 0
+  }
+
   const loadVotedIds = async (propositionIds: string[]) => {
     if (propositionIds.length === 0) {
       setVotedIds(new Set())
@@ -161,6 +171,15 @@ export function PagePropositionsTable({
     setVoteCountsById((prev) => ({ ...prev, [propositionId]: votes }))
   }
 
+  const handleCommentsClick = (propositionId: string) => {
+    const href = `${itemLinkPrefix}/${propositionId}#comments`
+    if (itemLinkOpenNewTab) {
+      window.open(href, "_blank", "noopener,noreferrer")
+      return
+    }
+    router.push(href)
+  }
+
   useEffect(() => {
     let cancelled = false
     const loadVotes = async () => {
@@ -208,7 +227,7 @@ export function PagePropositionsTable({
     setLoadingMore(true)
     let queryBuilder = supabase
       .from("propositions")
-      .select("id, title, status, votes_count, created_at, users!author_id(username, email, avatar_url)")
+      .select("id, title, status, votes_count, created_at, comments(count), users!author_id(username, email, avatar_url)")
       .eq("page_id", pageId)
 
     if (status) {
@@ -436,12 +455,25 @@ export function PagePropositionsTable({
                   />
                 </td>
                 <td className="table-row-cell hidden text-right md:table-cell">
-                  <PageVoteToggle
-                    propositionId={item.id}
-                    initialVotes={voteCountsById[item.id] ?? (item.votes_count ?? 0)}
-                    initialHasVoted={votedIds.has(item.id)}
-                    onVoteChange={handleVoteChange}
-                  />
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCommentsClick(item.id)}
+                      className="focus-ring group inline-flex h-12 w-12 flex-col items-center justify-center gap-0.5 rounded-xl border-2 bg-background px-1.5 py-1.5 text-xs font-semibold transition-colors transition-transform duration-150 active:scale-[0.98] md:h-11 md:w-11 border-border text-foreground hover:border-emerald-400/50 hover:bg-emerald-50/40 dark:hover:border-emerald-500/60 dark:hover:bg-emerald-950/20"
+                      aria-label={`${getCommentsCount(item)} ${tCommon("replies")}`}
+                    >
+                      <MessageSquare className="size-2.5 transition-colors fill-transparent text-muted-foreground group-hover:fill-emerald-500/20 group-hover:text-emerald-500" />
+                      <span className="text-[1.25rem] leading-none tracking-tight md:text-[1.125rem] text-foreground group-hover:text-emerald-900 dark:group-hover:text-emerald-200">
+                        {getCommentsCount(item)}
+                      </span>
+                    </button>
+                    <PageVoteToggle
+                      propositionId={item.id}
+                      initialVotes={voteCountsById[item.id] ?? (item.votes_count ?? 0)}
+                      initialHasVoted={votedIds.has(item.id)}
+                      onVoteChange={handleVoteChange}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}

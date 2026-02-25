@@ -67,11 +67,6 @@ export default async function Home({ params }: Props) {
       <div className="absolute inset-x-0 top-6 flex justify-start px-6">
         <div className="flex items-center gap-2">
           <Button asChild size="sm" variant="ghost">
-            <Link href="/discover" className="link-nav">
-              {tNav("discover")}
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="ghost">
             <Link href="/faq" className="link-nav">
               {tNav("faq")}
             </Link>
@@ -153,10 +148,6 @@ export default async function Home({ params }: Props) {
       <div className="absolute inset-x-0 bottom-6 text-center text-xs text-muted-foreground">
         <span>v{packageJson.version}</span>
         <span className="mx-2">•</span>
-        <Link href="/credits" className="hover:underline">
-          {creditsLabel}
-        </Link>
-        <span className="mx-2">•</span>
         <span>
           Created by{" "}
           <a
@@ -168,6 +159,10 @@ export default async function Home({ params }: Props) {
             Antonin
           </a>
         </span>
+        <span className="mx-2">•</span>
+        <Link href="/credits" className="hover:underline">
+          {creditsLabel}
+        </Link>
       </div>
     </div>
   )

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useTranslations } from "next-intl"
-import { AtSign, Camera, Instagram, Linkedin, Mail, RefreshCw, User } from "lucide-react"
+import { AtSign, Instagram, Linkedin, Mail, Pencil, RefreshCw, User } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -300,7 +300,7 @@ export function ProfileShell({
                             className="h-40 w-40 text-3xl ring-2 ring-primary/80 ring-offset-2 ring-offset-background"
                           />
                           <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                            <Camera className="size-6 text-white" />
+                            <Pencil className="size-6 text-white" />
                           </span>
                         </button>
                       </DialogTrigger>

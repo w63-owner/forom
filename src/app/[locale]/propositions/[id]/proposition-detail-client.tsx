@@ -57,8 +57,8 @@ const createMentionChipIcon = (kind: MentionOption["kind"]): SVGSVGElement => {
   svg.setAttribute(
     "class",
     kind === "proposition"
-      ? "lucide lucide-lightbulb size-3.5 shrink-0 text-white/90"
-      : "lucide lucide-file-text size-3.5 shrink-0 text-white/90"
+      ? "lucide lucide-lightbulb size-3.5 shrink-0 text-foreground/70"
+      : "lucide lucide-file-text size-3.5 shrink-0 text-foreground/70"
   )
   svg.setAttribute("aria-hidden", "true")
 
@@ -224,17 +224,17 @@ const renderCommentContent = (content: string) => {
           href={href}
           className={
             isMentionLabel
-              ? "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/8 bg-black/70 px-2.5 py-0.5 text-xs text-white/92 shadow-[0_1px_6px_rgba(0,0,0,0.24)] backdrop-blur-xl align-baseline hover:bg-black/75"
+              ? "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/70 bg-muted/80 px-2.5 py-0.5 text-xs text-foreground/90 shadow-sm align-baseline hover:bg-muted"
               : "text-primary underline underline-offset-2 hover:opacity-90"
           }
           target={isHttp ? "_blank" : undefined}
           rel={isHttp ? "noopener noreferrer" : undefined}
         >
           {isMentionLabel && mentionKind === "proposition" ? (
-            <Lightbulb className="lucide lucide-lightbulb size-3.5 shrink-0 text-white/90" />
+            <Lightbulb className="lucide lucide-lightbulb size-3.5 shrink-0 text-foreground/70" />
           ) : null}
           {isMentionLabel && mentionKind === "page" ? (
-            <FileText className="lucide lucide-file-text size-3.5 shrink-0 text-white/90" />
+            <FileText className="lucide lucide-file-text size-3.5 shrink-0 text-foreground/70" />
           ) : null}
           <span className={isMentionLabel ? "truncate" : undefined}>{label}</span>
         </a>
@@ -731,7 +731,7 @@ export default function PropositionDetailClient({
       chip.contentEditable = "false"
       chip.setAttribute("title", mentionText)
       chip.className =
-        "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-white/8 bg-black/70 px-2.5 py-0.5 text-xs text-white/92 shadow-[0_1px_6px_rgba(0,0,0,0.24)] backdrop-blur-xl align-baseline"
+        "mx-0.5 inline-flex max-w-full items-center gap-1.5 rounded-md border border-border/70 bg-muted/80 px-2.5 py-0.5 text-xs text-foreground/90 shadow-sm align-baseline"
       const trailingSpace = document.createTextNode(" ")
       replaceRange.deleteContents()
       replaceRange.insertNode(trailingSpace)
@@ -1123,7 +1123,7 @@ export default function PropositionDetailClient({
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
+      <div id="comments" className="space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">

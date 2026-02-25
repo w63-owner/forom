@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import debounce from "lodash/debounce"
 import { ImageIcon, X } from "lucide-react"
+import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
@@ -95,6 +95,7 @@ export default function PropositionEditClient({
 }: Props) {
   const router = useRouter()
   const t = useTranslations("PropositionEdit")
+  const tCreate = useTranslations("PropositionCreate")
   const tDiscover = useTranslations("Discover")
   const tCommon = useTranslations("Common")
   const locale = useLocale()
@@ -195,6 +196,16 @@ export default function PropositionEditClient({
     subCategory || category || (universe ? tDiscover(`universe_${universe}`) : "")
 
   const trimmedTitle = title.trim()
+  const uploadedImages = imageFiles
+    .map((file, index) => ({
+      file,
+      index,
+      preview: previewUrls[index],
+    }))
+    .filter((item) => Boolean(item.file && item.preview))
+  const uploadedCount = uploadedImages.length
+  const nextEmptyIndex = imageFiles.findIndex((file) => file == null)
+  const canAddImage = nextEmptyIndex !== -1
 
   useEffect(() => {
     previewUrlsRef.current = previewUrls
@@ -398,117 +409,255 @@ export default function PropositionEditClient({
           ← {tCommon("back")}
         </Link>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("title")}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Input
-                id="proposition-edit-title"
-                name="title"
-                value={title}
-                onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                  setTitle(e.target.value)
-                }
-                placeholder={t("titlePlaceholder")}
-              />
-            </div>
-            <RichTextEditor
-              value={description}
-              onChange={setDescription}
-              placeholder={t("descriptionPlaceholder")}
-            />
-            {existingImages.length > 0 && (
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold text-foreground">{t("title")}</h1>
+            <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {tCreate("step3IdeaTitle")}
+              </h2>
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {existingImages.map((item, index) => (
-                    <div
-                      key={`${item.url}-${index}`}
-                      className="relative overflow-hidden rounded-lg border border-border bg-muted/30"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.url}
-                        alt={item.caption ?? `Image ${index + 1}`}
-                        className="h-24 w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleExistingImageRemove(index)}
-                        className="absolute right-1 top-1 rounded-full bg-background/80 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-                        aria-label={t("removeImageAria")}
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <div
-                  key={`image-slot-${index}`}
-                  className="relative flex min-w-[80px] flex-1"
+                <label
+                  htmlFor="proposition-edit-title"
+                  className="text-sm font-medium text-foreground"
                 >
-                  {imageFiles[index] && previewUrls[index] ? (
-                    <div className="relative flex min-h-[64px] min-w-[80px] flex-1 overflow-hidden rounded-md border border-input bg-muted/30">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={previewUrls[index]!}
-                        alt=""
-                        className="h-full min-h-[64px] w-full object-cover"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleImageRemove(index)}
-                        className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
-                        aria-label={t("removeImageAria")}
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <label className="flex min-h-[64px] min-w-[80px] flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-input bg-muted/30 px-2 py-3 text-center text-xs text-muted-foreground hover:bg-muted/50">
+                  {tCreate("step3TitleLabel")}
+                </label>
+                <Input
+                  id="proposition-edit-title"
+                  name="title"
+                  value={title}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setTitle(e.target.value)
+                  }
+                  placeholder={tCreate("step3TitlePlaceholder")}
+                  className="h-11"
+                />
+              </div>
+              <RichTextEditor
+                value={description}
+                onChange={setDescription}
+                placeholder={tCreate("step3DescriptionPlaceholder")}
+              />
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  {canAddImage ? (
+                    <label className="focus-ring inline-flex h-16 w-16 shrink-0 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-md border border-dashed border-input bg-muted/30 p-1 text-[10px] leading-tight text-muted-foreground transition-colors hover:bg-muted/50">
                       <input
-                        id={`proposition-edit-image-${index + 1}`}
-                        name={`image-${index + 1}`}
+                        id={`proposition-edit-image-${nextEmptyIndex + 1}`}
+                        name={`image-${nextEmptyIndex + 1}`}
                         type="file"
                         accept=".png,.jpg,.jpeg,image/png,image/jpeg"
                         className="sr-only"
-                        onChange={(e) => handleImageChange(index, e)}
+                        onChange={(e) => handleImageChange(nextEmptyIndex, e)}
                       />
-                      <ImageIcon className="size-5 shrink-0" />
-                      <span>Image {index + 1} (PNG, JPG)</span>
+                      <ImageIcon className="size-4 shrink-0" />
+                      <span className="text-center">
+                        {tCreate("addImageButton")}
+                      </span>
                     </label>
+                  ) : (
+                    <div className="inline-flex min-h-[44px] items-center rounded-md border border-input bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+                      5/5
+                    </div>
+                  )}
+                  {(existingImages.length > 0 || uploadedCount > 0) && (
+                    <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto pb-1">
+                      {existingImages.map((item, index) => (
+                        <div
+                          key={`existing-image-${item.url}-${index}`}
+                          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-input bg-muted/30"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={item.url}
+                            alt={item.caption ?? `Image ${index + 1}`}
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleExistingImageRemove(index)}
+                            className="focus-ring absolute right-0.5 top-0.5 rounded-full bg-background/85 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
+                            aria-label={t("removeImageAria")}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                      {uploadedImages.map((item) => (
+                        <div
+                          key={`uploaded-image-${item.index}`}
+                          className="relative h-16 w-16 shrink-0 overflow-hidden rounded-md border border-input bg-muted/30"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={item.preview!}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleImageRemove(item.index)}
+                            className="focus-ring absolute right-0.5 top-0.5 rounded-full bg-background/85 p-0.5 text-muted-foreground shadow-sm hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black"
+                            aria-label={t("removeImageAria")}
+                          >
+                            <X className="size-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
-              ))}
+                <div className="text-xs text-muted-foreground">
+                  <p>{tCreate("step3ImagesHint")}</p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium text-foreground">
-                {t("categoryTitle")}
-              </h3>
+
+            <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {tCreate("step3PageTitle")}
+              </h2>
+              <p className="text-sm font-normal text-foreground">
+                {tCreate("step3PageDescription")}
+              </p>
+              <Select
+                value={linkChoice}
+                onValueChange={(value) => {
+                  setLinkChoice(value)
+                  if (value !== "existing") {
+                    setSelectedPage(null)
+                    setPageQuery("")
+                    setPageResults([])
+                    setPageError(null)
+                    setPageLoading(false)
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={tCreate("step3PagePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{tCreate("step3PageNone")}</SelectItem>
+                  <SelectItem value="existing">{tCreate("step3PageExisting")}</SelectItem>
+                </SelectContent>
+              </Select>
+              {linkChoice === "existing" && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor="proposition-edit-page-search"
+                    className="text-sm font-medium text-foreground"
+                  >
+                    {tCreate("step3PageSearchLabel")}
+                  </label>
+                  <Input
+                    id="proposition-edit-page-search"
+                    name="pageSearch"
+                    value={pageQuery}
+                    onChange={(e) => {
+                      setPageQuery(e.target.value)
+                      setSelectedPage(null)
+                    }}
+                    placeholder={tCreate("step3PageSearchPlaceholder")}
+                    className="h-11"
+                  />
+                  {pageLoading && (
+                    <p className="text-sm text-muted-foreground">
+                      {tCreate("step3PageSearching")}
+                    </p>
+                  )}
+                  {pageError && (
+                    <p className="text-sm text-destructive">{pageError}</p>
+                  )}
+                  {!pageLoading &&
+                    !pageError &&
+                    pageQuery &&
+                    !selectedPage &&
+                    pageResults.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {tCreate("step3PageNotFound")}
+                      </p>
+                    )}
+                  <div className="grid gap-2">
+                    {pageResults.map((page) => (
+                      <button
+                        key={page.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPage(page)
+                          setPageQuery(page.name)
+                          setPageResults([])
+                        }}
+                        className="flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm hover:bg-accent"
+                      >
+                        <span className="font-medium text-foreground">
+                          {page.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          /pages/{page.slug}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedPage && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative flex-1">
+                        <Alert
+                          variant="success"
+                          title={tCreate("step3PageSelected", { name: selectedPage.name })}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPage(null)
+                            setPageQuery("")
+                            setPageResults([])
+                            setPageError(null)
+                            setPageLoading(false)
+                          }}
+                          className="absolute right-2 top-2 rounded-md p-1 text-emerald-900/70 transition hover:bg-emerald-100 hover:text-emerald-900 dark:text-emerald-100/70 dark:hover:bg-emerald-950/60"
+                          aria-label={tCommon("remove")}
+                        >
+                          <X className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
+              <h2 className="text-lg font-semibold text-foreground">
+                {tCreate("step3CategoryTitle")}
+              </h2>
               <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
                 <PopoverAnchor asChild>
-                  <Input
-                    id="proposition-edit-category"
-                    name="category"
-                    value={categoryOpen ? categoryQuery : selectedLabel}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setCategoryQuery(value)
-                      if (!value.trim()) {
-                        setUniverse(null)
-                        setCategory("")
-                        setSubCategory("")
-                      }
-                      if (!categoryOpen) setCategoryOpen(true)
-                    }}
-                    onFocus={() => setCategoryOpen(true)}
-                    placeholder={t("categoryPlaceholder")}
-                  />
+                  <div className="space-y-2">
+                    <label
+                      htmlFor="proposition-edit-category"
+                      className="text-sm font-medium text-foreground"
+                    >
+                      {tCreate("step3CategoryLabel")}
+                    </label>
+                    <Input
+                      id="proposition-edit-category"
+                      name="category"
+                      value={categoryOpen ? categoryQuery : selectedLabel}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setCategoryQuery(value)
+                        if (!value.trim()) {
+                          setUniverse(null)
+                          setCategory("")
+                          setSubCategory("")
+                        }
+                        if (!categoryOpen) setCategoryOpen(true)
+                      }}
+                      onFocus={() => setCategoryOpen(true)}
+                      placeholder={tCreate("step3CategoryPlaceholder")}
+                      className="h-11"
+                    />
+                  </div>
                 </PopoverAnchor>
                 <PopoverContent className="max-h-80 w-[var(--radix-popover-trigger-width)] overflow-y-auto p-1">
                   <div className="space-y-0.5">
@@ -597,16 +746,17 @@ export default function PropositionEditClient({
                     ))}
                     {filtered.length === 0 && (
                       <p className="px-2 py-4 text-center text-sm text-muted-foreground">
-                        {t("categoryEmpty")}
+                        {tCreate("step3CategoryEmpty")}
                       </p>
                     )}
                   </div>
                 </PopoverContent>
               </Popover>
             </div>
+
             <div className="space-y-4 rounded-lg border bg-white px-4 py-4">
               <h2 className="text-lg font-semibold text-foreground">
-                {tCommon("notifications")}
+                {tCreate("step3NotificationsTitle")}
               </h2>
               <div className="space-y-2 text-sm font-normal">
                 <NotificationToggle
@@ -629,84 +779,6 @@ export default function PropositionEditClient({
                 />
               </div>
             </div>
-            <Select
-              value={linkChoice}
-              onValueChange={(value) => {
-                setLinkChoice(value)
-                if (value !== "existing") {
-                  setSelectedPage(null)
-                  setPageQuery("")
-                  setPageResults([])
-                  setPageError(null)
-                  setPageLoading(false)
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("linkPagePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">{t("linkNone")}</SelectItem>
-                <SelectItem value="existing">{t("linkExisting")}</SelectItem>
-              </SelectContent>
-            </Select>
-            {linkChoice === "existing" && (
-              <div className="space-y-2">
-                <Input
-                  id="proposition-edit-page-search"
-                  name="pageSearch"
-                  value={pageQuery}
-                  onChange={(e) => {
-                    setPageQuery(e.target.value)
-                    setSelectedPage(null)
-                  }}
-                  placeholder={t("pageSearchPlaceholder")}
-                />
-                {pageLoading && (
-                  <p className="text-sm text-muted-foreground">
-                    {t("pageSearching")}
-                  </p>
-                )}
-                {pageError && (
-                  <p className="text-sm text-destructive">{pageError}</p>
-                )}
-                {!pageLoading &&
-                  !pageError &&
-                  pageQuery &&
-                  !selectedPage &&
-                  pageResults.length === 0 && (
-                    <p className="text-sm text-muted-foreground">
-                      {t("pageNotFound")}
-                    </p>
-                  )}
-                <div className="grid gap-2">
-                  {pageResults.map((page) => (
-                    <button
-                      key={page.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPage(page)
-                        setPageQuery(page.name)
-                        setPageResults([])
-                      }}
-                      className="flex items-center justify-between rounded-lg border px-3 py-2 text-left text-sm hover:bg-accent"
-                    >
-                      <span className="font-medium text-foreground">
-                        {page.name}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        /pages/{page.slug}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {selectedPage && (
-                  <p className="text-sm text-muted-foreground">
-                    {t("pageSelected", { name: selectedPage.name })}
-                  </p>
-                )}
-              </div>
-            )}
             {error && (
               <p className="text-sm text-destructive">{error}</p>
             )}
@@ -726,8 +798,7 @@ export default function PropositionEditClient({
                 {loading ? tCommon("saving") : tCommon("save")}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     </div>
   )
