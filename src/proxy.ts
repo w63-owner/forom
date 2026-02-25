@@ -45,17 +45,6 @@ const isTransientAuthReason = (reason: string | null): boolean => {
   )
 }
 
-const isConfirmedNoSessionReason = (reason: string | null): boolean => {
-  if (!reason) return false
-  const normalized = reason.toLowerCase()
-  return (
-    normalized.includes("no_active_session") ||
-    normalized.includes("session_not_found") ||
-    normalized.includes("invalid refresh token") ||
-    normalized.includes("refresh_token_not_found")
-  )
-}
-
 export async function proxy(request: NextRequest) {
   const requestId =
     (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -147,24 +136,6 @@ export async function proxy(request: NextRequest) {
       }
     }
 
-    if (
-      isProtected &&
-      !userId &&
-      !isTransientAuthReason(authErrorReason) &&
-      isConfirmedNoSessionReason(authErrorReason ?? "no_active_session")
-    ) {
-      const nextPath = `${normalizedPath}${request.nextUrl.search}`
-      const loginUrl = new URL(`/${locale}`, request.url)
-      loginUrl.searchParams.set("auth", "signup")
-      loginUrl.searchParams.set("next", nextPath)
-      tracker.complete({
-        statusCode: 307,
-        outcome: "redirect",
-        reason: authErrorReason ?? "protected_route_without_session",
-      })
-      return NextResponse.redirect(loginUrl)
-    }
-
     if (isProxyDebugEnabled) {
       proxyLog("info", "auth.proxy.request_success", {
         requestId,
@@ -183,8 +154,10 @@ export async function proxy(request: NextRequest) {
       outcome: isProtected
         ? userId
           ? "success"
-          : isTransientAuthReason(authErrorReason)
+          : authErrorReason
+            ? isTransientAuthReason(authErrorReason)
             ? "error"
+            : "no_session"
             : "no_session"
         : "skipped",
       reason: authErrorReason,
@@ -209,19 +182,10 @@ export async function proxy(request: NextRequest) {
       stack,
     })
     tracker.complete({
-      statusCode: isProtected ? 307 : 200,
+      statusCode: 200,
       outcome: "error",
       reason,
     })
-
-    // Fail-safe behavior: keep app reachable even if middleware logic crashes.
-    if (isProtected) {
-      const nextPath = `${normalizedPath}${request.nextUrl.search}`
-      const loginUrl = new URL(`/${locale}`, request.url)
-      loginUrl.searchParams.set("auth", "signup")
-      loginUrl.searchParams.set("next", nextPath)
-      return NextResponse.redirect(loginUrl)
-    }
     return isApiOrAuth ? NextResponse.next({ request }) : await intlMiddleware(request)
   }
 }
