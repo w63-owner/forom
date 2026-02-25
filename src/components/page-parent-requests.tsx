@@ -114,7 +114,7 @@ export function PageParentRequests({ pageId, ownerId }: Props) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-background/60 p-4 text-sm">
+    <div className="space-y-3 text-sm">
       <p className="font-medium text-foreground">{t("title")}</p>
       {requests.length === 0 ? (
         <p className="text-muted-foreground">{t("empty")}</p>

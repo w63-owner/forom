@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!supabase) return {}
   const { data: page } = await supabase
     .from("pages")
-    .select("name, description")
+    .select("name, description, visibility")
     .eq("slug", slug)
     .maybeSingle()
   if (!page) return {}
@@ -40,6 +40,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: page.name ?? "FOROM",
     description,
+    robots:
+      page.visibility === "private"
+        ? { index: false, follow: false }
+        : undefined,
     openGraph: {
       title: page.name ?? "FOROM",
       description,
@@ -80,12 +84,29 @@ export default async function PageDashboard({ params, searchParams }: Props) {
   const { data: page, error: pageError } = await supabase
     .from("pages")
     .select(
-      "id, name, description, category, is_verified, reactivity_score, website_url, certification_type, owner_id, owner_notify_daily, owner_vote_threshold, parent_page_id"
+      "id, name, description, category, is_verified, reactivity_score, website_url, certification_type, owner_id, owner_notify_daily, owner_vote_threshold, parent_page_id, visibility"
     )
     .eq("slug", slug)
     .single()
 
   if (pageError || !page) {
+    notFound()
+  }
+
+  const {
+    data: { user: authUser },
+  } = await supabase.auth.getUser()
+  const userId = authUser?.id ?? null
+  const isOwner = userId === page.owner_id
+  const { data: membership } = userId
+    ? await supabase
+        .from("page_members")
+        .select("user_id")
+        .eq("page_id", page.id)
+        .eq("user_id", userId)
+        .maybeSingle()
+    : { data: null }
+  if (page.visibility === "private" && !isOwner && !membership) {
     notFound()
   }
 
@@ -180,8 +201,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     ? categoryLabels[page.category] ?? page.category
     : null
 
-  const { data: userData } = await supabase.auth.getUser()
-  const isOwner = userData.user?.id === page.owner_id
+  const userData = { user: authUser }
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
       ? process.env.NEXT_PUBLIC_APP_URL
@@ -241,6 +261,9 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   )}
                 </CardTitle>
                 <div className="flex flex-wrap items-center gap-2">
+                  {page.visibility === "private" && (
+                    <Badge variant="outline">{tPage("privateBadge")}</Badge>
+                  )}
                   {categoryLabel && (
                     <Badge className="w-fit" variant="secondary">
                       {categoryLabel}
@@ -276,6 +299,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     initialDaily={page.owner_notify_daily ?? false}
                     initialThreshold={page.owner_vote_threshold ?? null}
                     isVerified={page.is_verified}
+                    initialVisibility={page.visibility === "private" ? "private" : "public"}
                   />
                 )}
               </div>

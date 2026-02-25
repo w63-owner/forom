@@ -102,6 +102,7 @@ export default async function ExplorePage({ params, searchParams }: Props) {
           await supabase
             .from("pages")
             .select("id")
+            .neq("visibility", "private")
             .ilike("name", `%${query}%`)
             .limit(25)
         ).data?.map((item) => item.id) ?? []

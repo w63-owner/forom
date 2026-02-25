@@ -39,14 +39,8 @@ export function usePageSearch({
         (err as { name?: unknown }).name === "AbortError"
     ) ||
     (err instanceof Error &&
-      err.message.toLowerCase().includes("signal is aborted without reason"))
-  const isAbortError = (err: unknown) =>
-    Boolean(
-      err &&
-        typeof err === "object" &&
-        "name" in err &&
-        (err as { name?: unknown }).name === "AbortError"
-    )
+      (err.message.toLowerCase().includes("signal is aborted") ||
+        err.message.toLowerCase().includes("aborted without reason")))
 
   const debouncedSearch = useMemo(
     () =>
@@ -74,7 +68,7 @@ export function usePageSearch({
             setResults(payload.data ?? [])
           }
         } catch (err) {
-          if (isAbortError(err)) {
+          if (isAbortLikeError(err)) {
             setError(null)
             setResults([])
           } else {

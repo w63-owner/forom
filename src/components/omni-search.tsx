@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Search } from "lucide-react"
 import {
   Command,
@@ -13,6 +13,7 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { getSupabaseClient } from "@/utils/supabase/client"
+import { isAbortLikeError } from "@/lib/async-resilience"
 
 type PropositionResult = {
   id: string
@@ -24,6 +25,7 @@ const sanitizeQuery = (value: string) => value.replace(/[%_]/g, "\\$&")
 
 export function OmniSearch() {
   const router = useRouter()
+  const locale = useLocale()
   const t = useTranslations("OmniSearch")
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<PropositionResult[]>([])
@@ -44,36 +46,51 @@ export function OmniSearch() {
   useEffect(() => {
     if (!trimmedQuery) return
 
+    let isActive = true
     const handle = setTimeout(async () => {
       const supabase = getSupabaseClient()
       if (!supabase) {
+        if (!isActive) return
         setError(t("supabaseNotConfigured"))
         setResults([])
         return
       }
 
+      if (!isActive) return
       setLoading(true)
       setError(null)
-      const safeQuery = sanitizeQuery(trimmedQuery)
-      const { data, error: queryError } = await supabase
-        .from("propositions")
-        .select("id, title, votes_count")
-        .or(`title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`)
-        .order("votes_count", { ascending: false })
-        .limit(8)
+      try {
+        const safeQuery = sanitizeQuery(trimmedQuery)
+        const { data, error: queryError } = await supabase
+          .from("propositions")
+          .select("id, title, votes_count")
+          .or(`title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`)
+          .order("votes_count", { ascending: false })
+          .limit(8)
 
-      if (queryError) {
-        setError(queryError.message)
+        if (!isActive) return
+        if (queryError) {
+          setError(queryError.message)
+          setResults([])
+        } else {
+          setResults(data ?? [])
+        }
+      } catch (err) {
+        if (!isActive || isAbortLikeError(err)) return
+        setError(err instanceof Error ? err.message : "Search failed")
         setResults([])
-      } else {
-        setResults(data ?? [])
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
       }
-
-      setLoading(false)
     }, 300)
 
-    return () => clearTimeout(handle)
-  }, [trimmedQuery])
+    return () => {
+      isActive = false
+      clearTimeout(handle)
+    }
+  }, [trimmedQuery, t])
 
   const createLabel = trimmedQuery
     ? t("createWithTitle", { title: trimmedQuery })
@@ -128,7 +145,7 @@ export function OmniSearch() {
               value={`create-${trimmedQuery}`}
               onSelect={() =>
                 router.push(
-                  `/propositions/create?title=${encodeURIComponent(trimmedQuery)}`
+                  `/${locale}/propositions/create?title=${encodeURIComponent(trimmedQuery)}`
                 )
               }
             >

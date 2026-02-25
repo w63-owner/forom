@@ -130,11 +130,30 @@ export default async function PropositionDetails({ params }: Props) {
     ? (
         await supabase
           .from("pages")
-          .select("name, slug, owner_id")
+          .select("name, slug, owner_id, visibility")
           .eq("id", data.page_id)
           .maybeSingle()
       ).data ?? null
     : null
+
+  if (pageData?.visibility === "private") {
+    const {
+      data: { user: sessionUser },
+    } = await supabase.auth.getUser()
+    if (!sessionUser) {
+      notFound()
+    }
+    const isOwner = pageData.owner_id === sessionUser.id
+    const { data: membership } = await supabase
+      .from("page_members")
+      .select("user_id")
+      .eq("page_id", data.page_id)
+      .eq("user_id", sessionUser.id)
+      .maybeSingle()
+    if (!isOwner && !membership) {
+      notFound()
+    }
+  }
 
   const { data: volunteersData } = await supabase
     .from("volunteers")

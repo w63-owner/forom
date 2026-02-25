@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { AtSign, Instagram, Linkedin, Mail, Pencil, RefreshCw, User } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -19,7 +19,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/components/ui/toast"
 import { PageVerificationRequest } from "@/components/page-verification-request"
@@ -110,6 +109,7 @@ export function ProfileShell({
   pageSubscriptions,
   propositionSubscriptions,
 }: ProfileShellProps) {
+  const locale = useLocale()
   const tProfile = useTranslations("Profile")
   const tCommon = useTranslations("Common")
   const tStatus = useTranslations("Status")
@@ -136,6 +136,9 @@ export function ProfileShell({
   const [avatarError, setAvatarError] = useState<string | null>(null)
   const [avatarMessage, setAvatarMessage] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const [verificationDialogPageId, setVerificationDialogPageId] = useState<string | null>(
+    null
+  )
   const refreshingAvatars = useMemo(() => refreshTick > 0, [refreshTick])
   const emailValue = profile?.email ?? userEmailFallback
 
@@ -551,7 +554,7 @@ export function ProfileShell({
                       {tProfile("noPropositions")}
                     </p>
                     <Link
-                      href="/propositions/create"
+                      href={`/${locale}/propositions/create`}
                       className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                     >
                       {tCommon("addProposition")}
@@ -601,20 +604,29 @@ export function ProfileShell({
                           {tVerification("verifiedBadge")}
                         </Badge>
                       ) : (
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              {tVerification("requestButton")}
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-80 p-2" align="end">
-                            <PageVerificationRequest
-                              pageId={page.id}
-                              ownerId={ownerId}
-                              isVerified={false}
-                            />
-                          </PopoverContent>
-                        </Popover>
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setVerificationDialogPageId(page.id)}
+                          >
+                            {tVerification("requestButton")}
+                          </Button>
+                          <Dialog
+                            open={verificationDialogPageId === page.id}
+                            onOpenChange={(open) =>
+                              setVerificationDialogPageId(open ? page.id : null)
+                            }
+                          >
+                            <DialogContent className="fixed top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[85vh] w-[92vw] max-w-[23rem] overflow-y-auto overflow-x-hidden border border-border bg-background p-6 text-foreground shadow-2xl sm:top-[45%] sm:max-w-[23rem]">
+                              <PageVerificationRequest
+                                pageId={page.id}
+                                ownerId={ownerId}
+                                isVerified={false}
+                              />
+                            </DialogContent>
+                          </Dialog>
+                        </>
                       )}
                     </div>
                   )

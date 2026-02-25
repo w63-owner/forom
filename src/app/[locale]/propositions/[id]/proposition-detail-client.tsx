@@ -2,11 +2,22 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { useLocale, useTranslations } from "next-intl"
-import { FileText, Heart, Lightbulb, ThumbsDown, ThumbsUp } from "lucide-react"
+import {
+  EllipsisVertical,
+  FileText,
+  Heart,
+  Lightbulb,
+  Pencil,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+} from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert } from "@/components/ui/alert"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthModal } from "@/components/auth-modal-provider"
 import { getSupabaseClient } from "@/utils/supabase/client"
@@ -280,6 +291,8 @@ type CommentBlockProps = {
     type: "Upvote" | "Downvote",
     currentVote: "Upvote" | "Downvote" | null
   ) => void
+  onEditComment: (commentId: string, nextContent: string) => Promise<void>
+  onDeleteComment: (commentId: string) => Promise<void>
   onSubmitReply: (parentId: string) => void
   onRequireAuth: () => void
   propositionAuthorAvatarUrl: string | null
@@ -301,6 +314,8 @@ function CommentBlock({
   replySubmitting,
   onToggleSolution,
   onVote,
+  onEditComment,
+  onDeleteComment,
   onSubmitReply,
   onRequireAuth,
   propositionAuthorAvatarUrl,
@@ -311,8 +326,50 @@ function CommentBlock({
   const t = useTranslations("PropositionComments")
   const username = meta?.username || meta?.email || t("anonymous")
   const isReplying = replyingToId === comment.id
+  const isCommentOwner = Boolean(currentUserId) && currentUserId === comment.user_id
   const indent = depth > 0 ? "pl-6 border-l-2 border-border/60" : ""
   const contentOffset = !comment.is_solution ? "ml-[4.25rem]" : ""
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [desktopActionsOpen, setDesktopActionsOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState(comment.content)
+  const [editSubmitting, setEditSubmitting] = useState(false)
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditValue(comment.content)
+    }
+  }, [comment.content, isEditing])
+
+  const canShowActions = isCommentOwner && !comment.is_solution
+
+  const handleSaveEdit = async () => {
+    const nextContent = editValue.trim()
+    if (!nextContent || nextContent === comment.content.trim()) {
+      setIsEditing(false)
+      setEditValue(comment.content)
+      return
+    }
+    setEditSubmitting(true)
+    try {
+      await onEditComment(comment.id, nextContent)
+      setIsEditing(false)
+    } finally {
+      setEditSubmitting(false)
+    }
+  }
+
+  const handleDelete = async () => {
+    setDeleteSubmitting(true)
+    try {
+      await onDeleteComment(comment.id)
+      setActionsOpen(false)
+      setDesktopActionsOpen(false)
+    } finally {
+      setDeleteSubmitting(false)
+    }
+  }
 
   return (
     <div className={`py-3 ${indent}`}>
@@ -326,15 +383,129 @@ function CommentBlock({
             className="mt-0.5 h-14 w-14 shrink-0 text-sm"
           />
           <div className="min-w-0 flex-1">
-            <p className="inline-flex items-baseline gap-1.5 text-sm">
-              <span className="font-semibold text-foreground">@{username}</span>
-              <span className="text-muted-foreground font-normal">
-                {relativeTime(comment.created_at)}
-              </span>
-            </p>
-            <p className="mt-1 break-words text-sm text-foreground">
-              {renderCommentContent(comment.content)}
-            </p>
+            <div className="flex items-start justify-between gap-2">
+              <p className="inline-flex items-baseline gap-1.5 text-sm">
+                <span className="font-semibold text-foreground">@{username}</span>
+                <span className="text-muted-foreground font-normal">
+                  {relativeTime(comment.created_at)}
+                </span>
+              </p>
+              {canShowActions ? (
+                <>
+                  <Popover open={desktopActionsOpen} onOpenChange={setDesktopActionsOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-xs"
+                        className="hidden sm:inline-flex"
+                        aria-label={t("commentActionsAria")}
+                      >
+                        <EllipsisVertical className="size-3.5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      className="hidden w-44 gap-0 rounded-xl border border-border/70 bg-card p-1.5 shadow-xl sm:block"
+                    >
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-foreground hover:bg-muted"
+                        onClick={() => {
+                          setDesktopActionsOpen(false)
+                          setIsEditing(true)
+                        }}
+                      >
+                        <Pencil className="size-4" />
+                        {t("commentActionEdit")}
+                      </button>
+                      <button
+                        type="button"
+                        className="mt-0.5 flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-destructive hover:bg-destructive/10"
+                        onClick={() => void handleDelete()}
+                        disabled={deleteSubmitting}
+                      >
+                        <Trash2 className="size-4" />
+                        {t("commentActionDelete")}
+                      </button>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    className="sm:hidden"
+                    aria-label={t("commentActionsAria")}
+                    onClick={() => setActionsOpen(true)}
+                  >
+                    <EllipsisVertical className="size-3.5" />
+                  </Button>
+                  <Dialog open={actionsOpen} onOpenChange={setActionsOpen}>
+                    <DialogContent className="top-auto right-0 bottom-0 left-0 w-full max-w-none translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none p-0 sm:hidden">
+                      <DialogHeader className="border-b px-5 py-4 text-left">
+                        <DialogTitle className="text-xl font-semibold">
+                          {t("commentActionsTitle")}
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-1 px-2 py-3">
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-base text-foreground hover:bg-muted"
+                          onClick={() => {
+                            setActionsOpen(false)
+                            setIsEditing(true)
+                          }}
+                        >
+                          <Pencil className="size-5" />
+                          {t("commentActionEdit")}
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-3 rounded-md px-3 py-3 text-left text-base text-destructive hover:bg-destructive/10"
+                          onClick={() => void handleDelete()}
+                          disabled={deleteSubmitting}
+                        >
+                          <Trash2 className="size-5" />
+                          {t("commentActionDelete")}
+                        </button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              ) : null}
+            </div>
+            {isEditing ? (
+              <div className="mt-2 space-y-2">
+                <Textarea
+                  value={editValue}
+                  onChange={(event) => setEditValue(event.target.value)}
+                  placeholder={t("editPlaceholder")}
+                  rows={3}
+                  className="min-h-16 resize-none text-sm"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditing(false)
+                      setEditValue(comment.content)
+                    }}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => void handleSaveEdit()}
+                    disabled={editSubmitting || !editValue.trim()}
+                  >
+                    {editSubmitting ? t("savingEdit") : t("saveEdit")}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-1 break-words text-sm text-foreground">
+                {renderCommentContent(comment.content)}
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -455,6 +626,8 @@ function CommentBlock({
               replySubmitting={replySubmitting}
               onToggleSolution={onToggleSolution}
               onVote={onVote}
+              onEditComment={onEditComment}
+              onDeleteComment={onDeleteComment}
               onSubmitReply={onSubmitReply}
               onRequireAuth={onRequireAuth}
               propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}
@@ -612,7 +785,7 @@ export default function PropositionDetailClient({
     setCommentMentionActiveIndex(0)
     setCommentMentionLoading(false)
     commentMentionRangeRef.current = null
-    commentMentionAbortRef.current?.abort()
+    commentMentionAbortRef.current?.abort("mention_close")
     commentMentionAbortRef.current = null
     if (commentMentionDebounceRef.current) {
       clearTimeout(commentMentionDebounceRef.current)
@@ -622,7 +795,7 @@ export default function PropositionDetailClient({
 
   const fetchCommentMentionOptions = useCallback(
     async (query: string) => {
-      commentMentionAbortRef.current?.abort()
+      commentMentionAbortRef.current?.abort("mention_superseded")
       const controller = new AbortController()
       commentMentionAbortRef.current = controller
       setCommentMentionLoading(true)
@@ -921,7 +1094,7 @@ export default function PropositionDetailClient({
 
   useEffect(() => {
     return () => {
-      commentMentionAbortRef.current?.abort()
+      commentMentionAbortRef.current?.abort("component_unmount")
       if (commentMentionDebounceRef.current) {
         clearTimeout(commentMentionDebounceRef.current)
       }
@@ -1038,6 +1211,70 @@ export default function PropositionDetailClient({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ propositionId, commentId, type, currentVote }),
+    })
+    if (!response.ok) {
+      if (response.status === 401) {
+        showToast({
+          variant: "warning",
+          title: t("loginRequiredTitle"),
+          description: t("loginRequiredBody"),
+        })
+        openAuthForThisProposition()
+        return
+      }
+      if (response.status === 403) {
+        const description = t("permissionDeniedBody")
+        setCommentsError(description)
+        showToast({
+          variant: "warning",
+          title: tCommon("permissionDeniedTitle"),
+          description,
+        })
+        return
+      }
+      setCommentsError(t("loadError"))
+      return
+    }
+    await fetchComments()
+  }
+
+  const handleEditComment = async (commentId: string, nextContent: string) => {
+    const response = await fetch("/api/comments/edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propositionId, commentId, content: nextContent }),
+    })
+    if (!response.ok) {
+      if (response.status === 401) {
+        showToast({
+          variant: "warning",
+          title: t("loginRequiredTitle"),
+          description: t("loginRequiredBody"),
+        })
+        openAuthForThisProposition()
+        return
+      }
+      if (response.status === 403) {
+        const description = t("permissionDeniedBody")
+        setCommentsError(description)
+        showToast({
+          variant: "warning",
+          title: tCommon("permissionDeniedTitle"),
+          description,
+        })
+        return
+      }
+      setCommentsError(t("loadError"))
+      return
+    }
+    await fetchComments()
+  }
+
+  const handleDeleteComment = async (commentId: string) => {
+    const response = await fetch("/api/comments/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ propositionId, commentId }),
     })
     if (!response.ok) {
       if (response.status === 401) {
@@ -1300,6 +1537,8 @@ export default function PropositionDetailClient({
                   replySubmitting={replySubmitting}
                   onToggleSolution={handleToggleSolution}
                   onVote={handleCommentVote}
+                  onEditComment={handleEditComment}
+                  onDeleteComment={handleDeleteComment}
                   onSubmitReply={handleSubmitReply}
                   onRequireAuth={openAuthForThisProposition}
                   propositionAuthorAvatarUrl={propositionAuthorAvatarUrl}

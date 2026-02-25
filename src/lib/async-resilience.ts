@@ -92,7 +92,7 @@ export class AsyncTimeoutError extends Error {
     timeoutMs = 15000
   ): Promise<Response> {
     const controller = new AbortController()
-    const id = setTimeout(() => controller.abort(), timeoutMs)
+  const id = setTimeout(() => controller.abort("timeout"), timeoutMs)
     try {
       return await fetch(input, { ...init, signal: controller.signal })
     } catch (error) {

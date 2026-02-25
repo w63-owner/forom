@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
@@ -47,6 +47,7 @@ export function PageChildPagesList({
   const [childToUnlink, setChildToUnlink] = useState<ChildPage | null>(null)
   const [unlinking, setUnlinking] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  const addChildPopoverContentId = useId()
   const [requestingChildId, setRequestingChildId] = useState<string | null>(null)
   const {
     query: childQuery,
@@ -199,7 +200,7 @@ export function PageChildPagesList({
                 {t("addChildButton")}
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-80 p-0">
+            <PopoverContent id={addChildPopoverContentId} align="start" className="w-80 p-0">
               <Command shouldFilter={false}>
                 <CommandInput
                   placeholder={t("addChildSearchPlaceholder")}

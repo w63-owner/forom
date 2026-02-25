@@ -45,8 +45,7 @@ import {
 import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 import { useToast } from "@/components/ui/toast"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
-
-const CREATE_PROPOSITION_DRAFT_STORAGE_KEY = "forom:create-proposition:draft"
+import { isAbortLikeError } from "@/lib/async-resilience"
 
 type PropositionResult = {
   id: string
@@ -771,9 +770,6 @@ export default function CreatePropositionClient({
     null,
   ])
   const previewUrlsRef = useRef<(string | null)[]>([])
-  const titleEditedRef = useRef(false)
-  const draftRestoreDoneRef = useRef(false)
-  const [draftHydrated, setDraftHydrated] = useState(false)
 
   useEffect(() => {
     previewUrlsRef.current = previewUrls
@@ -783,100 +779,6 @@ export default function CreatePropositionClient({
       })
     }
   }, [previewUrls])
-
-  useEffect(() => {
-    if (draftRestoreDoneRef.current) return
-    draftRestoreDoneRef.current = true
-    if (typeof window === "undefined") return
-    try {
-      const raw = window.localStorage.getItem(CREATE_PROPOSITION_DRAFT_STORAGE_KEY)
-      if (!raw) {
-        setDraftHydrated(true)
-        return
-      }
-      const parsed = JSON.parse(raw) as
-        | {
-            title?: string
-            description?: string
-            linkChoice?: string
-            selectedPage?: PageResult | null
-            notifyComments?: boolean
-            notifyVolunteers?: boolean
-            notifySolutions?: boolean
-            universe?: Universe | null
-            category?: string
-            subCategory?: string
-            step?: number
-          }
-        | null
-      if (!parsed) {
-        setDraftHydrated(true)
-        return
-      }
-      if (!titleEditedRef.current && typeof parsed.title === "string") {
-        setTitle(parsed.title)
-      }
-      if (typeof parsed.description === "string") setDescription(parsed.description)
-      if (parsed.linkChoice === "none" || parsed.linkChoice === "existing") {
-        setLinkChoice(parsed.linkChoice)
-      }
-      if (parsed.selectedPage?.id && parsed.selectedPage?.name && parsed.selectedPage?.slug) {
-        setSelectedPage(parsed.selectedPage)
-        setPageQuery(parsed.selectedPage.name, { keepSelection: true, touched: false })
-      }
-      if (typeof parsed.notifyComments === "boolean") setNotifyComments(parsed.notifyComments)
-      if (typeof parsed.notifyVolunteers === "boolean") setNotifyVolunteers(parsed.notifyVolunteers)
-      if (typeof parsed.notifySolutions === "boolean") setNotifySolutions(parsed.notifySolutions)
-      if (parsed.universe && Object.keys(UNIVERSE_SLUGS).includes(parsed.universe)) {
-        setUniverse(parsed.universe as Universe)
-      }
-      if (typeof parsed.category === "string") setCategory(parsed.category)
-      if (typeof parsed.subCategory === "string") setSubCategory(parsed.subCategory)
-      if (parsed.step === 1 || parsed.step === 2 || parsed.step === 3) {
-        setStep(parsed.step)
-      }
-    } catch {
-      // Ignore malformed draft payloads.
-    } finally {
-      setDraftHydrated(true)
-    }
-  }, [setPageQuery, setSelectedPage])
-
-  useEffect(() => {
-    if (!draftHydrated) return
-    if (typeof window === "undefined") return
-    try {
-      const payload = {
-        title,
-        description,
-        linkChoice,
-        selectedPage,
-        notifyComments,
-        notifyVolunteers,
-        notifySolutions,
-        universe,
-        category,
-        subCategory,
-        step,
-      }
-      window.localStorage.setItem(CREATE_PROPOSITION_DRAFT_STORAGE_KEY, JSON.stringify(payload))
-    } catch {
-      // Ignore storage write failures.
-    }
-  }, [
-    draftHydrated,
-    title,
-    description,
-    linkChoice,
-    selectedPage,
-    notifyComments,
-    notifyVolunteers,
-    notifySolutions,
-    universe,
-    category,
-    subCategory,
-    step,
-  ])
 
   const trimmedTitle = useMemo(() => title.trim(), [title])
   const stepMeta = useMemo(() => {
@@ -907,7 +809,6 @@ export default function CreatePropositionClient({
   const handleTitleChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const nextTitle = event.target.value
-      titleEditedRef.current = true
       setTitle(nextTitle)
       if (!nextTitle.trim()) {
         resetSimilarState()
@@ -1018,34 +919,49 @@ export default function CreatePropositionClient({
   useEffect(() => {
     if (step !== 2 || !trimmedTitle) return
 
+    let isActive = true
     const handle = setTimeout(async () => {
       const supabase = getSupabaseClient()
       if (!supabase) {
+        if (!isActive) return
         setSimilarError(t("supabaseNotConfigured"))
         setSimilarResults([])
         return
       }
 
+      if (!isActive) return
       setSimilarLoading(true)
       setSimilarError(null)
-      const safeQuery = sanitizeQuery(trimmedTitle)
-      const { data, error } = await supabase
-        .from("propositions")
-        .select("id, title")
-        .ilike("title", `%${safeQuery}%`)
-        .limit(5)
+      try {
+        const safeQuery = sanitizeQuery(trimmedTitle)
+        const { data, error } = await supabase
+          .from("propositions")
+          .select("id, title")
+          .ilike("title", `%${safeQuery}%`)
+          .limit(5)
 
-      if (error) {
-        setSimilarError(error.message)
+        if (!isActive) return
+        if (error) {
+          setSimilarError(error.message)
+          setSimilarResults([])
+        } else {
+          setSimilarResults(data ?? [])
+        }
+      } catch (err) {
+        if (!isActive || isAbortLikeError(err)) return
+        setSimilarError(err instanceof Error ? err.message : "Failed to load similar propositions")
         setSimilarResults([])
-      } else {
-        setSimilarResults(data ?? [])
+      } finally {
+        if (isActive) {
+          setSimilarLoading(false)
+        }
       }
-
-      setSimilarLoading(false)
     }, 300)
 
-    return () => clearTimeout(handle)
+    return () => {
+      isActive = false
+      clearTimeout(handle)
+    }
   }, [step, t, trimmedTitle])
 
   // page search handled by usePageSearch hook
@@ -1191,9 +1107,6 @@ export default function CreatePropositionClient({
     }
 
     router.push(`/propositions/${data.id}`)
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(CREATE_PROPOSITION_DRAFT_STORAGE_KEY)
-    }
   }, [
     category,
     description,

@@ -70,11 +70,15 @@ export default async function EmbedPagePropositions({ params, searchParams }: Pr
 
   const { data: page } = await supabase
     .from("pages")
-    .select("id, name, slug")
+    .select("id, name, slug, visibility")
     .eq("slug", slug)
     .maybeSingle()
 
   if (!page) {
+    notFound()
+  }
+
+  if (page.visibility === "private") {
     notFound()
   }
 

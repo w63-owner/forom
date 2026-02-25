@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import {
@@ -86,6 +86,7 @@ import {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const locale = useLocale()
   const tExplore = useTranslations("Explore")
   const tCommon = useTranslations("Common")
   const tNav = useTranslations("Nav")
@@ -321,8 +322,8 @@ import {
 
   if (items.length === 0 && !hasMore) {
     const createHref = query
-      ? `/propositions/create?title=${encodeURIComponent(query)}`
-      : "/propositions/create"
+      ? `/${locale}/propositions/create?title=${encodeURIComponent(query)}`
+      : `/${locale}/propositions/create`
     return (
       <div className="space-y-3">
         <div className="overflow-x-auto">

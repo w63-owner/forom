@@ -96,6 +96,7 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
           await supabase
             .from("pages")
             .select("id")
+            .neq("visibility", "private")
             .ilike("name", `%${query}%`)
             .limit(25)
         ).data?.map((item) => item.id) ?? []

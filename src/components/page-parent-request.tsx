@@ -203,7 +203,7 @@ export function PageParentRequest({ pageId, ownerId }: Props) {
     : null
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-background/60 p-4 text-sm">
+    <div className="space-y-3 text-sm">
       <p className="font-medium text-foreground">{t("title")}</p>
       {currentParent ? (
         <p className="text-muted-foreground">

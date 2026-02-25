@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
@@ -62,30 +64,39 @@ export function PageOwnerNotifications({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-background/60 p-4 text-sm">
+    <div className="space-y-4 text-sm">
       <p className="font-medium text-foreground">{t("title")}</p>
-      <label className="flex items-center gap-2 text-muted-foreground">
-        <input
+      <div className="flex items-center justify-between gap-3">
+        <label
+          id="page-owner-daily-label"
+          htmlFor="page-owner-daily"
+          className="text-sm text-foreground"
+        >
+          {t("dailySummary")}
+        </label>
+        <ToggleSwitch
           id="page-owner-daily"
-          name="dailySummary"
-          type="checkbox"
+          ariaLabelledBy="page-owner-daily-label"
           checked={daily}
-          onChange={(event) => setDaily(event.target.checked)}
-          className="h-4 w-4 rounded border-border"
+          onCheckedChange={setDaily}
         />
-        {t("dailySummary")}
-      </label>
-      <label className="flex items-center gap-2 text-muted-foreground">
-        <span>{t("voteThreshold")}</span>
-        <input
+      </div>
+      <div className="space-y-2">
+        <label
+          htmlFor="page-owner-threshold"
+          className="text-sm font-medium text-foreground"
+        >
+          {t("voteThreshold")}
+        </label>
+        <Input
           id="page-owner-threshold"
           name="voteThreshold"
           value={threshold}
           onChange={(event) => setThreshold(event.target.value)}
           placeholder={t("thresholdPlaceholder")}
-          className="h-8 w-24 rounded-md border border-border bg-background px-2 text-sm"
+          className="h-11"
         />
-      </label>
+      </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex justify-end">
         <Button size="sm" onClick={handleSave} disabled={saving}>

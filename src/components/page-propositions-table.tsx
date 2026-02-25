@@ -323,7 +323,7 @@ export function PagePropositionsTable({
                       </a>
                     ) : (
                       <Link
-                        href={`/propositions/create?${new URLSearchParams({
+                        href={`/${locale}/propositions/create?${new URLSearchParams({
                           ...(query ? { title: query } : {}),
                           page: pageId,
                           ...(pageName ? { pageName: pageName } : {}),

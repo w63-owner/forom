@@ -3,6 +3,13 @@
 import { useEffect, useMemo, useState } from "react"
 import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
+import {
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser } from "@/utils/supabase/auth-check"
 
@@ -159,17 +166,15 @@ export function PageVerificationRequest({
   const isPending = currentRequest?.status === "pending"
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-background/60 p-4 text-sm">
-      <p className="font-medium text-foreground">{t("title")}</p>
-      {isVerified ? (
-        <p className="text-muted-foreground">
-          {t("alreadyVerified")}
-        </p>
-      ) : (
-        <p className="text-muted-foreground">
-          {t("instructions")}
-        </p>
-      )}
+    <div className="space-y-4 text-sm">
+      <DialogHeader className="space-y-1 text-left">
+        <DialogTitle className="text-3xl font-bold tracking-tight text-foreground">
+          {t("title")}
+        </DialogTitle>
+        <DialogDescription className="text-base text-muted-foreground">
+          {isVerified ? t("alreadyVerified") : t("instructions")}
+        </DialogDescription>
+      </DialogHeader>
 
       {currentRequest && (
         <div className="rounded-md border border-border bg-background p-3">
@@ -217,13 +222,13 @@ export function PageVerificationRequest({
         <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           {t("proofLabel")}
         </label>
-        <input
+        <Input
           id="page-verification-proof"
           name="verificationProof"
           value={proof}
           onChange={(event) => setProof(event.target.value)}
           placeholder={t("proofPlaceholder")}
-          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+          className="border-border bg-background text-foreground placeholder:text-muted-foreground"
           disabled={isVerified || isPending}
         />
       </div>
@@ -232,13 +237,13 @@ export function PageVerificationRequest({
         <label className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           {t("noteLabel")}
         </label>
-        <textarea
+        <Textarea
           id="page-verification-note"
           name="verificationNote"
           value={note}
           onChange={(event) => setNote(event.target.value)}
           placeholder={t("notePlaceholder")}
-          className="min-h-[80px] w-full rounded-md border border-border bg-background px-2 py-2 text-sm"
+          className="min-h-[92px] border-border bg-background text-foreground placeholder:text-muted-foreground"
           disabled={isVerified || isPending}
         />
       </div>
@@ -248,8 +253,12 @@ export function PageVerificationRequest({
         <p className="text-sm text-foreground">{statusMessage}</p>
       )}
 
-      <div className="flex justify-end">
-        <Button size="sm" onClick={handleSubmit} disabled={loading || isVerified || isPending}>
+      <div>
+        <Button
+          onClick={handleSubmit}
+          disabled={loading || isVerified || isPending}
+          className="h-11 w-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
+        >
           {isVerified
             ? t("verifiedButton")
             : isPending

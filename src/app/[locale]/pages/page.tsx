@@ -36,7 +36,8 @@ export default async function PagesIndex({ params }: Props) {
 
   const { data: pages } = await supabase
     .from("pages")
-    .select("id, name, slug, is_verified, reactivity_score, certification_type")
+    .select("id, name, slug, is_verified, reactivity_score, certification_type, visibility")
+    .neq("visibility", "private")
     .order("name", { ascending: true })
 
   return (

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { getSupabaseServerClient } from "@/utils/supabase/server"
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -10,21 +10,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: [] })
   }
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anonKey) {
+  const supabase = await getSupabaseServerClient()
+  if (!supabase) {
     return NextResponse.json(
       { error: t("Supabase not configured.", "Supabase non configuré.") },
       { status: 500 }
     )
   }
 
-  const supabase = createClient(url, anonKey, {
-    auth: { persistSession: false },
-  })
   const { data, error } = await supabase
     .from("pages")
     .select("id, name, slug")
+    .neq("visibility", "private")
     .or(`name.ilike.%${query}%,slug.ilike.%${query}%`)
     .order("name", { ascending: true })
     .limit(5)

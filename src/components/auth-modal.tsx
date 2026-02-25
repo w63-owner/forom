@@ -603,7 +603,7 @@ export function AuthModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="fixed top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[85vh] w-[92vw] max-w-[23rem] overflow-y-auto overflow-x-hidden border border-border bg-background p-6 text-foreground shadow-2xl sm:top-[45%] sm:max-w-[23rem]"
+        className="fixed top-2 left-1/2 -translate-x-1/2 translate-y-0 max-h-[calc(100dvh-1rem)] w-[92vw] max-w-[23rem] overflow-y-auto overflow-x-hidden border border-border bg-background p-6 text-foreground shadow-2xl sm:top-[45%] sm:-translate-y-1/2 sm:max-h-[85vh] sm:max-w-[23rem]"
       >
         <div className="space-y-4">
         <DialogHeader className="space-y-1 text-left">

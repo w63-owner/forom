@@ -26,11 +26,13 @@ export async function GET(request: Request) {
       .from("propositions")
       .select("id, title, status, votes_count, pages(name)")
       .or(`title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`)
+      .or("page_id.is.null,pages.visibility.neq.private")
       .order("votes_count", { ascending: false })
       .limit(8),
     supabase
       .from("pages")
       .select("id, name, slug, is_verified, certification_type")
+      .neq("visibility", "private")
       .ilike("name", `%${safeQuery}%`)
       .order("name", { ascending: true })
       .limit(6),

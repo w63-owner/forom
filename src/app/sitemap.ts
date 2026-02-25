@@ -55,7 +55,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   })
 
   const [{ data: pages }, { data: propositions }] = await Promise.all([
-    supabase.from("pages").select("slug").not("slug", "is", null).limit(5000),
+    supabase
+      .from("pages")
+      .select("slug")
+      .eq("visibility", "public")
+      .not("slug", "is", null)
+      .limit(5000),
     supabase.from("propositions").select("id").limit(5000),
   ])
 

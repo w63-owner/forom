@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useId, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
 import { Code2 } from "lucide-react"
@@ -69,6 +69,7 @@ export function PagePropositionSearch({
   const [avatarsEnabled, setAvatarsEnabled] = useState(showAvatars ?? true)
   const debounceRef = useRef<number | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const statusSelectContentId = useId()
 
   // Do not resync value from initialQuery: after our own router.replace (debounce),
   // the re-render would restore the previous value and erase recent input.
@@ -257,7 +258,7 @@ export function PagePropositionSearch({
         <SelectTrigger className="h-10 w-full md:w-48 md:shrink-0">
           <SelectValue placeholder={tCommon("status")} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent id={statusSelectContentId}>
           <SelectItem value="all">{tStatus("all")}</SelectItem>
           <SelectItem value="Open">{tStatus("open")}</SelectItem>
           <SelectItem value="In Progress">{tStatus("inProgress")}</SelectItem>

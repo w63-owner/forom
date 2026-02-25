@@ -19,10 +19,7 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
 import { usePageSearch, type PageResult } from "@/hooks/use-page-search"
-import { getSupabaseClient } from "@/utils/supabase/client"
-import { resolveAuthUser } from "@/utils/supabase/auth-check"
 import { useToast } from "@/components/ui/toast"
-import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
 
 const CREATE_PAGE_DRAFT_STORAGE_KEY = "forom:create-page:draft"
 
@@ -38,6 +35,7 @@ export function CreatePageClient() {
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [category, setCategory] = useState("")
+  const [visibility, setVisibility] = useState<"public" | "private">("public")
   const [isRepresentative, setIsRepresentative] = useState(false)
   const [verificationMethod, setVerificationMethod] = useState("email")
   const [verificationProof, setVerificationProof] = useState("")
@@ -160,6 +158,7 @@ export function CreatePageClient() {
             name?: string
             description?: string
             category?: string
+            visibility?: "public" | "private"
             isRepresentative?: boolean
             verificationMethod?: string
             verificationProof?: string
@@ -175,6 +174,9 @@ export function CreatePageClient() {
       if (typeof parsed.name === "string") setName(parsed.name)
       if (typeof parsed.description === "string") setDescription(parsed.description)
       if (typeof parsed.category === "string") setCategory(parsed.category)
+      if (parsed.visibility === "public" || parsed.visibility === "private") {
+        setVisibility(parsed.visibility)
+      }
       if (typeof parsed.isRepresentative === "boolean") setIsRepresentative(parsed.isRepresentative)
       if (typeof parsed.verificationMethod === "string") {
         setVerificationMethod(parsed.verificationMethod)
@@ -201,6 +203,7 @@ export function CreatePageClient() {
         name,
         description,
         category,
+        visibility,
         isRepresentative,
         verificationMethod,
         verificationProof,
@@ -217,6 +220,7 @@ export function CreatePageClient() {
     name,
     description,
     category,
+    visibility,
     isRepresentative,
     verificationMethod,
     verificationProof,
@@ -249,65 +253,52 @@ export function CreatePageClient() {
       setError(t("verificationProofRequired"))
       return
     }
-    const supabase = getSupabaseClient()
-    if (!supabase) {
-      setError(t("supabaseNotConfigured"))
-      return
-    }
-    const session = await ensureFreshSession(supabase)
-    if (!session.ok) {
-      if (session.kind === "unauthenticated") {
-        showToast({
-          variant: "warning",
-          title: t("loginRequiredTitle"),
-          description: t("loginRequiredBody"),
-        })
-        router.push(`/${locale}/pages/create?auth=signup&next=${encodeURIComponent(`/${locale}/pages/create`)}`)
-        return
-      }
-      if (session.kind === "transient") {
-        setError(t("sessionTransientBody"))
-        showToast({
-          variant: "warning",
-          title: tCommon("sessionReconnectingTitle"),
-          description: t("sessionTransientBody"),
-        })
-        return
-      }
-    }
     const trimmedName = name.trim()
-    const user = await resolveAuthUser(supabase, {
-      timeoutMs: 3500,
-      includeServerFallback: true,
-    })
-    if (!user) {
-      showToast({
-        variant: "warning",
-        title: t("loginRequiredTitle"),
-        description: t("loginRequiredBody"),
-      })
-      router.push(`/${locale}/pages/create?auth=signup&next=${encodeURIComponent(`/${locale}/pages/create`)}`)
-      return
-    }
 
     setLoading(true)
     setError(null)
     try {
-      const { data, error: insertError } = await supabase
-        .from("pages")
-        .insert({
-          owner_id: user.id,
+      const response = await fetch("/api/pages/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
           name: trimmedName,
           description: description.trim() || null,
           category: category.trim() || null,
-          certification_type: "NONE",
-          is_verified: false,
-        })
-        .select("id, slug")
-        .single()
+          visibility,
+          parentPageId: selectedParent?.id ?? null,
+          isRepresentative,
+          verificationMethod: isRepresentative ? verificationMethod : null,
+          verificationProof: isRepresentative ? verificationProof.trim() : null,
+          verificationNote: isRepresentative ? verificationNote.trim() || null : null,
+        }),
+      })
 
-      if (insertError || !data) {
-        if (insertError?.code === "42501") {
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            ok?: boolean
+            error?: string
+            code?: string
+            page?: { id: string; slug: string }
+            actorUserId?: string
+            parentRequestCreated?: boolean
+            verificationRequested?: boolean
+          }
+        | null
+
+      if (!response.ok || !payload?.ok || !payload.page) {
+        if (response.status === 401 || payload?.code === "unauthorized") {
+          showToast({
+            variant: "warning",
+            title: t("loginRequiredTitle"),
+            description: t("loginRequiredBody"),
+          })
+          router.push(`/${locale}/pages/create?auth=signup&next=${encodeURIComponent(`/${locale}/pages/create`)}`)
+          return
+        }
+        if (payload?.code === "permission_denied") {
           setError(t("permissionDeniedBody"))
           showToast({
             variant: "warning",
@@ -316,66 +307,30 @@ export function CreatePageClient() {
           })
           return
         }
-        const message =
-          insertError?.code === "23505" ||
-          insertError?.message?.includes("pages_slug_unique")
-            ? t("duplicatePageError")
-            : insertError?.message ?? t("createPageError")
-        setError(message)
+        if (payload?.code === "duplicate_slug") {
+          setError(t("duplicatePageError"))
+          return
+        }
+        setError(payload?.error ?? t("createPageError"))
         return
       }
 
-      if (selectedParent?.id) {
-        const { error: parentError } = await supabase
-          .from("page_parent_requests")
-          .upsert(
-            {
-              child_page_id: data.id,
-              parent_page_id: selectedParent.id,
-              requested_by: user.id,
-            },
-            { onConflict: "child_page_id" }
-          )
-        if (parentError) {
-          showToast({
-            variant: "error",
-            title: t("parentRequestError"),
-            description: parentError.message,
-          })
-        } else {
-          showToast({
-            variant: "info",
-            title: t("parentRequestSent"),
-          })
-          fetch("/api/notifications", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              type: "page_parent_request",
-              pageId: selectedParent.id,
-              childPageId: data.id,
-              actorUserId: user.id,
-              locale,
-            }),
-          }).catch(() => null)
-        }
-      }
-
-      if (isRepresentative) {
-        const { error: verificationError } = await supabase
-          .from("page_verification_requests")
-          .insert({
-            page_id: data.id,
-            requested_by: user.id,
-            method: verificationMethod,
-            proof: verificationProof.trim(),
-            requester_note: verificationNote.trim() || null,
-          })
-
-        if (verificationError) {
-          setError(t("verificationRequestError"))
-          return
-        }
+      if (payload.parentRequestCreated && selectedParent?.id && payload.actorUserId) {
+        showToast({
+          variant: "info",
+          title: t("parentRequestSent"),
+        })
+        fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "page_parent_request",
+            pageId: selectedParent.id,
+            childPageId: payload.page.id,
+            actorUserId: payload.actorUserId,
+            locale,
+          }),
+        }).catch(() => null)
       }
 
       setSuccessMessage(
@@ -386,18 +341,18 @@ export function CreatePageClient() {
         title: t("createSuccessTitle"),
         description: t("createSuccess"),
       })
-      if (isRepresentative) {
+      if (payload.verificationRequested) {
         showToast({
           variant: "info",
           title: t("verificationRequestTitle"),
           description: t("verificationRequestSent"),
         })
       }
-      if (data.slug) {
+      if (payload.page.slug) {
         if (typeof window !== "undefined") {
           window.localStorage.removeItem(CREATE_PAGE_DRAFT_STORAGE_KEY)
         }
-        router.push(`/pages/${data.slug}`)
+        router.push(`/${locale}/pages/${payload.page.slug}`)
       }
     } catch (err) {
       const fallbackMessage = t("createPageError")
@@ -476,6 +431,23 @@ export function CreatePageClient() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="page-visibility" className="text-sm font-medium text-foreground">
+                {t("visibilityLabel")}
+              </label>
+              <Select value={visibility} onValueChange={(value) => setVisibility(value as "public" | "private")}>
+                <SelectTrigger id="page-visibility" className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">{t("visibilityPublic")}</SelectItem>
+                  <SelectItem value="private">{t("visibilityPrivate")}</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {visibility === "private" ? t("visibilityPrivateHint") : t("visibilityPublicHint")}
+              </p>
             </div>
             <div className="space-y-2">
               <label htmlFor="page-parent-query" className="text-sm font-medium text-foreground">
