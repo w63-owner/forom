@@ -4,6 +4,8 @@ type CommentsRouteName =
   | "comment_reply"
   | "comment_vote"
   | "comment_solution"
+  | "comment_edit"
+  | "comment_delete"
 
 type RecordCommentsMetricInput = {
   route: CommentsRouteName
@@ -44,6 +46,8 @@ const routes: CommentsRouteName[] = [
   "comment_reply",
   "comment_vote",
   "comment_solution",
+  "comment_edit",
+  "comment_delete",
 ]
 
 const newStore = (): RouteMetricsStore => ({
@@ -61,6 +65,8 @@ const routeStores: Record<CommentsRouteName, RouteMetricsStore> = {
   comment_reply: newStore(),
   comment_vote: newStore(),
   comment_solution: newStore(),
+  comment_edit: newStore(),
+  comment_delete: newStore(),
 }
 
 const sanitizeLatency = (value: number): number => {

@@ -48,7 +48,11 @@ export async function POST(request: Request) {
     windowMs: 10 * 60 * 1000,
   })
   if (!ipRate.ok || !userRate.ok) {
-    const retryAfterMs = !ipRate.ok ? ipRate.retryAfterMs : userRate.retryAfterMs
+    const retryAfterMs = !ipRate.ok
+      ? ipRate.retryAfterMs
+      : !userRate.ok
+        ? userRate.retryAfterMs
+        : 0
     return NextResponse.json({ ok: false, error: "Too many requests." }, { status: 429, headers: { "Retry-After": String(Math.ceil(retryAfterMs / 1000)) } })
   }
 
