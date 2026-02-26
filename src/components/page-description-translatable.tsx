@@ -14,7 +14,7 @@ export function PageDescriptionTranslatable({ pageId, originalDescription }: Pro
   const locale = useLocale()
   const t = useTranslations("Translation")
 
-  const { translations, loading, isShowingOriginal, translate } = useTranslation({
+  const { translations, loading, isShowingOriginal, alreadyInTargetLang, translate } = useTranslation({
     sourceTable: "pages",
     sourceId: pageId,
     fields: ["description"],
@@ -31,8 +31,8 @@ export function PageDescriptionTranslatable({ pageId, originalDescription }: Pro
 
   return (
     <div className="space-y-1">
-      <p className="text-sm text-[#333D42]">{displayDescription}</p>
-      {(hasTranslation || loading) && (
+      <p className="text-sm text-foreground">{displayDescription}</p>
+      {!alreadyInTargetLang && (hasTranslation || loading) && (
         <Button
           variant="ghost"
           size="sm"

@@ -27,7 +27,7 @@ export function TranslateButton({
 }: TranslateButtonProps) {
   const locale = useLocale()
   const t = useTranslations("Translation")
-  const { translations, loading, error, isShowingOriginal, translate } =
+  const { translations, loading, error, isShowingOriginal, alreadyInTargetLang, translate } =
     useTranslation({
       sourceTable,
       sourceId,
@@ -49,6 +49,8 @@ export function TranslateButton({
   const handleClick = useCallback(() => {
     void translate()
   }, [translate])
+
+  if (alreadyInTargetLang) return null
 
   return (
     <Button

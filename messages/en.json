@@ -489,11 +489,14 @@
   },
   "ProfileNotifications": {
     "title": "Notification settings",
-    "emptyState": "You are not subscribed to any page or proposition yet. You will be notified here for pages and propositions you subscribed to.",
-    "subtitle": "Pages and propositions you receive emails for. Click \"Remove\" to stop getting notified.",
+    "emptyState": "You are not subscribed to any page or proposition yet.",
+    "subtitle": "Manage email notifications for pages and propositions you follow.",
     "recentTitle": "Recent notifications",
     "noNotificationsYet": "You have no notifications yet.",
     "unreadBadge": "{count, plural, one {# unread} other {# unread}}",
+    "unsubscribeAria": "Unsubscribe",
+    "pageUnsubscribed": "Page notifications disabled.",
+    "propositionUnsubscribed": "Proposition notifications disabled.",
     "supabaseNotConfiguredTitle": "Supabase not configured",
     "supabaseNotConfiguredBodyPage": "Unable to remove the page right now.",
     "supabaseNotConfiguredBodyProposition": "Unable to remove the proposition right now.",
@@ -511,7 +514,10 @@
     "fetchError": "Unable to fetch pages."
   },
   "PageOwner": {
-    "addMembers": "Add members"
+    "addMembers": "Manage access",
+    "menuAria": "Page actions",
+    "subscribe": "Get notified",
+    "unsubscribe": "Mute notifications"
   },
   "PageParent": {
     "title": "Mother page",
@@ -573,7 +579,8 @@
     "notePlaceholder": "Add context if needed",
     "verifiedButton": "Page verified",
     "pendingButton": "Request in progress",
-    "requestButton": "Request verification"
+    "requestButton": "Request verification",
+    "verify": "Verify"
   },
   "PageSubscribe": {
     "unsubscribedTitle": "Unsubscribed",
@@ -873,14 +880,24 @@
     "visibilityPrivate": "Private",
     "publicHint": "This page is visible in search, mentions, and indexing.",
     "privateHint": "This page is visible to invited members only.",
-    "generateInvite": "Generate invite link",
-    "copyInvite": "Copy link",
+    "generateInvite": "Create invite link",
+    "inviteGenerating": "Creating...",
+    "copyInvite": "Copy",
+    "copyInviteLink": "Copy invite link",
+    "copiedLabel": "Copied!",
+    "revokeInvite": "Revoke",
     "activeInvites": "Invitations",
     "members": "Members",
-    "noInvites": "No active invitations.",
-    "noMembers": "No invited members.",
+    "noInvites": "No active invitations",
+    "noInvitesHint": "Create an invite link to give someone access to this page.",
+    "noMembers": "No members yet",
+    "noMembersHint": "Members who accept an invitation will appear here.",
     "inviteUsage": "{used}/{max} uses",
     "inviteExpires": "Expires on {date}",
+    "inviteExpiredLabel": "Expired",
+    "inviteExpiresMinutes": "{minutes}min left",
+    "inviteExpiresHours": "{hours}h left",
+    "inviteExpiresDays": "{days}d left",
     "inviteCreateError": "Unable to create invite link.",
     "inviteRevokeError": "Unable to revoke invitation.",
     "inviteCreated": "Invite link created.",

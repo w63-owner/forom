@@ -152,6 +152,7 @@ export async function POST(request: Request) {
   }
 
   const newTranslations: Record<string, string> = {}
+  let anyFieldTranslated = cachedMap.size > 0
 
   for (const field of missingFields) {
     const sourceText = (sourceRow as unknown as Record<string, string | null>)[field]
@@ -172,6 +173,7 @@ export async function POST(request: Request) {
         continue
       }
 
+      anyFieldTranslated = true
       newTranslations[field] = translatedText
 
       void supabase.from("translations").upsert(
@@ -204,5 +206,6 @@ export async function POST(request: Request) {
       ...newTranslations,
     },
     cached: false,
+    alreadyInTargetLang: !anyFieldTranslated,
   })
 }

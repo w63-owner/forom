@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageChildPagesList } from "@/components/page-child-pages-list"
 import { PageOwnerMenu } from "@/components/page-owner-menu"
-import { PageSubscribeButton } from "@/components/page-subscribe-button"
+import { PageVerifyButton } from "@/components/page-verify-button"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
 import { PagePropositionsTable } from "@/components/page-propositions-table"
 import { PageDescriptionTranslatable } from "@/components/page-description-translatable"
@@ -261,7 +261,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                 )}
                 <CardTitle className="flex items-center gap-2 text-3xl">
                   {page.name}
-                  {page.is_verified && (
+                  {page.is_verified ? (
                     <span
                       className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-[11px] font-semibold text-white"
                       aria-label={tPage("verifiedPage")}
@@ -269,7 +269,9 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                     >
                       ✓
                     </span>
-                  )}
+                  ) : isOwner ? (
+                    <PageVerifyButton pageId={page.id} ownerId={page.owner_id} />
+                  ) : null}
                 </CardTitle>
                 <div className="flex flex-wrap items-center gap-2">
                   {page.visibility === "private" && (
@@ -302,15 +304,13 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   title={tPage("childPagesTitle")}
                 />
               </div>
-              <div className="ml-auto flex items-center gap-2 pt-1">
-                <PageSubscribeButton pageId={page.id} />
-                {isOwner && (
-                  <PageOwnerMenu
-                    pageId={page.id}
-                    ownerId={page.owner_id}
-                    initialVisibility={page.visibility === "private" ? "private" : "public"}
-                  />
-                )}
+              <div className="ml-auto pt-1">
+                <PageOwnerMenu
+                  pageId={page.id}
+                  ownerId={page.owner_id}
+                  isOwner={!!isOwner}
+                  initialVisibility={page.visibility === "private" ? "private" : "public"}
+                />
               </div>
             </div>
           </CardHeader>

@@ -30,7 +30,7 @@ export function PropositionCardContent({
   const locale = useLocale()
   const t = useTranslations("Translation")
 
-  const { translations, loading, isShowingOriginal, translate } = useTranslation({
+  const { translations, loading, isShowingOriginal, alreadyInTargetLang, translate } = useTranslation({
     sourceTable: "propositions",
     sourceId: propositionId,
     fields: ["title", "description"],
@@ -64,7 +64,7 @@ export function PropositionCardContent({
           <p className="text-sm text-muted-foreground">{noDescriptionLabel}</p>
         )}
         {imagesSlot}
-        {(hasTranslation || loading) && (
+        {!alreadyInTargetLang && (hasTranslation || loading) && (
           <div>
             <Button
               variant="ghost"

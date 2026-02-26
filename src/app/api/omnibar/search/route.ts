@@ -24,11 +24,10 @@ export async function GET(request: Request) {
   const [propositionsRes, pagesRes] = await Promise.all([
     supabase
       .from("propositions")
-      .select("id, title, status, votes_count, pages(name)")
+      .select("id, title, status, votes_count, page_id, pages(name, visibility)")
       .or(`title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`)
-      .or("page_id.is.null,pages.visibility.neq.private")
       .order("votes_count", { ascending: false })
-      .limit(8),
+      .limit(20),
     supabase
       .from("pages")
       .select("id, name, slug, is_verified, certification_type")
@@ -48,8 +47,25 @@ export async function GET(request: Request) {
     )
   }
 
+  type PropositionRow = {
+    id: string
+    title: string
+    status: string
+    votes_count: number
+    page_id: string | null
+    pages: { name: string; visibility: string } | null
+  }
+
+  const propositions = ((propositionsRes.data ?? []) as PropositionRow[])
+    .filter((p) => !p.page_id || p.pages?.visibility !== "private")
+    .slice(0, 8)
+    .map(({ page_id: _pid, ...rest }) => ({
+      ...rest,
+      pages: rest.pages ? { name: rest.pages.name } : null,
+    }))
+
   return NextResponse.json({
-    propositions: propositionsRes.data ?? [],
+    propositions,
     pages: pagesRes.data ?? [],
   })
 }

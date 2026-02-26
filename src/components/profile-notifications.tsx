@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { useTranslations } from "next-intl"
-import { Button } from "@/components/ui/button"
+import { Bell, BellOff, FileText, Globe, Lightbulb } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/components/ui/toast"
 import { getSupabaseClient } from "@/utils/supabase/client"
@@ -31,17 +31,15 @@ export function ProfileNotifications({
   const t = useTranslations("ProfileNotifications")
   const tCommon = useTranslations("Common")
   const { showToast } = useToast()
-  const [removingPageId, setRemovingPageId] = useState<string | null>(null)
-  const [removingPropositionId, setRemovingPropositionId] = useState<
-    string | null
-  >(null)
+  const [togglingPageId, setTogglingPageId] = useState<string | null>(null)
+  const [togglingPropositionId, setTogglingPropositionId] = useState<string | null>(null)
   const [localPageSubscriptions, setLocalPageSubscriptions] =
     useState<PageSubscription[]>(pageSubscriptions)
   const [localPropositionSubscriptions, setLocalPropositionSubscriptions] =
     useState<PropositionSubscription[]>(propositionSubscriptions)
 
   const handleUnsubscribePage = async (pageId: string) => {
-    setRemovingPageId(pageId)
+    setTogglingPageId(pageId)
     const supabase = getSupabaseClient()
     if (!supabase) {
       showToast({
@@ -49,7 +47,7 @@ export function ProfileNotifications({
         title: t("supabaseNotConfiguredTitle"),
         description: t("supabaseNotConfiguredBodyPage"),
       })
-      setRemovingPageId(null)
+      setTogglingPageId(null)
       return
     }
     const user = await resolveAuthUser(supabase, {
@@ -62,7 +60,7 @@ export function ProfileNotifications({
         title: t("loginRequiredTitle"),
         description: t("loginRequiredBodyPage"),
       })
-      setRemovingPageId(null)
+      setTogglingPageId(null)
       return
     }
     const { error } = await supabase
@@ -76,17 +74,18 @@ export function ProfileNotifications({
         title: t("removePageErrorTitle"),
         description: error.message,
       })
-      setRemovingPageId(null)
+      setTogglingPageId(null)
       return
     }
     setLocalPageSubscriptions((prev) =>
       prev.filter((item) => item.page_id !== pageId)
     )
-    setRemovingPageId(null)
+    showToast({ variant: "info", title: t("pageUnsubscribed") })
+    setTogglingPageId(null)
   }
 
   const handleUnsubscribeProposition = async (propositionId: string) => {
-    setRemovingPropositionId(propositionId)
+    setTogglingPropositionId(propositionId)
     const supabase = getSupabaseClient()
     if (!supabase) {
       showToast({
@@ -94,7 +93,7 @@ export function ProfileNotifications({
         title: t("supabaseNotConfiguredTitle"),
         description: t("supabaseNotConfiguredBodyProposition"),
       })
-      setRemovingPropositionId(null)
+      setTogglingPropositionId(null)
       return
     }
     const user = await resolveAuthUser(supabase, {
@@ -107,7 +106,7 @@ export function ProfileNotifications({
         title: t("loginRequiredTitle"),
         description: t("loginRequiredBodyProposition"),
       })
-      setRemovingPropositionId(null)
+      setTogglingPropositionId(null)
       return
     }
     const { error } = await supabase
@@ -121,112 +120,127 @@ export function ProfileNotifications({
         title: t("removePropositionErrorTitle"),
         description: error.message,
       })
-      setRemovingPropositionId(null)
+      setTogglingPropositionId(null)
       return
     }
     setLocalPropositionSubscriptions((prev) =>
       prev.filter((item) => item.proposition_id !== propositionId)
     )
-    setRemovingPropositionId(null)
+    showToast({ variant: "info", title: t("propositionUnsubscribed") })
+    setTogglingPropositionId(null)
   }
 
   const totalCount =
     localPageSubscriptions.length + localPropositionSubscriptions.length
 
-  if (totalCount === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("title")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            {t("emptyState")}
-          </p>
-        </CardContent>
-      </Card>
-    )
-  }
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
-        <p className="text-sm text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <CardTitle>{t("title")}</CardTitle>
+        </div>
+        <p className="text-xs text-muted-foreground">
           {t("subtitle")}
         </p>
       </CardHeader>
-      <CardContent className="space-y-6">
-        {localPageSubscriptions.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">{tCommon("page")}</h3>
-            <ul className="space-y-2">
-              {localPageSubscriptions.map(({ page_id, page }) => (
-                <li
-                  key={page_id}
-                  className="flex items-center justify-between gap-3 text-sm"
-                >
-                  {page.slug ? (
-                    <Link
-                      href={`/pages/${page.slug}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {page.name ?? tCommon("page")}
-                    </Link>
-                  ) : (
-                    <span className="font-medium text-foreground">
-                      {page.name ?? tCommon("page")}
-                    </span>
-                  )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleUnsubscribePage(page_id)}
-                    disabled={removingPageId === page_id}
-                  >
-                    {removingPageId === page_id ? "..." : tCommon("remove")}
-                  </Button>
-                </li>
-              ))}
-            </ul>
+      <CardContent className="space-y-5">
+        {totalCount === 0 ? (
+          <div className="flex flex-col items-center gap-3 py-8">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <Bell className="size-6 text-muted-foreground" />
+            </span>
+            <p className="text-sm text-muted-foreground">
+              {t("emptyState")}
+            </p>
           </div>
-        )}
+        ) : (
+          <>
+            {localPageSubscriptions.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 px-1">
+                  <Globe className="size-3.5 text-muted-foreground" />
+                  <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    {tCommon("page")}
+                  </h3>
+                </div>
+                <div className="divide-y divide-border rounded-lg border border-border">
+                  {localPageSubscriptions.map(({ page_id, page }) => (
+                    <div
+                      key={page_id}
+                      className="flex items-center gap-3 px-3 py-2.5"
+                    >
+                      <Bell className="size-3.5 shrink-0 text-primary" />
+                      <div className="min-w-0 flex-1">
+                        {page.slug ? (
+                          <Link
+                            href={`/pages/${page.slug}`}
+                            className="truncate text-sm font-medium text-foreground hover:text-primary"
+                          >
+                            {page.name ?? tCommon("page")}
+                          </Link>
+                        ) : (
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {page.name ?? tCommon("page")}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={togglingPageId === page_id}
+                        onClick={() => handleUnsubscribePage(page_id)}
+                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-50"
+                        aria-label={t("unsubscribeAria")}
+                        title={t("unsubscribeAria")}
+                      >
+                        <BellOff className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-        {localPropositionSubscriptions.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-foreground">{tCommon("propositionPlural")}</h3>
-            <ul className="space-y-2">
-              {localPropositionSubscriptions.map(
-                ({ proposition_id, proposition }) => (
-                  <li
-                    key={proposition_id}
-                    className="flex items-center justify-between gap-3 text-sm"
-                  >
-                    <Link
-                      href={`/propositions/${proposition.id}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {proposition.title ?? tCommon("proposition")}
-                    </Link>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() =>
-                        handleUnsubscribeProposition(proposition_id)
-                      }
-                      disabled={removingPropositionId === proposition_id}
-                    >
-                      {removingPropositionId === proposition_id
-                        ? "..."
-                        : tCommon("remove")}
-                    </Button>
-                  </li>
-                )
-              )}
-            </ul>
-          </div>
+            {localPropositionSubscriptions.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 px-1">
+                  <Lightbulb className="size-3.5 text-muted-foreground" />
+                  <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    {tCommon("propositionPlural")}
+                  </h3>
+                </div>
+                <div className="divide-y divide-border rounded-lg border border-border">
+                  {localPropositionSubscriptions.map(
+                    ({ proposition_id, proposition }) => (
+                      <div
+                        key={proposition_id}
+                        className="flex items-center gap-3 px-3 py-2.5"
+                      >
+                        <Bell className="size-3.5 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            href={`/propositions/${proposition.id}`}
+                            className="truncate text-sm font-medium text-foreground hover:text-primary"
+                          >
+                            {proposition.title ?? tCommon("proposition")}
+                          </Link>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={togglingPropositionId === proposition_id}
+                          onClick={() => handleUnsubscribeProposition(proposition_id)}
+                          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-destructive disabled:opacity-50"
+                          aria-label={t("unsubscribeAria")}
+                          title={t("unsubscribeAria")}
+                        >
+                          <BellOff className="size-3.5" />
+                        </button>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

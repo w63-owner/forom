@@ -489,11 +489,14 @@
   },
   "ProfileNotifications": {
     "title": "Paramètres de notifications",
-    "emptyState": "Vous n'êtes abonné à aucune page ni aucune proposition. Vous serez notifié ici des pages et propositions pour lesquelles vous avez activé les notifications.",
-    "subtitle": "Pages et propositions pour lesquelles vous recevez des e-mails. Cliquez sur « Retirer » pour ne plus être notifié.",
+    "emptyState": "Vous n'êtes abonné à aucune page ni aucune proposition.",
+    "subtitle": "Gérez les notifications par e-mail pour les pages et propositions que vous suivez.",
     "recentTitle": "Notifications récentes",
     "noNotificationsYet": "Vous n'avez pas encore de notifications.",
     "unreadBadge": "{count, plural, one {# non lue} other {# non lues}}",
+    "unsubscribeAria": "Se désabonner",
+    "pageUnsubscribed": "Notifications de la page désactivées.",
+    "propositionUnsubscribed": "Notifications de la proposition désactivées.",
     "supabaseNotConfiguredTitle": "Supabase non configuré",
     "supabaseNotConfiguredBodyPage": "Impossible de retirer la page pour le moment.",
     "supabaseNotConfiguredBodyProposition": "Impossible de retirer la proposition pour le moment.",
@@ -511,7 +514,10 @@
     "fetchError": "Impossible de récupérer les pages."
   },
   "PageOwner": {
-    "addMembers": "Ajouter des membres"
+    "addMembers": "Gérer les accès",
+    "menuAria": "Actions de la page",
+    "subscribe": "Recevoir les notifications",
+    "unsubscribe": "Couper les notifications"
   },
   "PageParent": {
     "title": "Page mère",
@@ -573,7 +579,8 @@
     "notePlaceholder": "Ajoutez un contexte si besoin",
     "verifiedButton": "Page vérifiée",
     "pendingButton": "Demande en cours",
-    "requestButton": "Demander une vérification"
+    "requestButton": "Demander une vérification",
+    "verify": "Vérifier"
   },
   "PageSubscribe": {
     "unsubscribedTitle": "Désabonné",
@@ -873,14 +880,24 @@
     "visibilityPrivate": "Privée",
     "publicHint": "Cette page est visible dans la recherche, les mentions et le référencement.",
     "privateHint": "Cette page est visible uniquement pour les membres invités.",
-    "generateInvite": "Générer un lien d'invitation",
-    "copyInvite": "Copier le lien",
+    "generateInvite": "Créer un lien d'invitation",
+    "inviteGenerating": "Création...",
+    "copyInvite": "Copier",
+    "copyInviteLink": "Copier le lien d'invitation",
+    "copiedLabel": "Copié !",
+    "revokeInvite": "Révoquer",
     "activeInvites": "Invitations",
     "members": "Membres",
-    "noInvites": "Aucune invitation active.",
-    "noMembers": "Aucun membre invité.",
+    "noInvites": "Aucune invitation active",
+    "noInvitesHint": "Créez un lien d'invitation pour donner accès à cette page.",
+    "noMembers": "Aucun membre pour l'instant",
+    "noMembersHint": "Les membres qui acceptent une invitation apparaîtront ici.",
     "inviteUsage": "{used}/{max} utilisations",
     "inviteExpires": "Expire le {date}",
+    "inviteExpiredLabel": "Expiré",
+    "inviteExpiresMinutes": "{minutes} min restantes",
+    "inviteExpiresHours": "{hours}h restantes",
+    "inviteExpiresDays": "{days}j restants",
     "inviteCreateError": "Impossible de créer le lien d'invitation.",
     "inviteRevokeError": "Impossible de révoquer l'invitation.",
     "inviteCreated": "Lien d'invitation créé.",

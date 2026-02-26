@@ -166,6 +166,7 @@ export function buildCommentTree(
   items: EnrichedThreadComment[],
   parentId: string | null = null
 ): EnrichedThreadComment[] {
+  const isTopLevel = parentId === null
   return items
     .filter((comment) => (comment.parent_id ?? null) === parentId)
     .sort((a, b) => {
@@ -176,7 +177,7 @@ export function buildCommentTree(
       }
       const timeA = new Date(a.created_at).getTime()
       const timeB = new Date(b.created_at).getTime()
-      return timeA - timeB
+      return isTopLevel ? timeB - timeA : timeA - timeB
     })
     .map((comment) => ({
       ...comment,

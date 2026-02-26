@@ -4,7 +4,21 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
-import { AtSign, Instagram, Linkedin, Mail, Pencil, RefreshCw, User } from "lucide-react"
+import {
+  AtSign,
+  Bell,
+  ChevronRight,
+  FileText,
+  Instagram,
+  Lightbulb,
+  Linkedin,
+  Mail,
+  MessageSquare,
+  Pencil,
+  RefreshCw,
+  Triangle,
+  User,
+} from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -242,39 +256,34 @@ export function ProfileShell({
   return (
     <div className="flex flex-col gap-6 md:flex-row">
       {/* Left navigation panel */}
-      <aside className="w-full shrink-0 rounded-xl border bg-card px-4 py-4 text-sm md:w-60">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      <aside className="w-full shrink-0 rounded-xl border bg-card px-3 py-4 text-sm md:w-56">
+        <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           {tProfile("mySpace")}
         </p>
-        <nav className="flex flex-col gap-1">
-          <button
-            type="button"
-            onClick={() => setView("profil")}
-            className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
-          >
-            {tProfile("myProfile")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("mes-propositions")}
-            className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
-          >
-            {tProfile("myPropositions")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("mes-pages")}
-            className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
-          >
-            {tProfile("myPages")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("notifications")}
-            className="rounded-md px-2 py-1.5 text-left hover:bg-muted"
-          >
-            {tProfile("notificationSettings")}
-          </button>
+        <nav className="flex flex-col gap-0.5">
+          {([
+            { key: "profil" as const, icon: User, label: tProfile("myProfile") },
+            { key: "mes-propositions" as const, icon: Lightbulb, label: tProfile("myPropositions") },
+            { key: "mes-pages" as const, icon: FileText, label: tProfile("myPages") },
+            { key: "notifications" as const, icon: Bell, label: tProfile("notificationSettings") },
+          ]).map((item) => {
+            const active = view === item.key
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setView(item.key)}
+                className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                  active
+                    ? "bg-primary/10 font-medium text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
+              >
+                <item.icon className="size-4 shrink-0" />
+                {item.label}
+              </button>
+            )
+          })}
         </nav>
       </aside>
 
@@ -513,52 +522,68 @@ export function ProfileShell({
           <section id="mes-propositions">
             <Card>
               <CardHeader>
-                <CardTitle>{tProfile("myPropositions")}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{tProfile("myPropositions")}</CardTitle>
+                  {propositions.length > 0 && (
+                    <Badge variant="secondary" className="tabular-nums">
+                      {propositions.length}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {propositions.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col gap-1 text-sm"
-                  >
-                    <Link
-                      href={`/propositions/${item.id}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {item.title}
-                    </Link>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>
-                        {item.votes_count ?? 0} {tCommon("votes")}
-                      </span>
-                      <span>•</span>
-                      <span>
-                        {Array.isArray(item.comments)
-                          ? item.comments[0]?.count ?? 0
-                          : item.comments?.count ?? 0}{" "}
-                        {tCommon("replies")}
-                      </span>
-                      <span>•</span>
-                      <Badge
-                        variant="outline"
-                        className={getStatusToneClass(item.status)}
-                      >
-                        {tStatus(getStatusKey(item.status))}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-                {propositions.length === 0 && (
-                  <div className="space-y-3">
+              <CardContent>
+                {propositions.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-8">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <Lightbulb className="size-6 text-muted-foreground" />
+                    </span>
                     <p className="text-sm text-muted-foreground">
                       {tProfile("noPropositions")}
                     </p>
                     <Link
                       href={`/${locale}/propositions/create`}
-                      className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       {tCommon("addProposition")}
                     </Link>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {propositions.map((item) => {
+                      const commentCount = Array.isArray(item.comments)
+                        ? item.comments[0]?.count ?? 0
+                        : item.comments?.count ?? 0
+                      return (
+                        <Link
+                          key={item.id}
+                          href={`/propositions/${item.id}`}
+                          className="group flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium text-foreground group-hover:text-primary">
+                              {item.title}
+                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                              <span className="inline-flex items-center gap-1">
+                                <Triangle className="size-3" />
+                                {item.votes_count ?? 0}
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <MessageSquare className="size-3" />
+                                {commentCount}
+                              </span>
+                              <Badge
+                                variant="outline"
+                                className={`text-[10px] ${getStatusToneClass(item.status)}`}
+                              >
+                                {tStatus(getStatusKey(item.status))}
+                              </Badge>
+                            </div>
+                          </div>
+                          <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
+                        </Link>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -570,78 +595,95 @@ export function ProfileShell({
           <section id="mes-pages">
             <Card>
               <CardHeader>
-                <CardTitle>{tProfile("myPages")}</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{tProfile("myPages")}</CardTitle>
+                  {ownedPages.length > 0 && (
+                    <Badge variant="secondary" className="tabular-nums">
+                      {ownedPages.length}
+                    </Badge>
+                  )}
+                </div>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {ownedPages.map((page) => {
-                  const isVerified =
-                    Boolean(page.is_verified) ||
-                    page.certification_type === "OFFICIAL"
-                  return (
-                    <div
-                      key={page.id}
-                      className="flex flex-wrap items-center justify-between gap-3"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/pages/${page.slug}`}
-                          className="text-sm font-medium text-foreground hover:underline"
-                        >
-                          {page.name}
-                        </Link>
-                        {isVerified && (
-                          <span
-                            className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-full bg-sky-500 text-[8px] font-semibold text-white"
-                            aria-label={tVerification("verifiedBadge")}
-                            title={tVerification("verifiedBadge")}
-                          >
-                            ✓
-                          </span>
-                        )}
-                      </div>
-                      {isVerified ? (
-                        <Badge variant="secondary">
-                          {tVerification("verifiedBadge")}
-                        </Badge>
-                      ) : (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setVerificationDialogPageId(page.id)}
-                          >
-                            {tVerification("requestButton")}
-                          </Button>
-                          <Dialog
-                            open={verificationDialogPageId === page.id}
-                            onOpenChange={(open) =>
-                              setVerificationDialogPageId(open ? page.id : null)
-                            }
-                          >
-                            <DialogContent className="fixed top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[85vh] w-[92vw] max-w-[23rem] overflow-y-auto overflow-x-hidden border border-border bg-background p-6 text-foreground shadow-2xl sm:top-[45%] sm:max-w-[23rem]">
-                              <PageVerificationRequest
-                                pageId={page.id}
-                                ownerId={ownerId}
-                                isVerified={false}
-                              />
-                            </DialogContent>
-                          </Dialog>
-                        </>
-                      )}
-                    </div>
-                  )
-                })}
-                {ownedPages.length === 0 && (
-                  <div className="space-y-3">
+              <CardContent>
+                {ownedPages.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-8">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                      <FileText className="size-6 text-muted-foreground" />
+                    </span>
                     <p className="text-sm text-muted-foreground">
                       {tProfile("noOwnedPages")}
                     </p>
                     <Link
                       href="/pages/create"
-                      className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                      className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
                     >
                       {tCommon("createPage")}
                     </Link>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {ownedPages.map((page) => {
+                      const isVerified =
+                        Boolean(page.is_verified) ||
+                        page.certification_type === "OFFICIAL"
+                      return (
+                        <div
+                          key={page.id}
+                          className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+                        >
+                          <Link
+                            href={`/pages/${page.slug}`}
+                            className="group flex min-w-0 flex-1 items-center gap-3"
+                          >
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted text-xs font-semibold text-muted-foreground">
+                              {(page.name ?? "?").charAt(0).toUpperCase()}
+                            </span>
+                            <p className="min-w-0 flex-1 truncate text-sm font-medium text-foreground group-hover:text-primary">
+                              {page.name}
+                            </p>
+                            <ChevronRight className="size-4 shrink-0 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 group-hover:text-muted-foreground" />
+                          </Link>
+                          {isVerified ? (
+                            <span
+                              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-500 text-[9px] font-semibold text-white"
+                              aria-label={tVerification("verifiedBadge")}
+                              title={tVerification("verifiedBadge")}
+                            >
+                              ✓
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setVerificationDialogPageId(page.id)}
+                              className="inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-dashed border-muted-foreground/30 px-1.5 text-muted-foreground/50 transition-all hover:border-primary/50 hover:bg-primary/5 hover:text-primary"
+                              aria-label={tVerification("requestButton")}
+                              title={tVerification("requestButton")}
+                            >
+                              <span className="text-[8px] font-semibold leading-none">✓</span>
+                              <span className="text-[10px] font-medium leading-none">{tVerification("verify")}</span>
+                            </button>
+                          )}
+                          {!isVerified && (
+                            <>
+                              <Dialog
+                                open={verificationDialogPageId === page.id}
+                                onOpenChange={(open) =>
+                                  setVerificationDialogPageId(open ? page.id : null)
+                                }
+                              >
+                                <DialogContent className="fixed top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 max-h-[85vh] w-[92vw] max-w-[23rem] overflow-y-auto overflow-x-hidden border border-border bg-background p-6 text-foreground shadow-2xl sm:top-[45%] sm:max-w-[23rem]">
+                                  <PageVerificationRequest
+                                    pageId={page.id}
+                                    ownerId={ownerId}
+                                    isVerified={false}
+                                  />
+                                </DialogContent>
+                              </Dialog>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </CardContent>

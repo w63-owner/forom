@@ -23,6 +23,7 @@ type TranslationState = {
   loading: boolean
   error: string | null
   isShowingOriginal: boolean
+  alreadyInTargetLang: boolean
 }
 
 type TranslationPayload = {
@@ -30,6 +31,7 @@ type TranslationPayload = {
   error?: string
   translations?: Record<string, string>
   cached?: boolean
+  alreadyInTargetLang?: boolean
 }
 
 const isTransientError = (error: unknown) => {
@@ -53,6 +55,7 @@ export function useTranslation({
     loading: false,
     error: null,
     isShowingOriginal: true,
+    alreadyInTargetLang: false,
   })
 
   const inFlightRef = useRef(false)
@@ -99,11 +102,13 @@ export function useTranslation({
         return
       }
 
+      const isAlreadyInLang = payload.alreadyInTargetLang === true
       setState({
-        translations: payload.translations ?? null,
+        translations: isAlreadyInLang ? null : (payload.translations ?? null),
         loading: false,
         error: null,
-        isShowingOriginal: false,
+        isShowingOriginal: isAlreadyInLang ? true : false,
+        alreadyInTargetLang: isAlreadyInLang,
       })
     } catch (err) {
       setState((prev) => ({
@@ -135,6 +140,7 @@ export function useTranslation({
       loading: false,
       error: null,
       isShowingOriginal: true,
+      alreadyInTargetLang: false,
     })
   }, [])
 
