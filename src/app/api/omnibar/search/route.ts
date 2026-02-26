@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     pages: { name: string; visibility: string } | null
   }
 
-  const propositions = ((propositionsRes.data ?? []) as PropositionRow[])
+  const propositions = ((propositionsRes.data ?? []) as unknown as PropositionRow[])
     .filter((p) => !p.page_id || p.pages?.visibility !== "private")
     .slice(0, 8)
     .map(({ page_id: _pid, ...rest }) => ({
