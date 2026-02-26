@@ -7,7 +7,7 @@ import {
   withRetry,
 } from "@/lib/async-resilience"
 
-type SourceTable = "propositions" | "comments"
+type SourceTable = "propositions" | "comments" | "pages"
 
 type BatchItem = {
   sourceId: string

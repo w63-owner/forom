@@ -9,6 +9,7 @@ import { PageOwnerMenu } from "@/components/page-owner-menu"
 import { PageSubscribeButton } from "@/components/page-subscribe-button"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
 import { PagePropositionsTable } from "@/components/page-propositions-table"
+import { PageDescriptionTranslatable } from "@/components/page-description-translatable"
 import { compareStatuses } from "@/lib/status-labels"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
@@ -278,9 +279,10 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   )}
                 </div>
                 {page.description && (
-                  <p className="text-sm text-[#333D42]">
-                    {page.description}
-                  </p>
+                  <PageDescriptionTranslatable
+                    pageId={page.id}
+                    originalDescription={page.description}
+                  />
                 )}
                 <PageChildPagesList
                   childPages={childPages ?? []}

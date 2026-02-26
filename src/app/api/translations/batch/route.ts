@@ -9,12 +9,13 @@ export const dynamic = "force-dynamic"
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
-const ALLOWED_TABLES = ["propositions", "comments"] as const
+const ALLOWED_TABLES = ["propositions", "comments", "pages"] as const
 type AllowedTable = (typeof ALLOWED_TABLES)[number]
 
 const ALLOWED_FIELDS: Record<AllowedTable, string[]> = {
   propositions: ["title", "description"],
   comments: ["content"],
+  pages: ["description"],
 }
 
 const HTML_FIELDS = new Set(["description"])
