@@ -11,11 +11,11 @@ import { PropositionEditLink } from "@/components/proposition-edit-link"
 import { PropositionDeleteButton } from "@/components/proposition-delete-button"
 import { PropositionNotifyButton } from "@/components/proposition-notify-button"
 import { PropositionActionsMenu } from "@/components/proposition-actions-menu"
-import { SanitizedHtml } from "@/components/sanitized-html"
 import {
   PropositionVolunteersProvider,
   PropositionVolunteerButton,
 } from "@/components/proposition-volunteers"
+import { PropositionCardContent } from "@/components/proposition-card-content"
 import { BackLink } from "@/components/back-link"
 import { DEFAULT_STATUS } from "@/lib/status-labels"
 import { relativeTime } from "@/lib/utils"
@@ -260,100 +260,93 @@ export default async function PropositionDetails({ params }: Props) {
                   currentUserId={currentUser?.id ?? null}
                 />
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <CardTitle className="min-w-0 text-2xl">{data.title}</CardTitle>
-                <div className="shrink-0">
-                  <PropositionVoteBar
-                    propositionId={data.id}
-                    initialVotes={data.votes_count ?? 0}
-                    initialHasVoted={initialHasVoted}
-                    propositionPageId={data.page_id}
-                  />
-                </div>
-              </div>
-              {(() => {
-                const users = data.users as
-                  | {
-                      username: string | null
-                      email: string | null
-                      avatar_url?: string | null
-                    }
-                  | {
-                      username: string | null
-                      email: string | null
-                      avatar_url?: string | null
-                    }[]
-                  | null
-                const author = Array.isArray(users) ? users[0] ?? null : users
-                const authorName =
-                  author?.username || author?.email || t("anonymous")
-                return (
-                  <div className="mt-1 flex items-center gap-2.5 text-sm text-muted-foreground sm:-mt-1">
-                    <Avatar
-                      size="lg"
-                      src={author?.avatar_url ?? null}
-                      name={authorName}
-                      seed={data.author_id ?? data.id}
-                      className="shrink-0"
+              <PropositionCardContent
+                propositionId={data.id}
+                originalTitle={data.title}
+                originalDescription={data.description ?? null}
+                noDescriptionLabel={t("noDescription")}
+                voteBarSlot={
+                  <div className="shrink-0">
+                    <PropositionVoteBar
+                      propositionId={data.id}
+                      initialVotes={data.votes_count ?? 0}
+                      initialHasVoted={initialHasVoted}
+                      propositionPageId={data.page_id}
                     />
-                    <p className="flex min-w-0 flex-col gap-1 leading-none md:flex-row md:items-baseline md:gap-0">
-                      <span className="font-semibold text-foreground md:leading-none">
-                        {authorName}
-                      </span>
-                      <span className="md:ml-1.5 md:leading-none">
-                        {relativeTime(
-                          data.created_at ?? new Date().toISOString(),
-                          locale
-                        )}
-                      </span>
-                    </p>
                   </div>
-                )
-              })()}
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {data.description?.replace(/<[^>]*>/g, "").trim() ? (
-                <SanitizedHtml
-                  html={data.description ?? ""}
-                  className="prose prose-sm max-w-none text-[#333D42] dark:prose-invert"
-                />
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("noDescription")}
-                </p>
-              )}
-              {(() => {
-                const imageUrls = data.image_urls as { url: string; caption?: string }[] | null
-                const images = Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls : null
-                if (!images) return null
-                return (
-                  <div className="space-y-2">
-                    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                      {images.map((item, index) => (
-                        <li key={index} className="overflow-hidden rounded-lg border border-border bg-muted/30">
-                          <a
-                            href={item.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="block aspect-video w-full"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={item.url}
-                              alt={item.caption ?? `Image ${index + 1}`}
-                              className="h-full w-full object-cover"
-                            />
-                          </a>
-                          {item.caption && (
-                            <p className="p-2 text-xs text-muted-foreground">{item.caption}</p>
+                }
+                authorSlot={(() => {
+                  const users = data.users as
+                    | {
+                        username: string | null
+                        email: string | null
+                        avatar_url?: string | null
+                      }
+                    | {
+                        username: string | null
+                        email: string | null
+                        avatar_url?: string | null
+                      }[]
+                    | null
+                  const author = Array.isArray(users) ? users[0] ?? null : users
+                  const authorName =
+                    author?.username || author?.email || t("anonymous")
+                  return (
+                    <div className="mt-1 flex items-center gap-2.5 text-sm text-muted-foreground sm:-mt-1">
+                      <Avatar
+                        size="lg"
+                        src={author?.avatar_url ?? null}
+                        name={authorName}
+                        seed={data.author_id ?? data.id}
+                        className="shrink-0"
+                      />
+                      <p className="flex min-w-0 flex-col gap-1 leading-none md:flex-row md:items-baseline md:gap-0">
+                        <span className="font-semibold text-foreground md:leading-none">
+                          {authorName}
+                        </span>
+                        <span className="md:ml-1.5 md:leading-none">
+                          {relativeTime(
+                            data.created_at ?? new Date().toISOString(),
+                            locale
                           )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              })()}
-            </CardContent>
+                        </span>
+                      </p>
+                    </div>
+                  )
+                })()}
+                imagesSlot={(() => {
+                  const imageUrls = data.image_urls as { url: string; caption?: string }[] | null
+                  const images = Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls : null
+                  if (!images) return null
+                  return (
+                    <div className="space-y-2">
+                      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        {images.map((item, index) => (
+                          <li key={index} className="overflow-hidden rounded-lg border border-border bg-muted/30">
+                            <a
+                              href={item.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="block aspect-video w-full"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.url}
+                                alt={item.caption ?? `Image ${index + 1}`}
+                                className="h-full w-full object-cover"
+                              />
+                            </a>
+                            {item.caption && (
+                              <p className="p-2 text-xs text-muted-foreground">{item.caption}</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })()}
+              />
+            </CardHeader>
           </Card>
           </PropositionVolunteersProvider>
         </div>
@@ -361,8 +354,6 @@ export default async function PropositionDetails({ params }: Props) {
         <PropositionDetailClient
           propositionId={data.id}
           propositionAuthorId={data.author_id}
-          propositionTitle={data.title}
-          propositionDescription={data.description ?? null}
           initialComments={initialComments}
           propositionAuthorAvatarUrl={
             (() => {

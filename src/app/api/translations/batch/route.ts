@@ -201,7 +201,7 @@ export async function POST(request: Request) {
     if (!sourceRows || sourceRows.length === 0) continue
 
     const sourceIndex = new Map(
-      (sourceRows as Array<Record<string, unknown>>).map((row) => [
+      (sourceRows as unknown as Array<Record<string, unknown>>).map((row) => [
         row.id as string,
         row,
       ])

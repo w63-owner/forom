@@ -21,7 +21,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea"
 import { useAuthModal } from "@/components/auth-modal-provider"
 import { TranslateButton } from "@/components/translate-button"
-import { SanitizedHtml } from "@/components/sanitized-html"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { resolveAuthUser, getAuthSnapshotUser } from "@/utils/supabase/auth-check"
 import { ensureFreshSession } from "@/lib/auth/ensure-fresh-session"
@@ -38,8 +37,6 @@ import { useToast } from "@/components/ui/toast"
 type Props = {
   propositionId: string
   propositionAuthorId: string | null
-  propositionTitle: string
-  propositionDescription: string | null
   propositionAuthorAvatarUrl?: string | null
   propositionAuthorName?: string | null
   initialComments?: EnrichedThreadComment[]
@@ -703,8 +700,6 @@ function CommentBlock({
 export default function PropositionDetailClient({
   propositionId,
   propositionAuthorId,
-  propositionTitle,
-  propositionDescription,
   propositionAuthorAvatarUrl = null,
   propositionAuthorName = "Author",
   initialComments = [],
@@ -716,7 +711,6 @@ export default function PropositionDetailClient({
   const { showToast } = useToast()
   const hasInitialComments = initialComments.length > 0
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [translatedProposition, setTranslatedProposition] = useState<Record<string, string> | null>(null)
   const [comments, setComments] = useState<CommentItem[]>(initialComments)
   const [commentsLoadState, setCommentsLoadState] =
     useState<CommentsLoadState>(deriveInitialCommentsLoadState(initialComments))
@@ -1497,44 +1491,8 @@ export default function PropositionDetailClient({
     handleSubmitReplyRef.current = handleSubmitReply
   })
 
-  const handlePropositionTranslation = useCallback(
-    (translations: Record<string, string> | null) => {
-      setTranslatedProposition(translations)
-    },
-    []
-  )
-
-  const displayTitle = translatedProposition?.title ?? propositionTitle
-  const displayDescription = translatedProposition?.description ?? propositionDescription
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <TranslateButton
-          sourceTable="propositions"
-          sourceId={propositionId}
-          fields={["title", "description"]}
-          autoTranslate={true}
-          onTranslation={(t, isOriginal) =>
-            handlePropositionTranslation(isOriginal ? null : t)
-          }
-        />
-      </div>
-      {translatedProposition && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">{displayTitle}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {displayDescription?.replace(/<[^>]*>/g, "").trim() ? (
-              <SanitizedHtml
-                html={displayDescription}
-                className="prose prose-sm max-w-none text-[#333D42] dark:prose-invert"
-              />
-            ) : null}
-          </CardContent>
-        </Card>
-      )}
       <div id="comments" className="space-y-4">
         <Card>
           <CardHeader>
