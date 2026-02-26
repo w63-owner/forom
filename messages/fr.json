@@ -511,11 +511,7 @@
     "fetchError": "Impossible de récupérer les pages."
   },
   "PageOwner": {
-    "notifications": "Notifications",
-    "verification": "Vérification",
-    "parentLink": "Page mère",
-    "parentRequests": "Sous-pages proposées",
-    "privateAccess": "Accès privé"
+    "addMembers": "Ajouter des membres"
   },
   "PageParent": {
     "title": "Page mère",

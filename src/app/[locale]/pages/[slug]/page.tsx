@@ -270,16 +270,6 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                       ✓
                     </span>
                   )}
-                  {!page.is_verified && isOwner && (
-                    <PageOwnerMenu
-                      pageId={page.id}
-                      ownerId={page.owner_id}
-                      initialDaily={page.owner_notify_daily ?? false}
-                      initialThreshold={page.owner_vote_threshold ?? null}
-                      isVerified={page.is_verified}
-                      trigger="verificationBadge"
-                    />
-                  )}
                 </CardTitle>
                 <div className="flex flex-wrap items-center gap-2">
                   {page.visibility === "private" && (
@@ -318,9 +308,6 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                   <PageOwnerMenu
                     pageId={page.id}
                     ownerId={page.owner_id}
-                    initialDaily={page.owner_notify_daily ?? false}
-                    initialThreshold={page.owner_vote_threshold ?? null}
-                    isVerified={page.is_verified}
                     initialVisibility={page.visibility === "private" ? "private" : "public"}
                   />
                 )}

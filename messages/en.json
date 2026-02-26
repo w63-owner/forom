@@ -511,11 +511,7 @@
     "fetchError": "Unable to fetch pages."
   },
   "PageOwner": {
-    "notifications": "Notifications",
-    "verification": "Verification",
-    "parentLink": "Mother page",
-    "parentRequests": "Sub-page requests",
-    "privateAccess": "Private access"
+    "addMembers": "Add members"
   },
   "PageParent": {
     "title": "Mother page",
