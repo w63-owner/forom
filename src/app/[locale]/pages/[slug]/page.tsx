@@ -1,7 +1,7 @@
 import Link from "next/link"
 import type { Metadata } from "next"
 import { notFound } from "next/navigation"
-import { getTranslations } from "next-intl/server"
+import { getTranslations, setRequestLocale } from "next-intl/server"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PageChildPagesList } from "@/components/page-child-pages-list"
@@ -55,10 +55,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PageDashboard({ params, searchParams }: Props) {
+  const { slug, locale } = await params
+  setRequestLocale(locale)
   const tCommon = await getTranslations("Common")
   const tPage = await getTranslations("PageDashboard")
   const tCategories = await getTranslations("Categories")
-  const { slug, locale } = await params
   const queryParams = (await searchParams) ?? {}
   const sort = queryParams.sort === "recent" ? "recent" : "top"
   const status = queryParams.status && queryParams.status !== "all" ? queryParams.status : null
@@ -179,32 +180,47 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     prefetchTranslations(supabase, propositionIds, "propositions", ["title"], locale),
   ])
 
-  const categoryLabels: Record<string, string> = {
-    country: tCategories("country"),
-    region: tCategories("region"),
-    city: tCategories("city"),
-    district: tCategories("district"),
-    supranational: tCategories("supranational"),
-    company: tCategories("company"),
-    brand: tCategories("brand"),
-    institution: tCategories("institution"),
-    association: tCategories("association"),
-    school: tCategories("school"),
-    product: tCategories("product"),
-    service: tCategories("service"),
-    app: tCategories("app"),
-    website: tCategories("website"),
-    platform: tCategories("platform"),
-    place: tCategories("place"),
-    venue: tCategories("venue"),
-    event: tCategories("event"),
-    media: tCategories("media"),
-    community: tCategories("community"),
-    other: tCategories("other"),
+  const CATEGORY_KEYS = [
+    "country", "region", "city", "district", "supranational",
+    "company", "brand", "institution", "association", "school",
+    "product", "service", "app", "website", "platform",
+    "place", "venue", "event", "media", "community", "other",
+  ] as const
+
+  // Build translated label map for the current locale
+  const categoryLabels: Record<string, string> = Object.fromEntries(
+    CATEGORY_KEYS.map((key) => [key, tCategories(key)])
+  )
+
+  // Reverse map: current locale label → translated label
+  const reverseMap: Record<string, string> = Object.fromEntries(
+    CATEGORY_KEYS.map((key) => [tCategories(key).toLowerCase(), tCategories(key)])
+  )
+
+  // Legacy aliases: old French labels that were renamed in messages files
+  const legacyAliases: Record<string, string> = {
+    "site internet": tCategories("website"),
+    "pays": tCategories("country"),
+    "entreprise": tCategories("company"),
+    "marque": tCategories("brand"),
+    "application": tCategories("app"),
+    "site web": tCategories("website"),
+    "plateforme": tCategories("platform"),
+    "lieu": tCategories("place"),
+    "événement": tCategories("event"),
+    "media": tCategories("media"),
+    "communauté": tCategories("community"),
+    "autre": tCategories("other"),
   }
-  const categoryLabel = page.category
-    ? categoryLabels[page.category] ?? page.category
-    : null
+
+  const resolveCategoryLabel = (raw: string | null): string | null => {
+    if (!raw) return null
+    if (categoryLabels[raw]) return categoryLabels[raw]
+    const lower = raw.toLowerCase()
+    return reverseMap[lower] ?? legacyAliases[lower] ?? raw
+  }
+
+  const categoryLabel = resolveCategoryLabel(page.category ?? null)
 
   const userData = { user: authUser }
   const appUrl =
