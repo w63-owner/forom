@@ -55,6 +55,7 @@ type Props = {
   showAvatars?: boolean
   backgroundColor?: string | null
   headerColor?: string | null
+  initialTranslations?: Record<string, Record<string, string>>
 }
 
 export function PagePropositionsTable({
@@ -79,6 +80,7 @@ export function PagePropositionsTable({
   showAvatars = true,
   backgroundColor = null,
   headerColor = null,
+  initialTranslations,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -90,7 +92,8 @@ export function PagePropositionsTable({
     items,
     locale,
     "propositions",
-    ["title"]
+    ["title"],
+    initialTranslations
   )
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= pageSize)

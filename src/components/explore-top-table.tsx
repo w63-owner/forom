@@ -44,6 +44,7 @@ import {
    pageSort: "none" | "name" | "status"
    pageOrder: "asc" | "desc"
    statusOrder: "asc" | "desc"
+  initialTranslations?: Record<string, Record<string, string>>
  }
 
  const getPageMeta = (
@@ -83,6 +84,7 @@ import {
    pageSort,
    pageOrder,
    statusOrder,
+  initialTranslations,
  }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -105,7 +107,8 @@ import {
     items,
     locale,
     "propositions",
-    ["title"]
+    ["title"],
+    initialTranslations
   )
 
   const loadVotedIds = async (propositionIds: string[]) => {

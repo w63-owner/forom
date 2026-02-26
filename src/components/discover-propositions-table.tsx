@@ -70,6 +70,7 @@ type Props = {
   sort: "votes" | "reactivity"
   order: "asc" | "desc"
   universe: Universe
+  initialTranslations?: Record<string, Record<string, string>>
 }
 
 export function DiscoverPropositionsTable({
@@ -83,6 +84,7 @@ export function DiscoverPropositionsTable({
   sort,
   order,
   universe,
+  initialTranslations,
 }: Props) {
   const router = useRouter()
   const pathname = usePathname()
@@ -105,7 +107,8 @@ export function DiscoverPropositionsTable({
     items,
     locale,
     "propositions",
-    ["title"]
+    ["title"],
+    initialTranslations
   )
 
   const loadVotedIds = async (propositionIds: string[]) => {

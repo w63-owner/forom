@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { DiscoverPropositionsTable } from "@/components/discover-propositions-table"
 import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
 import { SLUG_TO_UNIVERSE } from "@/types/schema"
+import { prefetchTranslations } from "@/lib/translations/prefetch"
 import DiscoverFilters from "./filters"
 import { notFound } from "next/navigation"
 
@@ -149,11 +150,12 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
         })
       : rawList
 
-  const initialVotedIds =
+  const propositionIds = sortedPropositions.map((p) => p.id).filter(Boolean)
+
+  const [initialVotedIds, initialTranslations] = await Promise.all([
     sortedPropositions.length > 0
-      ? await (async () => {
-          const ids = sortedPropositions.map((p) => p.id).filter(Boolean)
-          if (ids.length === 0) return []
+      ? (async () => {
+          if (propositionIds.length === 0) return []
           const { data: authData } = await supabase.auth.getUser()
           const userId = authData.user?.id
           if (!userId) return []
@@ -161,12 +163,14 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
             .from("votes")
             .select("proposition_id, type")
             .eq("user_id", userId)
-            .in("proposition_id", ids)
+            .in("proposition_id", propositionIds)
           return (voteRows ?? [])
             .filter((r) => r.type === "Upvote")
             .map((r) => r.proposition_id)
         })()
-      : []
+      : Promise.resolve([]),
+    prefetchTranslations(supabase, propositionIds, "propositions", ["title"], locale),
+  ])
 
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
@@ -219,6 +223,7 @@ export default async function DiscoverUniversePage({ params, searchParams }: Pro
               sort={sort}
               order={order}
               universe={universe}
+              initialTranslations={initialTranslations}
             />
           </CardContent>
         </Card>

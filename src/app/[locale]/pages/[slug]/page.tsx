@@ -10,6 +10,7 @@ import { PageSubscribeButton } from "@/components/page-subscribe-button"
 import { PagePropositionSearch } from "@/components/page-proposition-search"
 import { PagePropositionsTable } from "@/components/page-propositions-table"
 import { PageDescriptionTranslatable } from "@/components/page-description-translatable"
+import { prefetchTranslations } from "@/lib/translations/prefetch"
 import { compareStatuses } from "@/lib/status-labels"
 import { getSupabaseServerClient } from "@/utils/supabase/server"
 
@@ -156,10 +157,11 @@ export default async function PageDashboard({ params, searchParams }: Props) {
     return 0
   })
 
-  const initialVotedIds =
+  const propositionIds = sortedPropositions.map((item) => item.id).filter(Boolean)
+
+  const [initialVotedIds, initialTranslations] = await Promise.all([
     sortedPropositions.length > 0
-      ? await (async () => {
-          const propositionIds = sortedPropositions.map((item) => item.id).filter(Boolean)
+      ? (async () => {
           if (propositionIds.length === 0) return []
           const { data: authData } = await supabase.auth.getUser()
           const userId = authData.user?.id
@@ -173,7 +175,9 @@ export default async function PageDashboard({ params, searchParams }: Props) {
             .filter((row) => row.type === "Upvote")
             .map((row) => row.proposition_id)
         })()
-      : []
+      : Promise.resolve([]),
+    prefetchTranslations(supabase, propositionIds, "propositions", ["title"], locale),
+  ])
 
   const categoryLabels: Record<string, string> = {
     country: tCategories("country"),
@@ -364,6 +368,7 @@ export default async function PageDashboard({ params, searchParams }: Props) {
                 statusOrder={statusOrder}
                 pageOwnerId={page.owner_id ?? null}
                 currentUserId={userData.user?.id ?? null}
+                initialTranslations={initialTranslations}
               />
             </CardContent>
           </Card>

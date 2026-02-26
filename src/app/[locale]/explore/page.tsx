@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ExploreTopTable } from "@/components/explore-top-table"
 import { compareStatuses } from "@/lib/status-labels"
 import { getServerSessionUser, getSupabaseServerClient } from "@/utils/supabase/server"
+import { prefetchTranslations } from "@/lib/translations/prefetch"
 import ExploreFilters from "./filters"
 
 type Props = {
@@ -157,10 +158,11 @@ export default async function ExplorePage({ params, searchParams }: Props) {
     return 0
   })
 
-  const initialVotedIds =
+  const propositionIds = sortedTop.map((item) => item.id).filter(Boolean)
+
+  const [initialVotedIds, initialTranslations] = await Promise.all([
     sortedTop.length > 0
-      ? await (async () => {
-          const propositionIds = sortedTop.map((item) => item.id).filter(Boolean)
+      ? (async () => {
           if (propositionIds.length === 0) return []
           const { data: authData } = await supabase.auth.getUser()
           const userId = authData.user?.id
@@ -174,7 +176,9 @@ export default async function ExplorePage({ params, searchParams }: Props) {
             .filter((row) => row.type === "Upvote")
             .map((row) => row.proposition_id)
         })()
-      : []
+      : Promise.resolve([]),
+    prefetchTranslations(supabase, propositionIds, "propositions", ["title"], locale),
+  ])
 
   return (
     <div className="min-h-screen bg-muted/40 px-6 py-16">
@@ -226,6 +230,7 @@ export default async function ExplorePage({ params, searchParams }: Props) {
                 pageSort={pageSort}
                 pageOrder={pageOrder}
                 statusOrder={statusOrder}
+                initialTranslations={initialTranslations}
               />
             </CardContent>
           </Card>

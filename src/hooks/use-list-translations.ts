@@ -35,10 +35,20 @@ const isTransientError = (error: unknown) => {
  * translationMap: Map<sourceId, Map<field, translatedText>>
  * Call fetchTranslations(newItems) when loading more items.
  */
-export function useListTranslations(targetLang: string) {
+export function useListTranslations(
+  targetLang: string,
+  initialTranslations?: Record<string, Record<string, string>>
+) {
   const [translationMap, setTranslationMap] = useState<
     Map<string, Map<string, string>>
-  >(new Map())
+  >(() => {
+    if (!initialTranslations) return new Map()
+    const map = new Map<string, Map<string, string>>()
+    for (const [id, fields] of Object.entries(initialTranslations)) {
+      map.set(id, new Map(Object.entries(fields)))
+    }
+    return map
+  })
 
   const inFlightRef = useRef(false)
   const pendingRef = useRef<BatchItem[]>([])
@@ -117,15 +127,17 @@ export function useListTranslations(targetLang: string) {
 /**
  * Convenience hook that auto-fetches translations for an initial list on mount,
  * and exposes fetchTranslations for pagination.
+ * Pass initialTranslations (from server prefetch) to avoid a client-side flash.
  */
 export function useAutoListTranslations<T extends { id: string }>(
   items: T[],
   targetLang: string,
   sourceTable: SourceTable,
-  fields: string[]
+  fields: string[],
+  initialTranslations?: Record<string, Record<string, string>>
 ) {
   const { translationMap, fetchTranslations, getTitle, getField } =
-    useListTranslations(targetLang)
+    useListTranslations(targetLang, initialTranslations)
 
   const initialFetchedRef = useRef(false)
 
@@ -134,13 +146,18 @@ export function useAutoListTranslations<T extends { id: string }>(
     if (items.length === 0) return
     initialFetchedRef.current = true
 
-    const batchItems: BatchItem[] = items.map((item) => ({
+    // Only fetch items not already covered by server-side prefetch
+    const prefetchedIds = new Set(Object.keys(initialTranslations ?? {}))
+    const missing = items.filter((item) => !prefetchedIds.has(item.id))
+    if (missing.length === 0) return
+
+    const batchItems: BatchItem[] = missing.map((item) => ({
       sourceId: item.id,
       sourceTable,
       fields,
     }))
     void fetchTranslations(batchItems)
-  }, [items, sourceTable, fields, fetchTranslations])
+  }, [items, sourceTable, fields, fetchTranslations, initialTranslations])
 
   const fetchMoreTranslations = useCallback(
     (newItems: T[]) => {
