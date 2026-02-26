@@ -5,8 +5,6 @@ import { useTranslations } from "next-intl"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { PageOwnerNotifications } from "@/components/page-owner-notifications"
-import { PageParentRequest } from "@/components/page-parent-request"
-import { PageParentRequests } from "@/components/page-parent-requests"
 import { PageVerificationRequest } from "@/components/page-verification-request"
 import { PageAccessManager } from "@/components/page-access-manager"
 
@@ -31,11 +29,11 @@ export function PageOwnerMenu({
 }: Props) {
   const tPage = useTranslations("PageOwner")
   const [activePanel, setActivePanel] = useState<
-    "menu" | "notifications" | "parentLink" | "parentRequests" | "privateAccess" | null
+    "menu" | "notifications" | "privateAccess" | null
   >(null)
   const [verificationDialogOpen, setVerificationDialogOpen] = useState(false)
   const openPanel = (
-    panel: "notifications" | "parentLink" | "parentRequests" | "privateAccess"
+    panel: "notifications" | "privateAccess"
   ) => {
     setActivePanel(panel)
   }
@@ -45,14 +43,10 @@ export function PageOwnerMenu({
     activePanel === "menu"
       ? "Owner menu"
       : activePanel === "notifications"
-      ? tPage("notifications")
-      : activePanel === "parentLink"
-        ? tPage("parentLink")
-        : activePanel === "parentRequests"
-          ? tPage("parentRequests")
-          : activePanel === "privateAccess"
-            ? tPage("privateAccess")
-            : tPage("verification")
+        ? tPage("notifications")
+        : activePanel === "privateAccess"
+          ? tPage("privateAccess")
+          : tPage("verification")
 
   if (isVerificationBadgeTrigger) {
     return (
@@ -130,22 +124,6 @@ export function PageOwnerMenu({
                 variant="ghost"
                 type="button"
                 className="w-full justify-start"
-                onClick={() => openPanel("parentLink")}
-              >
-                {tPage("parentLink")}
-              </Button>
-              <Button
-                variant="ghost"
-                type="button"
-                className="w-full justify-start"
-                onClick={() => openPanel("parentRequests")}
-              >
-                {tPage("parentRequests")}
-              </Button>
-              <Button
-                variant="ghost"
-                type="button"
-                className="w-full justify-start"
                 onClick={() => openPanel("privateAccess")}
               >
                 {tPage("privateAccess")}
@@ -170,12 +148,6 @@ export function PageOwnerMenu({
               initialDaily={initialDaily}
               initialThreshold={initialThreshold}
             />
-          )}
-          {activePanel === "parentLink" && (
-            <PageParentRequest pageId={pageId} ownerId={ownerId} />
-          )}
-          {activePanel === "parentRequests" && (
-            <PageParentRequests pageId={pageId} ownerId={ownerId} />
           )}
           {activePanel === "privateAccess" && (
             <PageAccessManager
