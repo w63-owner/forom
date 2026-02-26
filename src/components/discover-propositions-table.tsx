@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Link } from "@/i18n/navigation"
 import { useLocale, useTranslations } from "next-intl"
+import { useAutoListTranslations } from "@/hooks/use-list-translations"
 import { Badge } from "@/components/ui/badge"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import {
@@ -100,6 +101,12 @@ export function DiscoverPropositionsTable({
     new Set(initialVotedIds ?? [])
   )
   const [voteCountsById, setVoteCountsById] = useState<Record<string, number>>({})
+  const { getTitle, fetchMoreTranslations } = useAutoListTranslations(
+    items,
+    locale,
+    "propositions",
+    ["title"]
+  )
 
   const loadVotedIds = async (propositionIds: string[]) => {
     if (propositionIds.length === 0) {
@@ -275,6 +282,7 @@ export function DiscoverPropositionsTable({
       })
     }
     setItems(merged)
+    fetchMoreTranslations(newItems)
     if (newItems.length < 20) setHasMore(false)
     setLoadingMore(false)
   }
@@ -383,7 +391,7 @@ export function DiscoverPropositionsTable({
                         href={`/propositions/${item.id}`}
                         className="font-medium text-foreground hover:underline"
                       >
-                        {item.title}
+                        {getTitle(item.id, item.title)}
                       </Link>
                     </div>
                     <div className="flex items-center justify-between gap-3 md:hidden">
@@ -392,7 +400,7 @@ export function DiscoverPropositionsTable({
                           href={`/propositions/${item.id}`}
                           className="block font-medium text-foreground hover:underline"
                         >
-                          {item.title}
+                          {getTitle(item.id, item.title)}
                         </Link>
                         <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
                           {page?.name && page.slug ? (

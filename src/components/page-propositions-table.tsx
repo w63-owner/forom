@@ -5,6 +5,7 @@ import Link from "next/link"
 import { MessageSquare } from "lucide-react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useLocale, useTranslations } from "next-intl"
+import { useAutoListTranslations } from "@/hooks/use-list-translations"
 import { PageVoteToggle } from "@/components/page-vote-toggle"
 import { PropositionStatusBadge } from "@/components/proposition-status-badge"
 import { Avatar } from "@/components/ui/avatar"
@@ -85,6 +86,12 @@ export function PagePropositionsTable({
   const locale = useLocale()
   const tCommon = useTranslations("Common")
   const [items, setItems] = useState<PropositionItem[]>(initialItems)
+  const { getTitle, fetchMoreTranslations } = useAutoListTranslations(
+    items,
+    locale,
+    "propositions",
+    ["title"]
+  )
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= pageSize)
   const [votedIds, setVotedIds] = useState<Set<string>>(
@@ -260,6 +267,7 @@ export function PagePropositionsTable({
 
     const merged = sortItems([...items, ...newItems])
     setItems(merged)
+    fetchMoreTranslations(newItems)
     if (newItems.length < pageSize) {
       setHasMore(false)
     }
@@ -410,7 +418,7 @@ export function PagePropositionsTable({
                       rel={itemLinkOpenNewTab ? "noopener noreferrer" : undefined}
                       className="focus-ring font-semibold text-foreground hover:underline"
                     >
-                      {item.title}
+                      {getTitle(item.id, item.title)}
                     </Link>
                   </div>
                   <div className="flex items-center justify-between gap-4 md:hidden">
@@ -421,7 +429,7 @@ export function PagePropositionsTable({
                         rel={itemLinkOpenNewTab ? "noopener noreferrer" : undefined}
                         className="focus-ring block font-semibold text-foreground hover:underline"
                       >
-                        {item.title}
+                        {getTitle(item.id, item.title)}
                       </Link>
                       <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <div className="flex min-h-[44px] items-center">

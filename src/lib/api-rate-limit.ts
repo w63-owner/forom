@@ -22,6 +22,7 @@ const LIMITS: Record<string, RateLimitConfig> = {
   "comments/vote": { limit: 30, windowMs: 60_000 },
   "pages/create": { limit: 5, windowMs: 60_000 },
   "translations": { limit: 20, windowMs: 60_000 },
+  "translations/batch": { limit: 30, windowMs: 60_000 },
 }
 
 function extractIp(request: Request): string {

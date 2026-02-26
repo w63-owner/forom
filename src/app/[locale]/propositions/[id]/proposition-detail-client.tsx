@@ -621,6 +621,7 @@ function CommentBlock({
           sourceTable="comments"
           sourceId={comment.id}
           fields={["content"]}
+          autoTranslate={true}
           onTranslation={(tr, isOriginal) =>
             setTranslatedContent(isOriginal ? null : (tr?.content ?? null))
           }
@@ -1513,6 +1514,7 @@ export default function PropositionDetailClient({
           sourceTable="propositions"
           sourceId={propositionId}
           fields={["title", "description"]}
+          autoTranslate={true}
           onTranslation={(t, isOriginal) =>
             handlePropositionTranslation(isOriginal ? null : t)
           }

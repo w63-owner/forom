@@ -14,6 +14,8 @@ type TranslateButtonProps = {
     translations: Record<string, string> | null,
     isOriginal: boolean
   ) => void
+  /** If true, translation is fetched automatically on mount */
+  autoTranslate?: boolean
 }
 
 export function TranslateButton({
@@ -21,6 +23,7 @@ export function TranslateButton({
   sourceId,
   fields,
   onTranslation,
+  autoTranslate = false,
 }: TranslateButtonProps) {
   const locale = useLocale()
   const t = useTranslations("Translation")
@@ -30,6 +33,7 @@ export function TranslateButton({
       sourceId,
       fields,
       targetLang: locale,
+      autoTranslate,
     })
 
   const onTranslationRef = useRef(onTranslation)

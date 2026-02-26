@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import { Badge } from "@/components/ui/badge"
 import { getSupabaseClient } from "@/utils/supabase/client"
 import { getStatusKey, getStatusToneClass } from "@/lib/status-labels"
+import { useAutoListTranslations } from "@/hooks/use-list-translations"
 
 type DoneItem = {
   id: string
@@ -22,9 +23,16 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
   const tCommon = useTranslations("Common")
   const tStatus = useTranslations("Status")
   const tPage = useTranslations("Page")
+  const locale = useLocale()
   const [items, setItems] = useState<DoneItem[]>(initialItems)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(initialItems.length >= 20)
+  const { getTitle, fetchMoreTranslations } = useAutoListTranslations(
+    items,
+    locale,
+    "propositions",
+    ["title"]
+  )
 
   useEffect(() => {
     setItems(initialItems)
@@ -58,6 +66,7 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
     }
 
     setItems((prev) => [...prev, ...newItems])
+    fetchMoreTranslations(newItems)
     if (newItems.length < 20) {
       setHasMore(false)
     }
@@ -113,7 +122,7 @@ export function PageDoneTable({ pageId, initialItems }: Props) {
                       href={`/propositions/${item.id}`}
                       className="font-medium text-foreground hover:underline"
                     >
-                      {item.title}
+                      {getTitle(item.id, item.title)}
                     </Link>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground md:hidden">
                       <span>

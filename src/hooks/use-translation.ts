@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   AsyncTimeoutError,
   fetchWithTimeout,
@@ -14,6 +14,8 @@ type UseTranslationOptions = {
   sourceId: string
   fields: string[]
   targetLang: string
+  /** If true, translation is fetched automatically on mount */
+  autoTranslate?: boolean
 }
 
 type TranslationState = {
@@ -44,6 +46,7 @@ export function useTranslation({
   sourceId,
   fields,
   targetLang,
+  autoTranslate = false,
 }: UseTranslationOptions) {
   const [state, setState] = useState<TranslationState>({
     translations: null,
@@ -119,6 +122,12 @@ export function useTranslation({
     fields,
     targetLang,
   ])
+
+  // Auto-translate on mount when requested
+  useEffect(() => {
+    if (autoTranslate) void translate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const reset = useCallback(() => {
     setState({
