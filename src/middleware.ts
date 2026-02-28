@@ -45,7 +45,7 @@ const isTransientAuthReason = (reason: string | null): boolean => {
   )
 }
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const requestId =
     (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
